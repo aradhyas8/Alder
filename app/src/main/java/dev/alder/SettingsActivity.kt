@@ -410,6 +410,25 @@ class SettingsActivity : Screen() {
                     startActivity(Intent(this, ProfilesActivity::class.java).putExtra("pick", true)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
                 }
+                var traktValue: TextView? = null
+                fun updateTrakt() {
+                    val user = Trakt.username(this)
+                    traktValue?.text = if (user != null) "@$user  ✓  ›" else "Not connected  ›"
+                }
+                traktValue = actionRow("Trakt account", "", "Sync watch history, progress and checkmarks with Trakt.") {
+                    val user = Trakt.username(this)
+                    if (user != null) {
+                        choose("Trakt (@$user)", listOf("Disconnect", "Cancel"), "Connected to Trakt as @$user.") { choice ->
+                            if (choice == 0) {
+                                Trakt.disconnect(this)
+                                updateTrakt()
+                            }
+                        }
+                    } else {
+                        showTraktSignIn(::updateTrakt)
+                    }
+                }
+                updateTrakt()
                 var hiddenValue: TextView? = null
                 fun count() { hiddenValue?.text = "${Settings.hidden(this).length()}  ›" }
                 hiddenValue = actionRow("Hidden from Continue Watching", "", "Put back a title you removed from Continue Watching.") {
@@ -615,6 +634,129 @@ class SettingsActivity : Screen() {
         }
         refresh += ::draw
         draw()
+    }
+
+    private fun showTraktSignIn(onDone: () -> Unit) {
+        val dialog = android.app.Dialog(this).apply { requestWindowFeature(android.view.Window.FEATURE_NO_TITLE) }
+        var active = true
+        dialog.setOnDismissListener { active = false }
+
+        val qr = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_CENTER }
+        val status = text("Getting sign-in code…", SMALL, color = TEXT_2)
+        val countdown = ring(1f)
+        val codeTiles = (0 until 8).map {
+            text("–", 22f, bold = true).apply {
+                gravity = Gravity.CENTER
+                background = glass(8)
+            }
+        }
+        val codeRow = LinearLayout(this).apply {
+            codeTiles.forEachIndexed { i, tile ->
+                addView(tile, LinearLayout.LayoutParams(dp(32), dp(42)).apply {
+                    if (i > 0) marginStart = if (i == 4) dp(12) else dp(5)
+                })
+            }
+        }
+        val cancel = chip("Cancel").apply {
+            setOnClickListener { dialog.dismiss() }
+        }
+
+        val leftCol = column(Gravity.CENTER,
+            qr.apply { layoutParams = LinearLayout.LayoutParams(dp(180), dp(180)) }
+        ).apply {
+            setPadding(dp(16), dp(16), dp(16), dp(16))
+            background = glass(14)
+        }
+
+        val rightCol = column(Gravity.START,
+            caps("CONNECT TRAKT", TUNGSTEN),
+            text("Scan to connect", SERIF_TITLE, serif = true).marginTop(4),
+            text("Scan with your phone or visit trakt.tv/activate", BODY).marginTop(8),
+            codeRow.marginTop(14),
+            LinearLayout(this).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                addView(countdown, LinearLayout.LayoutParams(dp(18), dp(18)))
+                addView(status, wrap().apply { marginStart = dp(8) })
+            }.marginTop(14),
+            cancel.marginTop(18)
+        ).apply {
+            setPadding(dp(20), dp(10), dp(10), dp(10))
+        }
+
+        val body = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(24), dp(24), dp(24), dp(24))
+            addView(leftCol)
+            addView(rightCol, LinearLayout.LayoutParams(-1, -2).apply { marginStart = dp(16) })
+        }
+
+        dialog.setContentView(FrameLayout(this).apply {
+            background = glassOver(this, 16)
+            addView(body)
+        })
+        dialog.window?.apply {
+            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(0))
+            setLayout(dp(560), -2)
+            setDimAmount(0.6f)
+        }
+        dialog.show()
+        cancel.requestFocus()
+
+        background({ Trakt.requestDeviceCode() }) { result ->
+            if (!active) return@background
+            result.onSuccess { devCode ->
+                qr.setImageBitmap(qrBitmap(devCode.verificationUrl, dp(180)))
+                val rawCode = devCode.userCode.replace("-", "").uppercase()
+                codeTiles.forEachIndexed { i, tile ->
+                    tile.text = rawCode.getOrNull(i)?.toString() ?: ""
+                }
+                val started = android.os.SystemClock.elapsedRealtime()
+                val totalMs = devCode.expiresInSeconds * 1000L
+                fun tick() {
+                    if (!active) return
+                    val left = ((totalMs - (android.os.SystemClock.elapsedRealtime() - started)).coerceAtLeast(0) / 1000).toInt()
+                    status.text = "Waiting for your phone · code expires in ${left / 60}:${"%02d".format(left % 60)}"
+                    countdown.progress = left * 100 / devCode.expiresInSeconds
+                    main.postDelayed(::tick, 1000)
+                }
+                tick()
+
+                fun poll() {
+                    if (!active) return
+                    background({ Trakt.pollToken(devCode.deviceCode) }) { pollRes ->
+                        if (!active) return@background
+                        when (val r = pollRes.getOrNull()) {
+                            is Trakt.PollResult.Success -> {
+                                status.text = "Authorizing…"
+                                background({ Trakt.fetchAndSaveUser(this, r.accessToken, r.refreshToken) }) { userRes ->
+                                    if (!active) return@background
+                                    val u = userRes.getOrNull()
+                                    status.text = "Connected as @$u ✓"
+                                    onDone()
+                                    main.postDelayed({ if (active) dialog.dismiss() }, 1500)
+                                }
+                            }
+                            is Trakt.PollResult.Pending -> {
+                                main.postDelayed(::poll, devCode.intervalSeconds * 1000L)
+                            }
+                            is Trakt.PollResult.Expired -> {
+                                status.text = "Code expired. Please try again."
+                            }
+                            is Trakt.PollResult.Denied -> {
+                                status.text = "Authorization denied."
+                            }
+                            else -> {
+                                main.postDelayed(::poll, devCode.intervalSeconds * 1000L)
+                            }
+                        }
+                    }
+                }
+                main.postDelayed(::poll, devCode.intervalSeconds * 1000L)
+            }.onFailure {
+                status.text = "Can't reach Trakt. Check connection."
+            }
+        }
     }
 
     private companion object {
