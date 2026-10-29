@@ -2081,10 +2081,12 @@ class MainActivity : Screen() {
         val videoId = item.videoId ?: item.id
         val videos = metas[item.id]?.videos.orEmpty()
         val next = videos.getOrNull(videos.indexOfFirst { it.id == videoId } + 1)?.takeIf { videos.any { it.id == videoId } }
+        val currentVideo = videos.firstOrNull { it.id == videoId }
         val episode = item.left?.substringBefore(" · ")?.takeIf { item.type == "series" && it.startsWith("S") }
         startActivity(Intent(this, StreamsActivity::class.java)
             .putExtra("type", item.type).putExtra("id", item.id).putExtra("name", item.name).putExtra("poster", item.poster)
             .putExtra("videoId", videoId).putExtra("nextVideoId", next?.id).putExtra("pick", pick)
+            .putExtra("season", currentVideo?.season ?: -1).putExtra("episodeNumber", currentVideo?.episode ?: -1)
             .putExtra("background", metas[item.id]?.background ?: item.art)
             .putExtra("logo", metas[item.id]?.logo ?: item.logo)
             .putExtra("still", videos.firstOrNull { it.id == videoId }?.thumbnail)
