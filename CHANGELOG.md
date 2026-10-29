@@ -17,6 +17,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 ## Unreleased
 
 ### New
+- **Trakt integration.** Connect your Trakt account in **Settings → Profile → Trakt account**. Alder scrobbles your playback automatically. Hold OK on any title or episode to mark it as watched or unwatched.
 - **Live TV and sport.** If your add-ons have TV channels, sport or events, select **Live** at the top. Select a channel to play it. To choose a source, hold OK.
 
 ## 1.2

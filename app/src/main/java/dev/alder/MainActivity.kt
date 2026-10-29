@@ -1515,7 +1515,10 @@ class MainActivity : Screen() {
         choose(item.name, options) { selected ->
             val updated = JSONObject(original.toString())
             if (selected == 0) Library.setInList(updated, false)
-            else Library.markTitleWatched(updated, metas[item.id]?.videos.orEmpty())
+            else {
+                Library.markTitleWatched(updated, metas[item.id]?.videos.orEmpty())
+                if (Trakt.isConnected(this)) background({ Trakt.markWatched(this, item.id, item.type, watched = true) }) {}
+            }
             background({ Stremio.saveLibrary(profile.authKey, listOf(updated)) }) { result ->
                 result.fold({
                     library = library.map { if (it.optString("_id") == item.id) updated else it }
@@ -1531,9 +1534,25 @@ class MainActivity : Screen() {
 
     /** Hold OK on a Continue Watching title: choose a source yourself, or take the title off the row. */
     private fun continueMenu(item: Item) {
-        choose(item.name, listOf("Choose a source", "Remove from Continue Watching")) { selected ->
+        val original = library.firstOrNull { it.optString("_id") == item.id } ?: return
+        val options = listOf("Choose a source", "Mark as watched", "Remove from Continue Watching")
+        choose(item.name, options) { selected ->
             if (selected == 0) return@choose play(item, pick = true)
-            val original = library.firstOrNull { it.optString("_id") == item.id } ?: return@choose
+            if (selected == 1) {
+                val updated = JSONObject(original.toString())
+                Library.markTitleWatched(updated, metas[item.id]?.videos.orEmpty())
+                Library.hideFromContinueWatching(updated)
+                background({
+                    if (Trakt.isConnected(this)) Trakt.markWatched(this, item.id, item.type, watched = true)
+                    Stremio.saveLibrary(profile.authKey, listOf(updated))
+                }) { result ->
+                    result.onSuccess {
+                        library = library.map { if (it.optString("_id") == item.id) updated else it }
+                        refreshLibrary?.invoke()
+                    }
+                }
+                return@choose
+            }
             val updated = JSONObject(original.toString())
             val offset = Library.hideFromContinueWatching(updated)
             background({ Stremio.saveLibrary(profile.authKey, listOf(updated)) }) { result ->
@@ -1546,6 +1565,69 @@ class MainActivity : Screen() {
                     forgetIfSessionGone(error)
                     if (!isFinishing) choose("Couldn't remove it", listOf("OK"), "Check the connection and try again.") { }
                 }
+            }
+        }
+    }
+
+    private fun cardMenu(item: Item) {
+        val entry = library.firstOrNull { it.optString("_id") == item.id }
+        val watched = entry?.let(::libraryFinished) ?: false
+        val inList = entry?.let(Library::inList) ?: false
+        val options = mutableListOf<String>()
+        options += if (watched) "Mark as unwatched" else "Mark as watched"
+        options += if (inList) "Remove from My List" else "Add to My List"
+        options += "Choose a source"
+        choose(item.name, options) { selected ->
+            when (options[selected]) {
+                "Mark as watched" -> {
+                    val updated = JSONObject(entry?.toString() ?: Library.newItem(item.id, item.type, item.name, item.poster).toString())
+                    Library.markTitleWatched(updated, metas[item.id]?.videos.orEmpty())
+                    background({
+                        if (Trakt.isConnected(this)) Trakt.markWatched(this, item.id, item.type, watched = true)
+                        Stremio.saveLibrary(profile.authKey, listOf(updated))
+                    }) { result ->
+                        result.onSuccess {
+                            library = library.filterNot { it.optString("_id") == item.id } + updated
+                            if (page == Page.LIBRARY) redrawLibrary()
+                        }
+                    }
+                }
+                "Mark as unwatched" -> {
+                    if (entry == null) return@choose
+                    val updated = JSONObject(entry.toString())
+                    updated.optJSONObject("state")?.put("timesWatched", 0)?.put("flaggedWatched", 0)?.put("timeOffset", 0)
+                    background({
+                        if (Trakt.isConnected(this)) Trakt.markWatched(this, item.id, item.type, watched = false)
+                        Stremio.saveLibrary(profile.authKey, listOf(updated))
+                    }) { result ->
+                        result.onSuccess {
+                            library = library.map { if (it.optString("_id") == item.id) updated else it }
+                            if (page == Page.LIBRARY) redrawLibrary()
+                        }
+                    }
+                }
+                "Add to My List" -> {
+                    val updated = JSONObject(entry?.toString() ?: Library.newItem(item.id, item.type, item.name, item.poster).toString())
+                    Library.setInList(updated, true)
+                    background({ Stremio.saveLibrary(profile.authKey, listOf(updated)) }) { result ->
+                        result.onSuccess {
+                            library = library.filterNot { it.optString("_id") == item.id } + updated
+                            if (page == Page.LIBRARY) redrawLibrary()
+                        }
+                    }
+                }
+                "Remove from My List" -> {
+                    if (entry == null) return@choose
+                    val updated = JSONObject(entry.toString())
+                    Library.setInList(updated, false)
+                    background({ Stremio.saveLibrary(profile.authKey, listOf(updated)) }) { result ->
+                        result.onSuccess {
+                            library = library.map { if (it.optString("_id") == item.id) updated else it }
+                            if (page == Page.LIBRARY) redrawLibrary()
+                        }
+                    }
+                }
+                "Choose a source" -> play(item, pick = true)
             }
         }
     }
@@ -1849,6 +1931,7 @@ class MainActivity : Screen() {
                 if (grid) setOnLongClickListener { listMenu(item); true }
                 else if (item.resume) setOnLongClickListener { continueMenu(item); true }
                 else if (item.live) setOnLongClickListener { play(item, pick = true); true }
+                else setOnLongClickListener { cardMenu(item); true }
             }
 
             private var showing: Boolean? = null
