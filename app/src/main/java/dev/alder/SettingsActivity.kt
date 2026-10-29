@@ -413,9 +413,9 @@ class SettingsActivity : Screen() {
                 var traktValue: TextView? = null
                 fun updateTrakt() {
                     val user = Trakt.username(this)
-                    traktValue?.text = if (user != null) "@$user  ✓  ›" else "Not connected  ›"
+                    traktValue?.text = if (user != null) "@$user  ✓  ›" else "Waiting for prod access  ›"
                 }
-                traktValue = actionRow("Trakt account", "", "Sync watch history, progress and checkmarks with Trakt.") {
+                traktValue = actionRow("Trakt account", "", "Sync watch history, progress and checkmarks with Trakt. Waiting for production access from Trakt.") {
                     val user = Trakt.username(this)
                     if (user != null) {
                         choose("Trakt (@$user)", listOf("Disconnect", "Cancel"), "Connected to Trakt as @$user.") { choice ->
@@ -678,7 +678,7 @@ class SettingsActivity : Screen() {
         val rightCol = column(Gravity.START,
             caps("CONNECT TRAKT", TUNGSTEN),
             text("Scan to connect", SERIF_TITLE, serif = true).marginTop(4),
-            text("Scan with your phone or visit trakt.tv/activate", BODY).marginTop(8),
+            text("Scan with your phone or visit trakt.tv/activate (waiting for Trakt production access)", BODY).marginTop(8),
             codeRow.marginTop(14),
             LinearLayout(this).apply {
                 gravity = Gravity.CENTER_VERTICAL
