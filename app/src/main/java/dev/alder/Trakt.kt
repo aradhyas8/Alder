@@ -39,6 +39,7 @@ object Trakt {
     )
 
     fun requestDeviceCode(): DeviceCode {
+        if (CLIENT_ID.isBlank()) throw IOException("Trakt client ID is not configured")
         val json = postJson("$AUTH_BASE/oauth/device/code", JSONObject().put("client_id", CLIENT_ID).toString())
         val obj = JSONObject(json)
         return DeviceCode(
@@ -59,6 +60,7 @@ object Trakt {
     }
 
     fun pollToken(deviceCode: String): PollResult {
+        if (CLIENT_ID.isBlank()) return PollResult.Error("Trakt client ID is not configured")
         val payload = JSONObject().put("client_id", CLIENT_ID).put("code", deviceCode).toString()
         val conn = (URL("$AUTH_BASE/oauth/device/token").openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"

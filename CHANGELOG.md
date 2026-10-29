@@ -23,6 +23,9 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 ### Easier to use
 - **Checkmark on watched cards.** A checkmark shows on every title that you finish or mark as watched. Personal recommendation rows do not show watched titles.
 
+### Fixes
+- **Trakt credentials.** Alder does not store application credentials in the source code.
+
 ## 1.2
 
 ### New
