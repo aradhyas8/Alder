@@ -624,6 +624,7 @@ class DetailsActivity : Screen() {
             .putExtra("label", listOfNotNull(m?.name ?: name, short).joinToString("  ·  "))
             // For the sources page: the title's logo, the episode's still and "S1 E3 · OutKast".
             .putExtra("logo", m?.logo).putExtra("still", video?.thumbnail).putExtra("runtime", m?.runtime)
+            .putExtra("season", video?.season ?: -1).putExtra("episodeNumber", video?.episode ?: -1)
             .putExtra("episode", video?.let { v -> listOfNotNull("S${v.season} E${v.episode}", v.title.takeIf { it.isNotBlank() }).joinToString("  ·  ") }))
     }
 

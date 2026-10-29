@@ -199,6 +199,7 @@ class PlayerActivity : Screen() {
         }) { r ->
             meta = r.getOrNull()
             val m = meta ?: return@background
+            if (started && player.playWhenReady) traktStart()
             val episode = m.videos.firstOrNull { it.id == videoId }
             pauseTitle.text = episode?.title?.takeIf { it.isNotBlank() } ?: m.name
             subtitle.text = episode?.let { "S${it.season} E${it.episode}" } ?: m.year.orEmpty()
@@ -719,6 +720,9 @@ class PlayerActivity : Screen() {
         if (v != null) return v.season to v.episode
         val parts = videoId.split(":")
         if (parts.size >= 3) return parts[1].toIntOrNull() to parts[2].toIntOrNull()
+        val s = intent.getIntExtra("season", -1).takeIf { it >= 0 }
+        val e = intent.getIntExtra("episodeNumber", -1).takeIf { it >= 0 }
+        if (s != null && e != null) return s to e
         return null to null
     }
 

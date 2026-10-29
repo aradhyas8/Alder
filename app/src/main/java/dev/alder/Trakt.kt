@@ -110,59 +110,73 @@ object Trakt {
 
     private fun scrobblePayload(metaId: String, type: String, season: Int?, episode: Int?, progressPercent: Float): JSONObject {
         val body = JSONObject().put("progress", progressPercent.coerceIn(0f, 100f))
-        if (type == "movie" || season == null || episode == null) {
+        if (type == "movie") {
             body.put("movie", JSONObject().put("ids", mediaIds(metaId)))
         } else {
             body.put("show", JSONObject().put("ids", mediaIds(metaId)))
-            body.put("episode", JSONObject().put("season", season).put("number", episode))
+            val ep = JSONObject().put("season", season ?: 1).put("number", episode ?: 1)
+            body.put("episode", ep)
         }
         return body
     }
 
     fun scrobbleStart(c: Context, metaId: String, type: String, season: Int?, episode: Int?, progressPercent: Float) {
-        val token = token(c) ?: return
+        val token = token(c) ?: run {
+            android.util.Log.w("Alder", "Trakt scrobbleStart skipped: no token for profile")
+            return
+        }
+        android.util.Log.i("Alder", "Trakt scrobbleStart: metaId=$metaId type=$type S${season}E${episode} p=$progressPercent")
         runCatching {
             postJson("$API_BASE/scrobble/start", scrobblePayload(metaId, type, season, episode, progressPercent).toString(), token)
-        }
+        }.onFailure { android.util.Log.e("Alder", "Trakt scrobbleStart failed", it) }
     }
 
     fun scrobblePause(c: Context, metaId: String, type: String, season: Int?, episode: Int?, progressPercent: Float) {
         val token = token(c) ?: return
+        android.util.Log.i("Alder", "Trakt scrobblePause: metaId=$metaId type=$type S${season}E${episode} p=$progressPercent")
         runCatching {
             postJson("$API_BASE/scrobble/pause", scrobblePayload(metaId, type, season, episode, progressPercent).toString(), token)
-        }
+        }.onFailure { android.util.Log.e("Alder", "Trakt scrobblePause failed", it) }
     }
 
     fun scrobbleStop(c: Context, metaId: String, type: String, season: Int?, episode: Int?, progressPercent: Float) {
         val token = token(c) ?: return
+        android.util.Log.i("Alder", "Trakt scrobbleStop: metaId=$metaId type=$type S${season}E${episode} p=$progressPercent")
         runCatching {
             postJson("$API_BASE/scrobble/stop", scrobblePayload(metaId, type, season, episode, progressPercent).toString(), token)
-        }
+        }.onFailure { android.util.Log.e("Alder", "Trakt scrobbleStop failed", it) }
     }
 
     fun markWatched(c: Context, metaId: String, type: String, season: Int? = null, episode: Int? = null, watched: Boolean = true): Boolean {
-        val token = token(c) ?: return false
+        val token = token(c) ?: run {
+            android.util.Log.w("Alder", "Trakt markWatched skipped: no token for profile")
+            return false
+        }
         val endpoint = if (watched) "$API_BASE/sync/history" else "$API_BASE/sync/history/remove"
         val payload = JSONObject()
-        if (type == "movie" || (season == null && episode == null)) {
+        if (type == "movie") {
             payload.put("movies", JSONArray().put(JSONObject().put("ids", mediaIds(metaId))))
-        } else if (season != null && episode != null) {
-            val ep = JSONObject().put("number", episode)
-            val s = JSONObject().put("number", season).put("episodes", JSONArray().put(ep))
-            val show = JSONObject().put("ids", mediaIds(metaId)).put("seasons", JSONArray().put(s))
-            payload.put("shows", JSONArray().put(show))
-        } else if (season != null) {
-            val s = JSONObject().put("number", season)
-            val show = JSONObject().put("ids", mediaIds(metaId)).put("seasons", JSONArray().put(s))
+        } else {
+            val show = JSONObject().put("ids", mediaIds(metaId))
+            if (season != null && episode != null) {
+                val ep = JSONObject().put("number", episode)
+                val s = JSONObject().put("number", season).put("episodes", JSONArray().put(ep))
+                show.put("seasons", JSONArray().put(s))
+            } else if (season != null) {
+                val s = JSONObject().put("number", season)
+                show.put("seasons", JSONArray().put(s))
+            }
             payload.put("shows", JSONArray().put(show))
         }
+        android.util.Log.i("Alder", "Trakt markWatched: endpoint=$endpoint payload=$payload")
         return runCatching {
             postJson(endpoint, payload.toString(), token)
             true
-        }.getOrDefault(false)
+        }.onFailure { android.util.Log.e("Alder", "Trakt markWatched failed", it) }.getOrDefault(false)
     }
 
     private fun postJson(urlStr: String, body: String, token: String? = null): String {
+        android.util.Log.i("Alder", "Trakt POST $urlStr body=$body")
         val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             doOutput = true
@@ -178,6 +192,7 @@ object Trakt {
         val code = conn.responseCode
         val stream = if (code < 400) conn.inputStream else conn.errorStream ?: throw IOException("HTTP $code")
         val text = stream.use { String(it.readBytes()) }
+        android.util.Log.i("Alder", "Trakt POST $urlStr -> HTTP $code: $text")
         if (code >= 400) throw IOException("HTTP $code: $text")
         return text
     }
