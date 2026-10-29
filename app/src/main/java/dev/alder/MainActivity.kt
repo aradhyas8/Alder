@@ -275,7 +275,7 @@ class MainActivity : Screen() {
         val left: String?, // Continue Watching: "S1 E3 · 31 min left"
         val stoppedAt: Long? = null,
         val addedAt: String? = null,
-        val finished: Boolean = false,
+        var finished: Boolean = false,
     ) {
         val live get() = isLiveType(type) // a channel or event: plays from its card, no title page
         var filled = false
@@ -1120,6 +1120,12 @@ class MainActivity : Screen() {
                 // The remote was on one of these titles: it stays on that title wherever it moved (watched: to the front).
                 val was = (currentFocus?.takeIf { isInside(it, slot) })?.tag
                 library = list
+                rows.forEach { r ->
+                    r.cards.forEach { c ->
+                        val isFinished = list.firstOrNull { it.optString("_id") == c.item.id }?.let(::libraryFinished) ?: false
+                        c.updateFinished(isFinished)
+                    }
+                }
                 if (p == Page.HOME) Profiles.active(this)?.let { me -> background({ WatchNext.sync(applicationContext, me.authKey, cw, me.pin != null) }) {} }
                 rows.filter { isInside(it.view, slot) }.forEach { r -> r.cards.forEach { it.unload() }; rows.remove(r) }
                 slot.removeAllViews()
@@ -1197,7 +1203,9 @@ class MainActivity : Screen() {
                     if (g != generation) return@onAnswer
                     val version = ++rowVersion
                     val results = answer.getOrNull() ?: emptyList()
-                    val items = results.flatMap { it.first }.filterNot { isAddonMessage(it.name) }.distinctBy { it.id }.map(::metaItem)
+                    val isRecShelf = sources.any { (_, s) -> s.rank <= 1 }
+                    val rawItems = results.flatMap { it.first }.filterNot { isAddonMessage(it.name) }.distinctBy { it.id }.map(::metaItem)
+                    val items = if (isRecShelf) rawItems.filterNot { it.finished } else rawItems
                     if (completed == rowCatalogs.size && !reported) {
                         reported = true
                         batchPending--
@@ -1506,7 +1514,15 @@ class MainActivity : Screen() {
 
     private fun libraryFinished(item: JSONObject): Boolean {
         val state = item.optJSONObject("state") ?: return false
-        return state.optInt("timesWatched") > 0 && state.optLong("timeOffset") == 0L
+        return (state.optInt("timesWatched") > 0 || state.optInt("flaggedWatched") == 1) && state.optLong("timeOffset") == 0L
+    }
+
+    private fun updateTitleWatched(id: String, watched: Boolean) {
+        rows.forEach { r ->
+            r.cards.forEach { c ->
+                if (c.item.id == id) c.updateFinished(watched)
+            }
+        }
     }
 
     private fun listMenu(item: Item) {
@@ -1515,7 +1531,11 @@ class MainActivity : Screen() {
         choose(item.name, options) { selected ->
             val updated = JSONObject(original.toString())
             if (selected == 0) Library.setInList(updated, false)
-            else Library.markTitleWatched(updated, metas[item.id]?.videos.orEmpty())
+            else {
+                Library.markTitleWatched(updated, metas[item.id]?.videos.orEmpty())
+                updateTitleWatched(item.id, true)
+                if (Trakt.isConnected(this)) background({ Trakt.markWatched(this, item.id, item.type, watched = true) }) {}
+            }
             background({ Stremio.saveLibrary(profile.authKey, listOf(updated)) }) { result ->
                 result.fold({
                     library = library.map { if (it.optString("_id") == item.id) updated else it }
@@ -1531,9 +1551,26 @@ class MainActivity : Screen() {
 
     /** Hold OK on a Continue Watching title: choose a source yourself, or take the title off the row. */
     private fun continueMenu(item: Item) {
-        choose(item.name, listOf("Choose a source", "Remove from Continue Watching")) { selected ->
+        val original = library.firstOrNull { it.optString("_id") == item.id } ?: return
+        val options = listOf("Choose a source", "Mark as watched", "Remove from Continue Watching")
+        choose(item.name, options) { selected ->
             if (selected == 0) return@choose play(item, pick = true)
-            val original = library.firstOrNull { it.optString("_id") == item.id } ?: return@choose
+            if (selected == 1) {
+                val updated = JSONObject(original.toString())
+                Library.markTitleWatched(updated, metas[item.id]?.videos.orEmpty())
+                Library.hideFromContinueWatching(updated)
+                updateTitleWatched(item.id, true)
+                background({
+                    if (Trakt.isConnected(this)) Trakt.markWatched(this, item.id, item.type, watched = true)
+                    Stremio.saveLibrary(profile.authKey, listOf(updated))
+                }) { result ->
+                    result.onSuccess {
+                        library = library.map { if (it.optString("_id") == item.id) updated else it }
+                        refreshLibrary?.invoke()
+                    }
+                }
+                return@choose
+            }
             val updated = JSONObject(original.toString())
             val offset = Library.hideFromContinueWatching(updated)
             background({ Stremio.saveLibrary(profile.authKey, listOf(updated)) }) { result ->
@@ -1546,6 +1583,71 @@ class MainActivity : Screen() {
                     forgetIfSessionGone(error)
                     if (!isFinishing) choose("Couldn't remove it", listOf("OK"), "Check the connection and try again.") { }
                 }
+            }
+        }
+    }
+
+    private fun cardMenu(item: Item) {
+        val entry = library.firstOrNull { it.optString("_id") == item.id }
+        val watched = entry?.let(::libraryFinished) ?: false
+        val inList = entry?.let(Library::inList) ?: false
+        val options = mutableListOf<String>()
+        options += if (watched) "Mark as unwatched" else "Mark as watched"
+        options += if (inList) "Remove from My List" else "Add to My List"
+        options += "Choose a source"
+        choose(item.name, options) { selected ->
+            when (options[selected]) {
+                "Mark as watched" -> {
+                    val updated = JSONObject(entry?.toString() ?: Library.newItem(item.id, item.type, item.name, item.poster).toString())
+                    Library.markTitleWatched(updated, metas[item.id]?.videos.orEmpty())
+                    updateTitleWatched(item.id, true)
+                    background({
+                        if (Trakt.isConnected(this)) Trakt.markWatched(this, item.id, item.type, watched = true)
+                        Stremio.saveLibrary(profile.authKey, listOf(updated))
+                    }) { result ->
+                        result.onSuccess {
+                            library = library.filterNot { it.optString("_id") == item.id } + updated
+                            if (page == Page.LIBRARY) redrawLibrary()
+                        }
+                    }
+                }
+                "Mark as unwatched" -> {
+                    if (entry == null) return@choose
+                    val updated = JSONObject(entry.toString())
+                    updated.optJSONObject("state")?.put("timesWatched", 0)?.put("flaggedWatched", 0)?.put("timeOffset", 0)
+                    updateTitleWatched(item.id, false)
+                    background({
+                        if (Trakt.isConnected(this)) Trakt.markWatched(this, item.id, item.type, watched = false)
+                        Stremio.saveLibrary(profile.authKey, listOf(updated))
+                    }) { result ->
+                        result.onSuccess {
+                            library = library.map { if (it.optString("_id") == item.id) updated else it }
+                            if (page == Page.LIBRARY) redrawLibrary()
+                        }
+                    }
+                }
+                "Add to My List" -> {
+                    val updated = JSONObject(entry?.toString() ?: Library.newItem(item.id, item.type, item.name, item.poster).toString())
+                    Library.setInList(updated, true)
+                    background({ Stremio.saveLibrary(profile.authKey, listOf(updated)) }) { result ->
+                        result.onSuccess {
+                            library = library.filterNot { it.optString("_id") == item.id } + updated
+                            if (page == Page.LIBRARY) redrawLibrary()
+                        }
+                    }
+                }
+                "Remove from My List" -> {
+                    if (entry == null) return@choose
+                    val updated = JSONObject(entry.toString())
+                    Library.setInList(updated, false)
+                    background({ Stremio.saveLibrary(profile.authKey, listOf(updated)) }) { result ->
+                        result.onSuccess {
+                            library = library.map { if (it.optString("_id") == item.id) updated else it }
+                            if (page == Page.LIBRARY) redrawLibrary()
+                        }
+                    }
+                }
+                "Choose a source" -> play(item, pick = true)
             }
         }
     }
@@ -1803,6 +1905,16 @@ class MainActivity : Screen() {
             private val shade = View(context).apply { setBackgroundColor(Color.BLACK); alpha = 0f }
             // On every card in progress, as Netflix does: comparing how far along titles are is the point of the row.
             private val progress = item.progress.takeIf { it > 0 }?.let { progressBar(it) }
+            private val checkView = text("✓", SMALL, bold = true, color = TUNGSTEN).apply {
+                gravity = Gravity.CENTER
+                background = glass(12)
+                visibility = if (item.finished) View.VISIBLE else View.GONE
+            }
+
+            fun updateFinished(finished: Boolean) {
+                item.finished = finished
+                checkView.visibility = if (finished) View.VISIBLE else View.GONE
+            }
 
             init {
                 outlineProvider = object : android.view.ViewOutlineProvider() {
@@ -1827,10 +1939,7 @@ class MainActivity : Screen() {
                 // A white bar inset and rounded inside the card's dark foot, so it reads as a bar and not a cropped edge.
                 if (progress != null) addView(progress.apply { clipToOutline = true },
                     LayoutParams(-1, dp(3), Gravity.BOTTOM).apply { setMargins(dp(inset), 0, dp(inset), dp(11)) })
-                if (grid && item.finished) addView(text("✓", SMALL, bold = true, color = TUNGSTEN).apply {
-                    gravity = Gravity.CENTER
-                    background = glass(12)
-                }, LayoutParams(dp(24), dp(24), Gravity.TOP or Gravity.END).apply { setMargins(0, dp(6), dp(6), 0) })
+                addView(checkView, LayoutParams(dp(24), dp(24), Gravity.TOP or Gravity.END).apply { setMargins(0, dp(6), dp(6), 0) })
                 addView(shade, LayoutParams(-1, -1))
                 isFocusable = true
                 tag = "card:${item.id}"
@@ -1849,6 +1958,7 @@ class MainActivity : Screen() {
                 if (grid) setOnLongClickListener { listMenu(item); true }
                 else if (item.resume) setOnLongClickListener { continueMenu(item); true }
                 else if (item.live) setOnLongClickListener { play(item, pick = true); true }
+                else setOnLongClickListener { cardMenu(item); true }
             }
 
             private var showing: Boolean? = null
@@ -1973,6 +2083,7 @@ class MainActivity : Screen() {
         m.logo ?: Images.logoFor(m.id) ?: m.poster?.takeIf { isLiveType(m.type) && m.posterShape in listOf("square", "landscape") },
         m.description ?: "", facts(m),
         null, 0f, resume = false, left = null,
+        finished = library.firstOrNull { it.optString("_id") == m.id }?.let(::libraryFinished) ?: false,
     )
 
     private fun libraryItem(item: JSONObject): Item {
@@ -1998,10 +2109,12 @@ class MainActivity : Screen() {
         val videoId = item.videoId ?: item.id
         val videos = metas[item.id]?.videos.orEmpty()
         val next = videos.getOrNull(videos.indexOfFirst { it.id == videoId } + 1)?.takeIf { videos.any { it.id == videoId } }
+        val currentVideo = videos.firstOrNull { it.id == videoId }
         val episode = item.left?.substringBefore(" · ")?.takeIf { item.type == "series" && it.startsWith("S") }
         startActivity(Intent(this, StreamsActivity::class.java)
             .putExtra("type", item.type).putExtra("id", item.id).putExtra("name", item.name).putExtra("poster", item.poster)
             .putExtra("videoId", videoId).putExtra("nextVideoId", next?.id).putExtra("pick", pick)
+            .putExtra("season", currentVideo?.season ?: -1).putExtra("episodeNumber", currentVideo?.episode ?: -1)
             .putExtra("background", metas[item.id]?.background ?: item.art)
             .putExtra("logo", metas[item.id]?.logo ?: item.logo)
             .putExtra("still", videos.firstOrNull { it.id == videoId }?.thumbnail)

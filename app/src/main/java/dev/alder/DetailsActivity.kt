@@ -395,8 +395,28 @@ class DetailsActivity : Screen() {
             }
             row.setOnLongClickListener {
                 val next = videos.getOrNull(videos.indexOf(video) + 1)?.id
-                openSources(video.id, startOver = false, next = next,
-                    label = "S${video.season} E${video.episode}", pick = true)
+                val watched = video.id in Library.watched(item, videos)
+                val options = listOf(
+                    "Choose a source",
+                    if (watched) "Mark as unwatched" else "Mark as watched"
+                )
+                choose("S${video.season} E${video.episode} · ${video.title.ifBlank { "Episode ${video.episode}" }}", options) { selected ->
+                    when (selected) {
+                        0 -> openSources(video.id, startOver = false, next = next, label = "S${video.season} E${video.episode}", pick = true)
+                        1 -> {
+                            val willWatch = !watched
+                            val key = authKey ?: return@choose
+                            val entry = item ?: Library.newItem(metaId, type, meta?.name ?: name, meta?.poster ?: poster)
+                            if (willWatch) Library.markWatched(entry, videos, video.id)
+                            item = entry
+                            fillGuide()
+                            background({
+                                if (Trakt.isConnected(this)) Trakt.markWatched(this, metaId, type, video.season, video.episode, watched = willWatch)
+                                Stremio.saveLibrary(key, listOf(entry))
+                            }) {}
+                        }
+                    }
+                }
                 true
             }
             guideRows.addView(row, LinearLayout.LayoutParams(-1, dp(45)))
@@ -604,6 +624,7 @@ class DetailsActivity : Screen() {
             .putExtra("label", listOfNotNull(m?.name ?: name, short).joinToString("  ·  "))
             // For the sources page: the title's logo, the episode's still and "S1 E3 · OutKast".
             .putExtra("logo", m?.logo).putExtra("still", video?.thumbnail).putExtra("runtime", m?.runtime)
+            .putExtra("season", video?.season ?: -1).putExtra("episodeNumber", video?.episode ?: -1)
             .putExtra("episode", video?.let { v -> listOfNotNull("S${v.season} E${v.episode}", v.title.takeIf { it.isNotBlank() }).joinToString("  ·  ") }))
     }
 

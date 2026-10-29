@@ -199,6 +199,7 @@ class PlayerActivity : Screen() {
         }) { r ->
             meta = r.getOrNull()
             val m = meta ?: return@background
+            if (started && player.playWhenReady) traktStart()
             val episode = m.videos.firstOrNull { it.id == videoId }
             pauseTitle.text = episode?.title?.takeIf { it.isNotBlank() } ?: m.name
             subtitle.text = episode?.let { "S${it.season} E${it.episode}" } ?: m.year.orEmpty()
@@ -251,6 +252,7 @@ class PlayerActivity : Screen() {
                 hideLoading()
                 main.removeCallbacks(startTimeout)
                 player.videoFormat?.frameRate?.let(::matchFrameRate)
+                traktStart()
                 // Next time: the same release for this video, and the same group (release and quality) for the next episode.
                 val s = sources[at]
                 getSharedPreferences("sources", MODE_PRIVATE).edit()
@@ -260,6 +262,7 @@ class PlayerActivity : Screen() {
             override fun onPlaybackStateChanged(state: Int) {
                 // At the real end the next episode starts, unless the viewer chose to watch the credits.
                 if (state == Player.STATE_ENDED) {
+                    traktStop(finished = true)
                     // shortcut: sub-two-minute series streams are treated as addon placeholders; revisit for short-form shows.
                     if (type == "series" && !plausibleEpisode(player.duration)) {
                         started = false // retry from the original resume point, not the placeholder's short ending
@@ -273,6 +276,7 @@ class PlayerActivity : Screen() {
             }
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                if (started) { if (playWhenReady) traktStart() else traktPause() }
                 playPause.foreground = centred(if (playWhenReady) R.drawable.ic_pause else R.drawable.ic_play, 25, BASE)
                 buttonLabels[playPause]?.text = if (playWhenReady) "Pause" else "Play"
                 pausedShade.visibility = if (playWhenReady) View.GONE else View.VISIBLE
@@ -634,6 +638,7 @@ class PlayerActivity : Screen() {
     private fun showUpNext() {
         if (type == "series" && !plausibleEpisode(player.duration)) return
         val next = nextVideo() ?: return
+        traktStop(finished = true)
         if (offeringLower) dismissStall()
         if (shown) hideControls(force = true)
         options.visibility = View.GONE
@@ -703,6 +708,46 @@ class PlayerActivity : Screen() {
         val key = authKey ?: return
         val snapshot = item?.let { JSONObject(it.toString()) } ?: return
         background({ Stremio.saveLibrary(key, listOf(snapshot)) }) {}
+    }
+
+    private fun traktProgress(): Float {
+        val duration = if (::player.isInitialized) player.duration else 0L
+        return if (duration > 0) (player.currentPosition.toFloat() / duration * 100f).coerceIn(0f, 100f) else 0f
+    }
+
+    private fun traktSeasonEpisode(): Pair<Int?, Int?> {
+        val v = meta?.videos?.firstOrNull { it.id == videoId }
+        if (v != null) return v.season to v.episode
+        val parts = videoId.split(":")
+        if (parts.size >= 3) return parts[1].toIntOrNull() to parts[2].toIntOrNull()
+        val s = intent.getIntExtra("season", -1).takeIf { it >= 0 }
+        val e = intent.getIntExtra("episodeNumber", -1).takeIf { it >= 0 }
+        if (s != null && e != null) return s to e
+        return null to null
+    }
+
+    private fun traktStart() {
+        if (!watched || isLiveType(type) || !Trakt.isConnected(this)) return
+        traktStopped = false
+        val (s, e) = traktSeasonEpisode()
+        val p = traktProgress()
+        background({ Trakt.scrobbleStart(this, metaId, type, s, e, p) }) {}
+    }
+
+    private fun traktPause() {
+        if (!watched || isLiveType(type) || !Trakt.isConnected(this)) return
+        val (s, e) = traktSeasonEpisode()
+        val p = traktProgress()
+        background({ Trakt.scrobblePause(this, metaId, type, s, e, p) }) {}
+    }
+
+    private var traktStopped = false
+    private fun traktStop(finished: Boolean = false) {
+        if (!watched || isLiveType(type) || !Trakt.isConnected(this) || traktStopped) return
+        traktStopped = true
+        val (s, e) = traktSeasonEpisode()
+        val p = if (finished) 100f else traktProgress()
+        background({ Trakt.scrobbleStop(this, metaId, type, s, e, p) }) {}
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
@@ -1295,6 +1340,7 @@ class PlayerActivity : Screen() {
         player.pause()
         if (!watched || player.isCurrentMediaItemLive || isLiveType(type) || type == "series" && !plausibleEpisode(player.duration)) return
         record()
+        traktStop(finished = (item?.optJSONObject("state")?.optInt("flaggedWatched") == 1))
         // The player's own episode list first: Home's Resume passes no next episode when the title's details weren't in
         // yet, and a finished episode with no next one drops the title out of Continue Watching.
         item?.let { Library.stopped(it, nextVideo()?.id ?: intent.getStringExtra("nextVideoId")) }
