@@ -275,7 +275,7 @@ class MainActivity : Screen() {
         val left: String?, // Continue Watching: "S1 E3 · 31 min left"
         val stoppedAt: Long? = null,
         val addedAt: String? = null,
-        val finished: Boolean = false,
+        var finished: Boolean = false,
     ) {
         val live get() = isLiveType(type) // a channel or event: plays from its card, no title page
         var filled = false
@@ -1120,6 +1120,12 @@ class MainActivity : Screen() {
                 // The remote was on one of these titles: it stays on that title wherever it moved (watched: to the front).
                 val was = (currentFocus?.takeIf { isInside(it, slot) })?.tag
                 library = list
+                rows.forEach { r ->
+                    r.cards.forEach { c ->
+                        val isFinished = list.firstOrNull { it.optString("_id") == c.item.id }?.let(::libraryFinished) ?: false
+                        c.updateFinished(isFinished)
+                    }
+                }
                 if (p == Page.HOME) Profiles.active(this)?.let { me -> background({ WatchNext.sync(applicationContext, me.authKey, cw, me.pin != null) }) {} }
                 rows.filter { isInside(it.view, slot) }.forEach { r -> r.cards.forEach { it.unload() }; rows.remove(r) }
                 slot.removeAllViews()
@@ -1197,7 +1203,9 @@ class MainActivity : Screen() {
                     if (g != generation) return@onAnswer
                     val version = ++rowVersion
                     val results = answer.getOrNull() ?: emptyList()
-                    val items = results.flatMap { it.first }.filterNot { isAddonMessage(it.name) }.distinctBy { it.id }.map(::metaItem)
+                    val isRecShelf = sources.any { (_, s) -> s.rank <= 1 }
+                    val rawItems = results.flatMap { it.first }.filterNot { isAddonMessage(it.name) }.distinctBy { it.id }.map(::metaItem)
+                    val items = if (isRecShelf) rawItems.filterNot { it.finished } else rawItems
                     if (completed == rowCatalogs.size && !reported) {
                         reported = true
                         batchPending--
@@ -1506,7 +1514,15 @@ class MainActivity : Screen() {
 
     private fun libraryFinished(item: JSONObject): Boolean {
         val state = item.optJSONObject("state") ?: return false
-        return state.optInt("timesWatched") > 0 && state.optLong("timeOffset") == 0L
+        return (state.optInt("timesWatched") > 0 || state.optInt("flaggedWatched") == 1) && state.optLong("timeOffset") == 0L
+    }
+
+    private fun updateTitleWatched(id: String, watched: Boolean) {
+        rows.forEach { r ->
+            r.cards.forEach { c ->
+                if (c.item.id == id) c.updateFinished(watched)
+            }
+        }
     }
 
     private fun listMenu(item: Item) {
@@ -1517,6 +1533,7 @@ class MainActivity : Screen() {
             if (selected == 0) Library.setInList(updated, false)
             else {
                 Library.markTitleWatched(updated, metas[item.id]?.videos.orEmpty())
+                updateTitleWatched(item.id, true)
                 if (Trakt.isConnected(this)) background({ Trakt.markWatched(this, item.id, item.type, watched = true) }) {}
             }
             background({ Stremio.saveLibrary(profile.authKey, listOf(updated)) }) { result ->
@@ -1542,6 +1559,7 @@ class MainActivity : Screen() {
                 val updated = JSONObject(original.toString())
                 Library.markTitleWatched(updated, metas[item.id]?.videos.orEmpty())
                 Library.hideFromContinueWatching(updated)
+                updateTitleWatched(item.id, true)
                 background({
                     if (Trakt.isConnected(this)) Trakt.markWatched(this, item.id, item.type, watched = true)
                     Stremio.saveLibrary(profile.authKey, listOf(updated))
@@ -1582,6 +1600,7 @@ class MainActivity : Screen() {
                 "Mark as watched" -> {
                     val updated = JSONObject(entry?.toString() ?: Library.newItem(item.id, item.type, item.name, item.poster).toString())
                     Library.markTitleWatched(updated, metas[item.id]?.videos.orEmpty())
+                    updateTitleWatched(item.id, true)
                     background({
                         if (Trakt.isConnected(this)) Trakt.markWatched(this, item.id, item.type, watched = true)
                         Stremio.saveLibrary(profile.authKey, listOf(updated))
@@ -1596,6 +1615,7 @@ class MainActivity : Screen() {
                     if (entry == null) return@choose
                     val updated = JSONObject(entry.toString())
                     updated.optJSONObject("state")?.put("timesWatched", 0)?.put("flaggedWatched", 0)?.put("timeOffset", 0)
+                    updateTitleWatched(item.id, false)
                     background({
                         if (Trakt.isConnected(this)) Trakt.markWatched(this, item.id, item.type, watched = false)
                         Stremio.saveLibrary(profile.authKey, listOf(updated))
@@ -1885,6 +1905,16 @@ class MainActivity : Screen() {
             private val shade = View(context).apply { setBackgroundColor(Color.BLACK); alpha = 0f }
             // On every card in progress, as Netflix does: comparing how far along titles are is the point of the row.
             private val progress = item.progress.takeIf { it > 0 }?.let { progressBar(it) }
+            private val checkView = text("✓", SMALL, bold = true, color = TUNGSTEN).apply {
+                gravity = Gravity.CENTER
+                background = glass(12)
+                visibility = if (item.finished) View.VISIBLE else View.GONE
+            }
+
+            fun updateFinished(finished: Boolean) {
+                item.finished = finished
+                checkView.visibility = if (finished) View.VISIBLE else View.GONE
+            }
 
             init {
                 outlineProvider = object : android.view.ViewOutlineProvider() {
@@ -1909,10 +1939,7 @@ class MainActivity : Screen() {
                 // A white bar inset and rounded inside the card's dark foot, so it reads as a bar and not a cropped edge.
                 if (progress != null) addView(progress.apply { clipToOutline = true },
                     LayoutParams(-1, dp(3), Gravity.BOTTOM).apply { setMargins(dp(inset), 0, dp(inset), dp(11)) })
-                if (grid && item.finished) addView(text("✓", SMALL, bold = true, color = TUNGSTEN).apply {
-                    gravity = Gravity.CENTER
-                    background = glass(12)
-                }, LayoutParams(dp(24), dp(24), Gravity.TOP or Gravity.END).apply { setMargins(0, dp(6), dp(6), 0) })
+                addView(checkView, LayoutParams(dp(24), dp(24), Gravity.TOP or Gravity.END).apply { setMargins(0, dp(6), dp(6), 0) })
                 addView(shade, LayoutParams(-1, -1))
                 isFocusable = true
                 tag = "card:${item.id}"
@@ -2056,6 +2083,7 @@ class MainActivity : Screen() {
         m.logo ?: Images.logoFor(m.id) ?: m.poster?.takeIf { isLiveType(m.type) && m.posterShape in listOf("square", "landscape") },
         m.description ?: "", facts(m),
         null, 0f, resume = false, left = null,
+        finished = library.firstOrNull { it.optString("_id") == m.id }?.let(::libraryFinished) ?: false,
     )
 
     private fun libraryItem(item: JSONObject): Item {
