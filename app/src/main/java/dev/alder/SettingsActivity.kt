@@ -98,6 +98,14 @@ object Settings {
         .orEmpty().ifEmpty { Languages.code(Locale.getDefault().toLanguageTag()) ?: "en" }
     fun subtitleSize(c: Context) = prefs(c).getInt("subSize", 100) // percent of Media3's default size
     fun subtitleBackground(c: Context) = prefs(c).getBoolean("subBackground", true)
+    fun appLanguage(c: Context): String = prefs(c).getString("appLocale", "") ?: ""
+    fun setAppLanguage(c: Context, lang: String) {
+        prefs(c).edit().putString("appLocale", lang).apply()
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            val lm = c.getSystemService(android.app.LocaleManager::class.java)
+            lm?.applicationLocales = if (lang.isEmpty()) android.os.LocaleList.getEmptyLocaleList() else android.os.LocaleList.forLanguageTags(lang)
+        }
+    }
 }
 
 /**
@@ -159,15 +167,16 @@ class SettingsActivity : Screen() {
     private class Choice(val key: String, val label: String, val hint: String, val values: List<Pair<Any, String>>, val perProfile: Boolean = false) {
         init { require(values.isNotEmpty() && values.all { it.first.javaClass == values[0].first.javaClass }) }
     }
-    private enum class Group(val label: String, val icon: Int = 0, val glyph: String = "") {
-        STREAMS("Streams", R.drawable.ic_play),
-        PICTURE("Picture & Sound", R.drawable.ic_tv),
-        SUBTITLES("Subtitles", R.drawable.ic_subtitles),
-        ADDONS("Add-ons", R.drawable.ic_layers),
-        PROFILE("Profile", glyph = "♙"),
-        LANGUAGE("Language", glyph = "◎"),
-        STORAGE("Storage", glyph = "▤"),
-        ABOUT("About", R.drawable.ic_info),
+    private enum class Group(val labelRes: Int, val icon: Int = 0, val glyph: String = "") {
+        STREAMS(R.string.settings_group_streams, R.drawable.ic_play),
+        PICTURE(R.string.settings_group_picture, R.drawable.ic_tv),
+        SUBTITLES(R.string.settings_group_subtitles, R.drawable.ic_subtitles),
+        ADDONS(R.string.settings_group_addons, R.drawable.ic_layers),
+        PROFILE(R.string.settings_group_profile, glyph = "♙"),
+        LANGUAGE(R.string.settings_group_language, glyph = "◎"),
+        STORAGE(R.string.settings_group_storage, glyph = "▤"),
+        ABOUT(R.string.settings_group_about, R.drawable.ic_info);
+        fun label(c: Context): String = c.getString(labelRes)
     }
 
     private val streaming = listOf(
@@ -330,7 +339,7 @@ class SettingsActivity : Screen() {
             setImageResource(group.icon)
             imageTintList = ColorStateList.valueOf(TEXT_3)
         } else text(group.glyph, BODY, color = TEXT_3).apply { gravity = Gravity.CENTER }
-        val label = text(group.label, BODY, bold = true, color = TEXT_2)
+        val label = text(group.label(this), BODY, bold = true, color = TEXT_2)
         val badge = View(this).apply {
             background = rounded(TUNGSTEN, 3)
             visibility = if (group == Group.ABOUT && Updates.hasUpdate(this@SettingsActivity)) View.VISIBLE else View.GONE
@@ -362,7 +371,7 @@ class SettingsActivity : Screen() {
             groupLabels[item]?.setTextColor(if (item == group) TEXT else if (item == Group.STORAGE || item == Group.ABOUT) TEXT_3 else TEXT_2)
             if (!view.hasFocus()) view.background = if (item == group) tile(8) else null
         }
-        detailTitle.text = group.label
+        detailTitle.text = group.label(this)
         detailRows.removeAllViews()
         rowsScroll.scrollTo(0, 0)
         choiceRows.clear()
@@ -466,12 +475,27 @@ class SettingsActivity : Screen() {
                     "Blur pictures of unwatched episodes in show guides to avoid spoilers.",
                     listOf(false to "Off", true to "On"), perProfile = true))
             }
-            Group.LANGUAGE -> actionRow("App language", Locale.getDefault().displayLanguage,
-                "The app follows this TV's language setting.") {
-                runCatching { startActivity(Intent(android.provider.Settings.ACTION_APP_LOCALE_SETTINGS)
-                    .setData(android.net.Uri.parse("package:$packageName"))) }
-                    .recoverCatching { startActivity(Intent(android.provider.Settings.ACTION_LOCALE_SETTINGS)) }
-                    .onFailure { choose("Language settings are unavailable on this TV.", listOf("OK")) {} }
+            Group.LANGUAGE -> {
+                val current = Settings.appLanguage(this)
+                val currentName = if (current.isEmpty()) "${getString(R.string.streams_tv_language)} (${Locale.getDefault().displayLanguage})" else Languages.name(current)
+                actionRow(getString(R.string.settings_app_language), currentName, getString(R.string.settings_app_language_hint)) {
+                    val supported = listOf(
+                        "" to getString(R.string.streams_tv_language),
+                        "en" to "English",
+                        "es" to "Español",
+                        "pt-BR" to "Português (Brasil)",
+                        "fr" to "Français",
+                        "de" to "Deutsch",
+                        "hi" to "हिन्दी",
+                        "it" to "Italiano"
+                    )
+                    val currentIndex = supported.indexOfFirst { it.first == current }.coerceAtLeast(0)
+                    choose(getString(R.string.settings_app_language), supported.map { it.second }, checked = currentIndex) { picked ->
+                        val code = supported[picked].first
+                        Settings.setAppLanguage(this, code)
+                        recreate()
+                    }
+                }
             }
             Group.STORAGE -> actionRow("Clear local storage", "", "Removes profiles, settings and saved data from this TV. Stremio accounts stay as they are.") {
                 choose("Clear local storage?", listOf("Cancel", "Clear"),

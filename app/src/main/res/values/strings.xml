@@ -1,5 +1,181 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Working name; the app gets its real name later. -->
     <string name="app_name">Alder</string>
+
+    <!-- Common Actions & Dialogs -->
+    <string name="action_ok">OK</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_remove">Remove</string>
+    <string name="action_install">Install</string>
+    <string name="action_later">Later</string>
+    <string name="action_try_again">Try again</string>
+    <string name="action_got_it">Got it</string>
+    <string name="action_play">Play</string>
+    <string name="action_resume">Resume</string>
+    <string name="action_episodes">Episodes</string>
+    <string name="action_more_like_this">More like this</string>
+    <string name="action_add_to_list">Add to My List</string>
+    <string name="action_remove_from_list">Remove from My List</string>
+    <string name="action_change_stream">Change stream</string>
+    <string name="action_switch_profile">Switch profile</string>
+    <string name="action_manage_profiles">Manage profiles</string>
+    <string name="action_settings">Settings</string>
+    <string name="action_choose_source">Choose a source</string>
+    <string name="action_remove_continue_watching">Remove from Continue Watching</string>
+    <string name="action_hide_row">Hide row</string>
+    <string name="action_see_all_changes">See all changes</string>
+    <string name="action_on">On</string>
+    <string name="action_off">Off</string>
+    <string name="action_all">All</string>
+
+    <!-- Navigation / Tabs / Shelves -->
+    <string name="tab_home">Home</string>
+    <string name="tab_shows">Shows</string>
+    <string name="tab_movies">Movies</string>
+    <string name="tab_live">Live</string>
+    <string name="tab_library">My List</string>
+    <string name="label_continue_watching">Continue Watching</string>
+    <string name="label_new_episode">New episode</string>
+    <string name="label_hold_ok_options">Hold OK for options</string>
+    <string name="label_sort">Sort</string>
+    <string name="label_sort_popular">Popular</string>
+    <string name="label_sort_name">Name</string>
+    <string name="label_sort_added">Recently added</string>
+    <string name="label_sort_year">Year</string>
+
+    <!-- Details Screen -->
+    <string name="details_season_specials">Specials</string>
+    <string name="details_season_format">Season %1$d</string>
+    <string name="details_episode_format">Episode %1$d</string>
+    <string name="details_seasons_one">1 season</string>
+    <string name="details_seasons_many">%1$d seasons</string>
+    <string name="details_the_story">The story</string>
+    <string name="details_cast">Cast</string>
+    <string name="details_episodes_header">▾  Episodes</string>
+    <string name="details_more_like_this_header">▾  More like this</string>
+    <string name="details_unreleased">Airs %1$s</string>
+
+    <!-- Player Screen -->
+    <string name="player_audio_and_subtitles">Audio &amp; subtitles</string>
+    <string name="player_audio">Audio</string>
+    <string name="player_subtitles">Subtitles</string>
+    <string name="player_subtitle_timing">Subtitle timing</string>
+    <string name="player_timing_on_time">On time</string>
+    <string name="player_timing_earlier">%1$.1f s  earlier</string>
+    <string name="player_timing_later">+%1$.1f s  later</string>
+    <string name="player_in_file">in the file</string>
+    <string name="player_paused">Paused</string>
+    <string name="player_up_next">Up next</string>
+    <string name="player_play_now">Play now</string>
+    <string name="player_watch_credits">Watch the credits</string>
+    <string name="player_keeps_buffering">Keeps buffering</string>
+    <string name="player_switch_quality_prompt">Switch to %1$dp?</string>
+    <string name="player_switch_quality_desc">This %1$dp source stopped 3 times in a minute. A smaller file may play more smoothly from %2$s.</string>
+    <string name="player_switch_to_quality">Switch to %1$dp</string>
+    <string name="player_keep_quality">Keep %1$dp</string>
+    <string name="player_other_sources">Other sources</string>
+    <string name="player_source_failed">Source failed</string>
+    <string name="player_try_another_source">Try another source</string>
+
+    <!-- Streams Screen -->
+    <string name="streams_finding_sources">Finding sources…</string>
+    <string name="streams_no_sources_found">No playable sources found.</string>
+    <string name="streams_quality">Quality</string>
+    <string name="streams_release">Release</string>
+    <string name="streams_size">Size</string>
+    <string name="streams_best_match">BEST MATCH</string>
+    <string name="streams_auto">Auto</string>
+    <string name="streams_tv_language">TV language</string>
+
+    <!-- Settings Groups -->
+    <string name="settings_group_streams">Streams</string>
+    <string name="settings_group_picture">Picture &amp; Sound</string>
+    <string name="settings_group_subtitles">Subtitles</string>
+    <string name="settings_group_addons">Add-ons</string>
+    <string name="settings_group_profile">Profile</string>
+    <string name="settings_group_language">Language</string>
+    <string name="settings_group_storage">Storage</string>
+    <string name="settings_group_about">About</string>
+
+    <!-- Settings Options & Hints -->
+    <string name="settings_always_list">When I press Play</string>
+    <string name="settings_always_list_hint">What Play and Resume do. Holding OK always shows every source.</string>
+    <string name="settings_always_list_best">Best source</string>
+    <string name="settings_always_list_show">Show sources</string>
+    <string name="settings_max_height">Highest quality</string>
+    <string name="settings_max_height_hint">Releases above this are skipped when picking a source.</string>
+    <string name="settings_no_limit">No limit</string>
+    <string name="settings_max_size">Largest file</string>
+    <string name="settings_max_size_hint">For slow connections: big files take longer to start.</string>
+    <string name="settings_release_type">Release type</string>
+    <string name="settings_release_type_hint">Which kind of file is tried first for this profile. REMUX is the full Blu-ray.</string>
+    <string name="settings_no_preference">No preference</string>
+    <string name="settings_remux">Full Blu-ray (REMUX)</string>
+    <string name="settings_encodes">Smaller encodes</string>
+    <string name="settings_web">Web releases</string>
+    <string name="settings_hdr">HDR and Dolby Vision</string>
+    <string name="settings_hdr_hint">Which goes first when a title has both. Off picks plain releases.</string>
+    <string name="settings_match_frame_rate">Match frame rate</string>
+    <string name="settings_match_frame_rate_hint">The TV switches to the film\'s rate so pans don\'t judder.</string>
+    <string name="settings_passthrough">Audio output</string>
+    <string name="settings_passthrough_hint">Receiver sends Dolby and DTS untouched to a soundbar or receiver. TV speakers decodes the sound here, which always works.</string>
+    <string name="settings_passthrough_receiver">Receiver (bitstream)</string>
+    <string name="settings_passthrough_tv">TV speakers (decode)</string>
+    <string name="settings_subtitles_default">Subtitles by default</string>
+    <string name="settings_subtitles_default_hint">Subtitles in your subtitle language start with the video when available.</string>
+    <string name="settings_subtitle_size">Subtitle size</string>
+    <string name="settings_subtitle_size_hint">How big subtitles are on screen.</string>
+    <string name="settings_subtitle_background">Subtitle background</string>
+    <string name="settings_subtitle_background_hint">A dark box behind subtitles keeps them readable in bright scenes.</string>
+    <string name="settings_default_tab">Default tab</string>
+    <string name="settings_default_tab_hint">Which tab opens when starting the app.</string>
+    <string name="settings_movies_tab">Movies tab</string>
+    <string name="settings_movies_tab_hint">Show the Movies tab in the top navigation bar.</string>
+    <string name="settings_shows_tab">Shows tab</string>
+    <string name="settings_shows_tab_hint">Show the Shows tab in the top navigation bar.</string>
+    <string name="settings_live_tab">Live tab</string>
+    <string name="settings_live_tab_hint">Show the Live tab when your add-ons have TV channels.</string>
+    <string name="settings_featured_home">Featured on Home</string>
+    <string name="settings_featured_home_hint">Show top recommendations and trending rows below Continue Watching.</string>
+    <string name="settings_blur_thumbnails">Blur episode thumbnails</string>
+    <string name="settings_blur_thumbnails_hint">Blur pictures of unwatched episodes in show guides to avoid spoilers.</string>
+    <string name="settings_app_language">App language</string>
+    <string name="settings_app_language_hint">The app follows this TV\'s language setting.</string>
+    <string name="settings_clear_storage">Clear local storage</string>
+    <string name="settings_clear_storage_hint">Removes profiles, settings and saved data from this TV. Stremio accounts stay as they are.</string>
+    <string name="settings_clear_storage_title">Clear local storage?</string>
+    <string name="settings_clear_storage_desc">This removes saved profiles, settings and cached data from this TV. It does not cancel your Stremio account.</string>
+    <string name="settings_hidden_cw">Hidden from Continue Watching</string>
+    <string name="settings_hidden_cw_hint">Put back a title you removed from Continue Watching.</string>
+    <string name="settings_hidden_rows">Hidden rows</string>
+    <string name="settings_hidden_rows_hint">Put back a catalog row you hid.</string>
+    <string name="settings_my_addons">My add-ons</string>
+    <string name="settings_my_addons_hint">Add by URL, reorder or remove this profile\'s add-ons.</string>
+    <string name="settings_reload_addons">Reload add-ons from Stremio</string>
+    <string name="settings_reload_addons_hint">Fetch this profile\'s add-ons after installing some elsewhere.</string>
+
+    <!-- Search -->
+    <string name="search_recent">Recent</string>
+    <string name="search_hold_ok_remove">Hold OK to remove</string>
+    <string name="search_no_matches">No matches · Try a shorter title</string>
+    <string name="search_voice_unavailable">Voice search is unavailable on this TV.</string>
+
+    <!-- Profiles & Onboarding -->
+    <string name="profiles_whos_here">Who\'s here tonight?</string>
+    <string name="profiles_manage">Manage profiles</string>
+    <string name="profiles_sign_in_again">Sign in again</string>
+    <string name="profiles_welcome">Welcome to Alder</string>
+    <string name="profiles_new_profile">New profile</string>
+    <string name="profiles_name_color_prompt">Give this profile a name and colour.</string>
+    <string name="profiles_all_set">You\'re all set</string>
+
+    <!-- Updates -->
+    <string name="updates_ready_title">Alder %1$s is ready</string>
+    <string name="updates_install_prompt">Allow Alder to install updates</string>
+    <string name="updates_install_instructions">On Fire TV: Settings › My Fire TV › Developer options › Install unknown apps, then turn on Alder. On Google TV: Settings › Apps › Security &amp; restrictions › Unknown sources, then turn on Alder. Then select Install again.</string>
+    <string name="updates_download_failed">Couldn\'t download the update</string>
+    <string name="updates_download_failed_desc">Check the TV\'s connection and try again from Settings › About.</string>
+    <string name="updates_whats_new">What\'s new</string>
+    <string name="updates_no_notes">There are no notes for version %1$s.</string>
 </resources>

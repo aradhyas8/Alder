@@ -98,6 +98,18 @@ abstract class Screen : Activity() {
     /** The Stremio account of the profile in use. */
     protected val authKey: String? get() = Profiles.active(this)?.authKey
 
+    override fun attachBaseContext(newBase: Context) {
+        val lang = Settings.appLanguage(newBase)
+        if (lang.isNotEmpty()) {
+            val locale = java.util.Locale.forLanguageTag(lang)
+            val config = android.content.res.Configuration(newBase.resources.configuration)
+            config.setLocale(locale)
+            super.attachBaseContext(newBase.createConfigurationContext(config))
+        } else {
+            super.attachBaseContext(newBase)
+        }
+    }
+
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
         if (Http.saved != null) return
@@ -124,17 +136,19 @@ abstract class Screen : Activity() {
             pendingInstall = release
             if (!Updates.askToInstall(this)) {
                 pendingInstall = null
-                choose("Allow Alder to install updates", listOf("OK"),
-                    "On Fire TV: Settings › My Fire TV › Developer options › Install unknown apps, then turn on Alder. " +
-                        "On Google TV: Settings › Apps › Security & restrictions › Unknown sources, then turn on Alder. " +
-                        "Then select Install again.") {}
+                choose(getString(R.string.updates_install_prompt), listOf(getString(R.string.action_ok)),
+                    getString(R.string.updates_install_instructions)) {}
+
+
+
+
             }
             return
         }
         android.widget.Toast.makeText(this, "Downloading Alder ${release.version}… Alder closes to update. Open it again after.",
             android.widget.Toast.LENGTH_LONG).show()
         background({ Updates.install(applicationContext, release) }) { r ->
-            if (r.isFailure) choose("Couldn't download the update", listOf("OK"), "Check the TV's connection and try again from Settings › About.") {}
+            if (r.isFailure) choose(getString(R.string.updates_download_failed), listOf(getString(R.string.action_ok)), getString(R.string.updates_download_failed_desc)) {}
         }
     }
 
@@ -175,6 +189,9 @@ abstract class Screen : Activity() {
     protected fun caps(value: String, color: Int = TEXT_2) = text(value.uppercase(), CAPS, bold = true, color = color).apply {
         letterSpacing = 0.12f
     }
+    protected fun text(resId: Int, sp: Float, bold: Boolean = false, color: Int = TEXT, serif: Boolean = false) =
+        text(getString(resId), sp, bold, color, serif)
+    protected fun caps(resId: Int, color: Int = TEXT_2) = caps(getString(resId), color)
 
     protected fun column(gravity: Int, vararg views: View) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
@@ -297,6 +314,7 @@ abstract class Screen : Activity() {
     }
 
     /** The warm-white primary action; focus lifts and grows it. */
+    protected fun pill(resId: Int, icon: Int = 0) = pill(getString(resId), icon)
     protected fun pill(label: String, icon: Int = 0): TextView = text(label, SMALL, bold = true).apply {
         isFocusable = true
         gravity = Gravity.CENTER_VERTICAL
@@ -335,6 +353,7 @@ abstract class Screen : Activity() {
     }
 
     /** A persistent choice: its dot remains after remote focus moves. */
+    protected fun chip(resId: Int, selected: Boolean = false) = chip(getString(resId), selected)
     protected fun chip(label: String, selected: Boolean = false) = text(label, SMALL).apply {
         select(label, selected)
         isFocusable = true
@@ -621,7 +640,7 @@ abstract class Screen : Activity() {
         val changes = runCatching { assets.open("CHANGELOG.md").bufferedReader().use { it.readText() } }.getOrNull()
             ?.let { changesFor(it, version) }.orEmpty()
         if (changes.isEmpty()) {
-            if (!quiet) choose("What's new", listOf("OK"), "There are no notes for version $version.") {}
+            if (!quiet) choose(getString(R.string.updates_whats_new), listOf(getString(R.string.action_ok)), getString(R.string.updates_no_notes, version)) {}
             return
         }
         val dialog = android.app.Dialog(this).apply { requestWindowFeature(android.view.Window.FEATURE_NO_TITLE) }
@@ -637,10 +656,10 @@ abstract class Screen : Activity() {
         }
         // The pop-up: the first entries, the most important ones, without their headings.
         changes.take(SHORT_LIST).forEach(::entry)
-        val gotIt = pill("Got it").apply { setOnClickListener { dialog.dismiss() } }
+        val gotIt = pill(R.string.action_got_it).apply { setOnClickListener { dialog.dismiss() } }
         val buttons = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; addView(gotIt) }
         list.addView(buttons, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(16) })
-        if (changes.size > SHORT_LIST) buttons.addView(chip("See all changes").apply {
+        if (changes.size > SHORT_LIST) buttons.addView(chip(R.string.action_see_all_changes).apply {
             setOnClickListener {
                 // Taller, every entry under its heading, each entry a stop for the remote so Down moves through them;
                 // Got it at the end.
@@ -685,7 +704,7 @@ abstract class Screen : Activity() {
     protected fun failed(message: String, retry: () -> Unit) = column(Gravity.START,
         text("!", SERIF_NAME, color = TUNGSTEN, serif = true),
         text(message, BODY, color = TEXT).marginTop(10),
-        pill("Try again").apply { setOnClickListener { retry() } }.marginTop(16),
+        pill(R.string.action_try_again).apply { setOnClickListener { retry() } }.marginTop(16),
     ).apply {
         setPadding(dp(18), dp(18), dp(18), dp(18))
         background = glassOver(this, 14)

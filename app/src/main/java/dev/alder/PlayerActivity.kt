@@ -602,17 +602,17 @@ class PlayerActivity : Screen() {
         val card = column(Gravity.START).apply {
             setPadding(dp(16), dp(15), dp(16), dp(14))
             background = glass(14)
-            addView(caps("Keeps buffering", TUNGSTEN))
-            addView(text("Switch to ${lower}p?", SERIF_TITLE, serif = true),
+            addView(caps(R.string.player_keeps_buffering, TUNGSTEN))
+            addView(text(getString(R.string.player_switch_quality_prompt, lower), SERIF_TITLE, serif = true),
                 wrap().apply { topMargin = dp(4) })
-            addView(text("This ${height}p source stopped 3 times in a minute. A smaller file may play more smoothly from ${clock(position())}.",
+            addView(text(getString(R.string.player_switch_quality_desc, height, clock(position())),
                 SMALL, color = TEXT_2), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(5) })
             val actions = LinearLayout(this@PlayerActivity).apply { gravity = Gravity.CENTER_VERTICAL }
-            val lowerButton = pill("Switch to ${lower}p").apply { setOnClickListener { lowerQuality() } }
+            val lowerButton = pill(getString(R.string.player_switch_to_quality, lower)).apply { setOnClickListener { lowerQuality() } }
             actions.addView(lowerButton, wrap())
-            actions.addView(chip("Keep ${height}p").apply { setOnClickListener { dismissStall() } },
+            actions.addView(chip(getString(R.string.player_keep_quality, height)).apply { setOnClickListener { dismissStall() } },
                 wrap().apply { marginStart = dp(6) })
-            actions.addView(chip("Other sources").apply { setOnClickListener { changeStream() } },
+            actions.addView(chip(R.string.player_other_sources).apply { setOnClickListener { changeStream() } },
                 wrap().apply { marginStart = dp(6) })
             addView(actions, wrap().apply { topMargin = dp(12) })
             lowerButton.post { lowerButton.requestFocus() }
@@ -632,9 +632,9 @@ class PlayerActivity : Screen() {
     private fun showSourceError() {
         stallPanel.removeAllViews()
         val card = column(Gravity.START,
-            caps("Source failed", TUNGSTEN),
-            text("Try another source", SERIF_TITLE, serif = true).marginTop(6),
-            pill("Other sources").apply { setOnClickListener { changeStream() } }.marginTop(12)
+            caps(R.string.player_source_failed, TUNGSTEN),
+            text(R.string.player_try_another_source, SERIF_TITLE, serif = true).marginTop(6),
+            pill(R.string.player_other_sources).apply { setOnClickListener { changeStream() } }.marginTop(12)
         ).apply {
             setPadding(dp(18), dp(18), dp(18), dp(18))
             background = glass(14)
@@ -665,15 +665,15 @@ class PlayerActivity : Screen() {
         hideLoading()
         upNextPanel.removeAllViews()
         val actions = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        val playNow = pill("Play now", R.drawable.ic_play).apply { setOnClickListener { playNext() } }
+        val playNow = pill(R.string.player_play_now, R.drawable.ic_play).apply { setOnClickListener { playNext() } }
         actions.addView(playNow, wrap())
-        actions.addView(chip("Watch the credits").apply { setOnClickListener { dismissUpNext() } },
+        actions.addView(chip(R.string.player_watch_credits).apply { setOnClickListener { dismissUpNext() } },
             wrap().apply { marginStart = dp(8) })
         val content = column(Gravity.START).apply {
             setPadding(dp(18), dp(14), dp(18), dp(14))
             // Video can't be frosted: a dark base under the glass keeps it readable over white end cards.
             background = android.graphics.drawable.LayerDrawable(arrayOf(rounded(BASE and 0xD9FFFFFF.toInt(), 14), glass(14)))
-            addView(caps("Up next", TUNGSTEN).onArt())
+            addView(caps(R.string.player_up_next, TUNGSTEN).onArt())
             addView(text(next.title.ifBlank { "Episode ${next.episode}" }, SERIF_HERO, serif = true).onArt(),
                 wrap().apply { topMargin = dp(6) })
             addView(text("S${next.season} E${next.episode}", SMALL, color = TEXT_2).onArt(), wrap().apply { topMargin = dp(5) })
@@ -874,7 +874,7 @@ class PlayerActivity : Screen() {
         subtitle = text(intent.getStringExtra("episode")?.substringBefore("  ·  ").orEmpty(), SMALL, color = TEXT_2).onArt()
         pauseFacts = text("", SMALL, color = TEXT_2).onArt()
         pauseInfo = column(Gravity.START).apply {
-            addView(caps("Paused", TUNGSTEN).onArt())
+            addView(caps(R.string.player_paused, TUNGSTEN).onArt())
             addView(pauseTitle, LinearLayout.LayoutParams(dp(480), -2).apply { topMargin = dp(6) })
             addView(pauseFacts, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(5) })
         }
@@ -1130,13 +1130,13 @@ class PlayerActivity : Screen() {
         hideControls(force = true)
         controls.visibility = View.GONE
         val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        list.addView(text("Audio & subtitles", SERIF_TITLE, serif = true), wrap())
+        list.addView(text(R.string.player_audio_and_subtitles, SERIF_TITLE, serif = true), wrap())
         list.addView(text(listOfNotNull(pauseTitle.text.toString().takeIf { it.isNotBlank() },
             subtitle.text.toString().takeIf { it.isNotBlank() }).joinToString(DOT),
             SMALL, color = TEXT_2).apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END }, wrap().apply { topMargin = dp(5) })
 
         val audio = audioGroups.filter { it.isTrackSupported(0) }
-        if (audio.isNotEmpty()) section(list, "Audio", audio.map { trackName(it.getTrackFormat(0), true) }, audio.indexOfFirst { it.isSelected }) { i ->
+        if (audio.isNotEmpty()) section(list, getString(R.string.player_audio), audio.map { trackName(it.getTrackFormat(0), true) }, audio.indexOfFirst { it.isSelected }) { i ->
             audioPicked = true
             player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
                 .setOverrideForType(TrackSelectionOverride(audio[i].mediaTrackGroup, (0 until audio[i].length).toList())).build()
@@ -1150,7 +1150,7 @@ class PlayerActivity : Screen() {
             loaded?.isSelected == true -> 1 + subs.size + addonSubs.indexOf(chosenSub)
             else -> subs.indexOfFirst { it.isSelected } + 1
         }
-        val subsFirst = section(list, "Subtitles", listOf("Off") + subs.map { trackName(it.getTrackFormat(0), false) + "  ·  in the file" } +
+        val subsFirst = section(list, getString(R.string.player_subtitles), listOf(getString(R.string.action_off)) + subs.map { trackName(it.getTrackFormat(0), false) + "  ·  " + getString(R.string.player_in_file) } +
             addonSubs.map { "${it.language}  ·  ${it.addon}" }, chosen) { i ->
             val p = player.trackSelectionParameters.buildUpon()
             val sub = addonSubs.getOrNull(i - 1 - subs.size)
@@ -1168,13 +1168,13 @@ class PlayerActivity : Screen() {
         val shiftable = chosenSub?.takeIf { loaded?.isSelected == true && it.mimeType != MimeTypes.TEXT_SSA }
         if (shiftable != null) {
             val steps = listOf(-2_000L, -1_000L, -500L, 0L, 500L, 1_000L, 2_000L)
-            section(list, "Subtitle timing", steps.map { if (it == 0L) "On time" else "%+.1f s".format(it / 1000f) + if (it < 0) "  earlier" else "  later" },
+            section(list, getString(R.string.player_subtitle_timing), steps.map { if (it == 0L) getString(R.string.player_timing_on_time) else if (it < 0) getString(R.string.player_timing_earlier, it / 1000f) else getString(R.string.player_timing_later, it / 1000f) },
                 steps.indexOf(subDelay)) { i -> shiftSubtitles(shiftable, steps[i]) }
         }
         list.addView(View(this).apply { setBackgroundColor(GLASS_EDGE) }, LinearLayout.LayoutParams(-1, dp(1)).apply { setMargins(0, dp(18), 0, dp(10)) })
         list.addView(LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            val head = text("Change stream  →", BODY, bold = true).apply { setPadding(dp(8), dp(5), dp(8), dp(5)) }
+            val head = text(getString(R.string.action_change_stream) + "  →", BODY, bold = true).apply { setPadding(dp(8), dp(5), dp(8), dp(5)) }
             addView(head, wrap())
             // "2160p · Torrentio" as the mock reads it: what you're watching first, where it comes from last.
             val label = sources[at].label.split(DOT.trim()).map { it.trim() }.filter { it.isNotEmpty() }

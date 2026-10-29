@@ -338,7 +338,7 @@ class SearchActivity : Screen() {
                     startActivityForResult(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                         putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                     }, SPEECH)
-                }.onFailure { choose("Voice search is unavailable on this TV.", listOf("OK")) {} }
+                }.onFailure { choose(getString(R.string.search_voice_unavailable), listOf(getString(R.string.action_ok))) {} }
             }.apply {
                 contentDescription = "Voice search"
                 setCompoundDrawablesRelative(null, getDrawable(R.drawable.ic_mic)?.mutate()?.apply {
@@ -445,7 +445,7 @@ class SearchActivity : Screen() {
         recentBox.removeAllViews()
         val values = recent()
         if (values.isEmpty()) return
-        recentBox.addView(caps("Recent", TEXT_3), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(7) })
+        recentBox.addView(caps(R.string.search_recent, TEXT_3), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(7) })
         values.chunked(2).forEach { pair ->
             val line = LinearLayout(this)
             pair.forEach { query ->
@@ -475,7 +475,7 @@ class SearchActivity : Screen() {
             }
             recentBox.addView(line, LinearLayout.LayoutParams(-1, dp(27)))
         }
-        recentBox.addView(text("Hold OK to remove", SMALL, color = TEXT_3),
+        recentBox.addView(text(R.string.search_hold_ok_remove, SMALL, color = TEXT_3),
             LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(5) })
     }
 
@@ -538,7 +538,7 @@ class SearchActivity : Screen() {
                     results.removeAllViews()
                     results.addView(if (failedCount == completed && (completed > 0 || final))
                         failed("Search is unavailable right now.") { search(false) }
-                    else text("No matches · Try a shorter title", BODY, color = TEXT_2))
+                    else text(R.string.search_no_matches, BODY, color = TEXT_2))
                     resultCount.text = ""
                 }
             }
@@ -573,7 +573,7 @@ class SearchActivity : Screen() {
         resultCount.text = if (total == 0 || query.isEmpty()) "" else if (total == 1) "1 title" else "$total titles" // not for Popular
         if (total == 0) {
             hero.visibility = View.INVISIBLE
-            results.addView(text("No matches · Try a shorter title", BODY, color = TEXT_2))
+            results.addView(text(R.string.search_no_matches, BODY, color = TEXT_2))
             return
         }
         sections.forEach { (label, list) ->

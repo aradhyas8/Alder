@@ -17,6 +17,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 ## Unreleased
 
 ### New
+- **Interface in your language.** Alder shows menus, buttons and settings in your TV language. Includes Spanish, Portuguese, French, German, Hindi and Italian.
 - **New episode tags.** A tungsten tag shows on Continue Watching when a new episode is available.
 - **Protect unreleased episodes.** Alder shows the air date for future episodes and disables playback until they air.
 - **Default tab.** Choose which tab opens when you start Alder. Select **Settings → Profile → Default tab**.

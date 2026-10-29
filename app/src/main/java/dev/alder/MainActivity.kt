@@ -141,7 +141,7 @@ internal fun logoTint(pixels: IntArray): Int? {
 //    where you are and Resume, moving on to the next every ADVANCE. OK resumes; any other key returns to where you were.
 //    The TV's own screensaver takes over later (10 min on the test TV), so nothing stays still for hours.
 class MainActivity : Screen() {
-    private enum class Page(val label: String) { HOME("Home"), SHOWS("Shows"), MOVIES("Movies"), LIVE("Live"), LIBRARY("My List") }
+    private enum class Page(val label: String, val labelRes: Int) { HOME("Home", R.string.tab_home), SHOWS("Shows", R.string.tab_shows), MOVIES("Movies", R.string.tab_movies), LIVE("Live", R.string.tab_live), LIBRARY("My List", R.string.tab_library) }
     private enum class Mode { CINEMA, BROWSE }
     private enum class ListFilter { ALL, MOVIES, SHOWS }
     private enum class ListSort { RECENT, NAME, UNWATCHED }
@@ -388,7 +388,7 @@ class MainActivity : Screen() {
                 leftMargin = dp(PAD); topMargin = dp(232)
             })
             // On glass: it sits over the next row's posters.
-            listHint = text("Hold OK for options", SMALL, color = TEXT_2).apply {
+            listHint = text(R.string.label_hold_ok_options, SMALL, color = TEXT_2).apply {
                 visibility = View.GONE
                 background = glass(CHIP_H / 2)
                 setPadding(dp(14), dp(4), dp(14), dp(5))
@@ -552,7 +552,7 @@ class MainActivity : Screen() {
         if (Updates.due(this)) background({ Updates.latest(applicationContext) }) { r ->
             val release = r.getOrNull()?.takeIf { newerVersion(it.version, Updates.mine(this)) } ?: return@background
             updateDot?.visibility = View.VISIBLE
-            if (Updates.offerOnce(this, release.version)) choose("Alder ${release.version} is ready", listOf("Later", "Install"),
+            if (Updates.offerOnce(this, release.version)) choose(getString(R.string.updates_ready_title, release.version), listOf(getString(R.string.action_later), getString(R.string.action_install)),
                 "Install it now? It takes a minute, and your profiles and settings stay.") { if (it == 1) installUpdate(release) }
         }
     }
@@ -741,7 +741,7 @@ class MainActivity : Screen() {
         // A page opens as soon as the remote rests on its name. OK on Shows or Movies goes to its genres. Live shows only
         // once the profile's add-ons have a live catalog ([showLiveTab]).
         Page.entries.forEach { p ->
-            navItems[p] = text(p.label, BODY).apply {
+            navItems[p] = text(getString(p.labelRes), BODY).apply {
                 gravity = Gravity.CENTER
                 compoundDrawablePadding = dp(2)
                 setPadding(dp(12), dp(4), dp(12), dp(2))
@@ -800,8 +800,8 @@ class MainActivity : Screen() {
 
     private fun profileMenu() {
         val update = Updates.available(this)
-        val options = if (update != null) listOf("Install update (${update.version})", "Switch profile", "Settings")
-                      else listOf("Switch profile", "Settings")
+        val options = if (update != null) listOf("Install update (${update.version})", getString(R.string.action_switch_profile), getString(R.string.action_settings))
+                      else listOf(getString(R.string.action_switch_profile), getString(R.string.action_settings))
         choose(profile.name, options) { i ->
             if (update != null) {
                 when (i) {
@@ -823,7 +823,7 @@ class MainActivity : Screen() {
             val focused = item.isFocused
             item.background = if (focused) glass(NAV_R, true) else null
             item.setTextColor(if (p == page || focused) TEXT else TEXT_2)
-            item.text = p.label
+            item.text = getString(p.labelRes)
             // The open page's dot hangs under its name; the others keep an empty one, so every name sits on one line.
             item.setCompoundDrawablesRelative(null, null, null, GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
@@ -926,7 +926,7 @@ class MainActivity : Screen() {
         cinemaName = text("", SERIF_HERO, serif = true).onArt().apply { maxLines = 2; ellipsize = TextUtils.TruncateAt.END; maxWidth = dp(520) }
         cinemaLogo = ImageView(this).apply { adjustViewBounds = true; scaleType = ImageView.ScaleType.FIT_START; maxHeight = dp(LOGO_H); maxWidth = dp(LOGO_W) }
         cinemaLine = text("", SMALL, color = TEXT).onArt().apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END; maxWidth = dp(INFO_W) }
-        cinemaPlay = pill("Resume", R.drawable.ic_play).apply {
+        cinemaPlay = pill(R.string.action_resume, R.drawable.ic_play).apply {
             isFocusable = false
             setOnClickListener { cinema.getOrNull(cinemaAt)?.let(::play) }
         }
@@ -1032,7 +1032,7 @@ class MainActivity : Screen() {
         heroScore = text("", SMALL, color = TEXT_2).onArt().apply { visibility = View.GONE }
         heroAdded = text("", SMALL, color = TEXT_3).onArt().apply { visibility = View.GONE }
         heroAbout = text("", BODY, color = TEXT).onArt().apply { maxLines = 2; ellipsize = TextUtils.TruncateAt.END }
-        heroResume = pill("Resume", R.drawable.ic_play).apply {
+        heroResume = pill(R.string.action_resume, R.drawable.ic_play).apply {
             setOnClickListener { heroItem?.let(::play) }
             setOnLongClickListener { heroItem?.let { play(it, pick = true) }; true }
         }
@@ -1502,7 +1502,7 @@ class MainActivity : Screen() {
                 if (listFilter != value) { listFilter = value; styleListChips(); redrawLibrary() }
             }
         }
-        line.addView(text("Sort", SMALL, color = TEXT_3), LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(20) })
+        line.addView(text(R.string.label_sort, SMALL, color = TEXT_3), LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(20) })
         listOf(ListSort.RECENT to "Recently added", ListSort.NAME to "A–Z", ListSort.UNWATCHED to "Unwatched first")
             .forEach { (value, label) ->
                 listSortChips[value] = add(label, value == listSort) {
@@ -1539,7 +1539,7 @@ class MainActivity : Screen() {
             setPadding(dp(PAD), dp(2), dp(PAD), dp(2))
         }
         (listOf<String?>(null) + names).forEach { value ->
-            val control = chip(value ?: "All", value == null).apply {
+            val control = chip(if (value == null) getString(R.string.action_all) else value, value == null).apply {
                 setOnClickListener {
                     val target = if (value == null) firstRow() else rows.firstOrNull { it.title == value && it.view.isAttachedToWindow }
                     // Rows far down the page are still being made: the remote goes there as soon as it's in.
@@ -1682,7 +1682,7 @@ class MainActivity : Screen() {
 
     /** Hold OK on a Continue Watching title: choose a source yourself, or take the title off the row. */
     private fun continueMenu(item: Item) {
-        choose(item.name, listOf("Choose a source", "Remove from Continue Watching")) { selected ->
+        choose(item.name, listOf(getString(R.string.action_choose_source), getString(R.string.action_remove_continue_watching))) { selected ->
             if (selected == 0) return@choose play(item, pick = true)
             val original = library.firstOrNull { it.optString("_id") == item.id } ?: return@choose
             val updated = JSONObject(original.toString())
@@ -1703,8 +1703,8 @@ class MainActivity : Screen() {
 
     /** Hold OK on a catalog card: choose a source yourself, or take the whole row off the page. */
     private fun rowMenu(row: Row, item: Item) {
-        val options = if (row.title.isNotEmpty()) listOf("Choose a source", "Hide row \"${row.title}\"")
-                      else listOf("Choose a source")
+        val options = if (row.title.isNotEmpty()) listOf(getString(R.string.action_choose_source), getString(R.string.action_hide_row) + " \"${row.title}\"")
+                      else listOf(getString(R.string.action_choose_source))
         choose(item.name, options) { selected ->
             if (selected == 0) play(item, pick = true)
             else {
@@ -1988,7 +1988,7 @@ class MainActivity : Screen() {
                     setPadding(dp(8), dp(3), dp(8), dp(4))
                 }, LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(10), dp(10), 0) })
                 val addBadge = {
-                    face.addView(caps("New episode", TUNGSTEN).apply {
+                    face.addView(caps(R.string.label_new_episode, TUNGSTEN).apply {
                         tag = "new_badge"
                         background = rounded(0xCC000000.toInt(), 6)
                         setPadding(dp(8), dp(3), dp(8), dp(4))

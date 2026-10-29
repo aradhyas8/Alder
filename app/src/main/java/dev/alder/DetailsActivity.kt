@@ -214,7 +214,7 @@ class DetailsActivity : Screen() {
         })
         val hasEpisodes = type == "series" && m?.videos?.isNotEmpty() == true
         if (hasEpisodes || ::similarOverlay.isInitialized) {
-            hero.addView(caps(if (hasEpisodes) "▾  Episodes" else "▾  More like this", TEXT_2).onArt().apply {
+            hero.addView(caps(if (hasEpisodes) getString(R.string.details_episodes_header) else getString(R.string.details_more_like_this_header), TEXT_2).onArt().apply {
                 isFocusable = true
                 setOnClickListener { if (hasEpisodes) showGuide() else showSimilar() }
                 rowFocus(rest = { null })
@@ -258,7 +258,7 @@ class DetailsActivity : Screen() {
                 maxLines = 1; ellipsize = TextUtils.TruncateAt.END
             }.marginTop(16))
 
-            playButton = pill("Episodes").apply {
+            playButton = pill(R.string.action_episodes).apply {
                 setOnClickListener { showGuide() }
             }
             infoButton = iconButton("ⓘ", "More information") { showInfo() }
@@ -280,7 +280,7 @@ class DetailsActivity : Screen() {
         }.marginTop(16))
         if (remaining != null) stack.addView(progressBar(resumeAt.toFloat() / duration), LinearLayout.LayoutParams(dp(240), dp(3)).apply { topMargin = dp(8) })
 
-        playButton = pill(if (resumeAt > 0) "Resume" else "Play", R.drawable.ic_play).apply {
+        playButton = pill(if (resumeAt > 0) R.string.action_resume else R.string.action_play, R.drawable.ic_play).apply {
             setOnClickListener { openSources(target?.first ?: metaId, startOver = false) }
             // Held OK: every source, to choose one by hand.
             setOnLongClickListener { openSources(target?.first ?: metaId, startOver = false, pick = true); true }
@@ -323,7 +323,7 @@ class DetailsActivity : Screen() {
         Library.setInList(entry, !Library.inList(item))
         item = entry
         listButton.text = if (Library.inList(entry)) "✓" else "+"
-        listButton.contentDescription = if (Library.inList(entry)) "Remove from My List" else "Add to My List"
+        listButton.contentDescription = getString(if (Library.inList(entry)) R.string.action_remove_from_list else R.string.action_add_to_list)
         val snapshot = JSONObject(entry.toString())
         background({ Stremio.saveLibrary(key, listOf(snapshot)) }) {}
     }
@@ -430,7 +430,7 @@ class DetailsActivity : Screen() {
         seasonStrip.removeAllViews()
         seasonButtons = seasons.associateWith { season ->
             chip(if (season == selectedSeason) {
-                if (season == 0) "Specials" else "Season $season"
+                if (season == 0) getString(R.string.details_season_specials) else getString(R.string.details_season_format, season)
             } else if (season == 0) "Specials" else season.toString(), season == selectedSeason).apply {
                 setOnClickListener {
                     selectedSeason = season
@@ -466,7 +466,7 @@ class DetailsActivity : Screen() {
                 video.id in watched -> TEXT_2
                 else -> TEXT
             }
-            row.addView(text(video.title.ifBlank { "Episode ${video.episode}" }, BODY,
+            row.addView(text(video.title.ifBlank { getString(R.string.details_episode_format, video.episode) }, BODY,
                 color = titleColor).apply {
                 maxLines = 1; ellipsize = TextUtils.TruncateAt.END
             }, FrameLayout.LayoutParams(dp(225), -2, Gravity.CENTER_VERTICAL).apply { leftMargin = dp(46) })
@@ -563,7 +563,7 @@ class DetailsActivity : Screen() {
                     addView(text(it, BODY, color = TEXT).onArt())
                 }
                 if (m.cast.isNotEmpty()) {
-                    addView(caps("Cast", TEXT_2).onArt(), wrap().apply { topMargin = dp(18) })
+                    addView(caps(R.string.details_cast, TEXT_2).onArt(), wrap().apply { topMargin = dp(18) })
                     addView(text(m.cast.take(12).joinToString("  ·  "), BODY).onArt(),
                         wrap().apply { topMargin = dp(6) })
                 }
@@ -572,7 +572,7 @@ class DetailsActivity : Screen() {
         infoOverlay.addView(column(Gravity.START,
             text(m.name, SERIF_TITLE, bold = true, serif = true).onArt().apply { maxLines = 2; ellipsize = TextUtils.TruncateAt.END },
             text(facts, SMALL, color = TEXT).onArt().apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END }.marginTop(6),
-            text("The story", SMALL, bold = true, color = TEXT).onArt().marginTop(SECTION_GAP),
+            text(R.string.details_the_story, SMALL, bold = true, color = TEXT).onArt().marginTop(SECTION_GAP),
         ).apply {
             addView(story, LinearLayout.LayoutParams(-1, dp(180)).apply { topMargin = dp(8) })
         }, FrameLayout.LayoutParams(dp(HERO_W), -2, Gravity.BOTTOM or Gravity.START).apply {

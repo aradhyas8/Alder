@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common Actions & Dialogs -->
+    <string name="action_ok">ठीक है</string>
+    <string name="action_cancel">रद्द करें</string>
+    <string name="action_clear">साफ़ करें</string>
+    <string name="action_remove">हटाएं</string>
+    <string name="action_install">इंस्टॉल करें</string>
+    <string name="action_later">बाद में</string>
+    <string name="action_try_again">पुनः प्रयास करें</string>
+    <string name="action_got_it">समझ गया</string>
+    <string name="action_play">चलाएं</string>
+    <string name="action_resume">जारी रखें</string>
+    <string name="action_episodes">एपिसोड्स</string>
+    <string name="action_more_like_this">इसके जैसे अन्य</string>
+    <string name="action_add_to_list">मेरी सूची में जोड़ें</string>
+    <string name="action_remove_from_list">मेरी सूची से हटाएं</string>
+    <string name="action_change_stream">स्रोत बदलें</string>
+    <string name="action_switch_profile">प्रोफ़ाइल बदलें</string>
+    <string name="action_manage_profiles">प्रोफ़ाइल प्रबंधित करें</string>
+    <string name="action_settings">सेटिंग्स</string>
+    <string name="action_choose_source">स्रोत चुनें</string>
+    <string name="action_remove_continue_watching">देखना जारी रखें से हटाएं</string>
+    <string name="action_hide_row">पंक्ति छिपाएं</string>
+    <string name="action_see_all_changes">सभी बदलाव देखें</string>
+    <string name="action_on">चालू</string>
+    <string name="action_off">बंद</string>
+    <string name="action_all">सभी</string>
+
+    <!-- Navigation / Tabs / Shelves -->
+    <string name="tab_home">होम</string>
+    <string name="tab_shows">सीरीज़</string>
+    <string name="tab_movies">फ़िल्में</string>
+    <string name="tab_live">लाइव</string>
+    <string name="tab_library">मेरी सूची</string>
+    <string name="label_continue_watching">देखना जारी रखें</string>
+    <string name="label_new_episode">नया एपिसोड</string>
+    <string name="label_hold_ok_options">विकल्पों के लिए OK दबाए रखें</string>
+    <string name="label_sort">क्रमबद्ध करें</string>
+    <string name="label_sort_popular">लोकप्रिय</string>
+    <string name="label_sort_name">नाम</string>
+    <string name="label_sort_added">हाल ही में जोड़े गए</string>
+    <string name="label_sort_year">वर्ष</string>
+
+    <!-- Details Screen -->
+    <string name="details_season_specials">स्पेशल्स</string>
+    <string name="details_season_format">सीज़न %1$d</string>
+    <string name="details_episode_format">एपिसोड %1$d</string>
+    <string name="details_seasons_one">1 सीज़न</string>
+    <string name="details_seasons_many">%1$d सीज़न</string>
+    <string name="details_the_story">कहानी</string>
+    <string name="details_cast">कलाकार</string>
+    <string name="details_episodes_header">▾  एपिसोड्स</string>
+    <string name="details_more_like_this_header">▾  इसके जैसे अन्य</string>
+    <string name="details_unreleased">प्रसारण %1$s</string>
+
+    <!-- Player Screen -->
+    <string name="player_audio_and_subtitles">ऑडियो और उपशीर्षक</string>
+    <string name="player_audio">ऑडियो</string>
+    <string name="player_subtitles">उपशीर्षक</string>
+    <string name="player_subtitle_timing">समय समायोजन</string>
+    <string name="player_timing_on_time">सही समय पर</string>
+    <string name="player_timing_earlier">%1$.1f से  पहले</string>
+    <string name="player_timing_later">+%1$.1f से  बाद में</string>
+    <string name="player_in_file">फ़ाइल में मौजूद</string>
+    <string name="player_paused">रोका गया</string>
+    <string name="player_up_next">अगला</string>
+    <string name="player_play_now">अभी चलाएं</string>
+    <string name="player_watch_credits">क्रेडिट्स देखें</string>
+    <string name="player_keeps_buffering">बार-बार बफ़र हो रहा है</string>
+    <string name="player_switch_quality_prompt">%1$dp पर बदलें?</string>
+    <string name="player_switch_quality_desc">यह %1$dp स्रोत एक मिनट में 3 बार रुका। %2$s से छोटी फ़ाइल बेहतर चल सकती है।</string>
+    <string name="player_switch_to_quality">%1$dp पर बदलें</string>
+    <string name="player_keep_quality">%1$dp रखें</string>
+    <string name="player_other_sources">अन्य स्रोत</string>
+    <string name="player_source_failed">स्रोत विफल रहा</string>
+    <string name="player_try_another_source">दूसरा स्रोत आज़माएं</string>
+
+    <!-- Streams Screen -->
+    <string name="streams_finding_sources">स्रोत खोजे जा रहे हैं…</string>
+    <string name="streams_no_sources_found">कोई चलाने योग्य स्रोत नहीं मिला।</string>
+    <string name="streams_quality">क्वालिटी</string>
+    <string name="streams_release">रिलीज़</string>
+    <string name="streams_size">साइज़</string>
+    <string name="streams_best_match">सर्वश्रेष्ठ मेल</string>
+    <string name="streams_auto">ऑटो</string>
+    <string name="streams_tv_language">टीवी भाषा</string>
+
+    <!-- Settings Groups -->
+    <string name="settings_group_streams">स्ट्रीम्स</string>
+    <string name="settings_group_picture">चित्र और ध्वनि</string>
+    <string name="settings_group_subtitles">उपशीर्षक</string>
+    <string name="settings_group_addons">ऐड-ऑन</string>
+    <string name="settings_group_profile">प्रोफ़ाइल</string>
+    <string name="settings_group_language">भाषा</string>
+    <string name="settings_group_storage">स्टोरेज</string>
+    <string name="settings_group_about">के बारे में</string>
+
+    <!-- Settings Options & Hints -->
+    <string name="settings_always_list">चलाएं दबाने पर</string>
+    <string name="settings_always_list_hint">Play और Resume क्या करें। OK दबाए रखने पर हमेशा सभी स्रोत दिखते हैं।</string>
+    <string name="settings_always_list_best">सर्वश्रेष्ठ स्रोत</string>
+    <string name="settings_always_list_show">स्रोत दिखाएं</string>
+    <string name="settings_max_height">अधिकतम क्वालिटी</string>
+    <string name="settings_max_height_hint">स्रोत चुनते समय इससे अधिक रिज़ॉल्यूशन को छोड़ दिया जाता है।</string>
+    <string name="settings_no_limit">कोई सीमा नहीं</string>
+    <string name="settings_max_size">सबसे बड़ी फ़ाइल</string>
+    <string name="settings_max_size_hint">धीमे कनेक्शन के लिए: बड़ी फ़ाइलों को शुरू होने में अधिक समय लगता है।</string>
+    <string name="settings_release_type">रिलीज़ का प्रकार</string>
+    <string name="settings_release_type_hint">इस प्रोफ़ाइल के लिए प्राथमिकता। REMUX पूर्ण ब्लू-रे है।</string>
+    <string name="settings_no_preference">कोई प्राथमिकता नहीं</string>
+    <string name="settings_remux">पूर्ण ब्लू-रे (REMUX)</string>
+    <string name="settings_encodes">छोटे एनकोड</string>
+    <string name="settings_web">वेब रिलीज़</string>
+    <string name="settings_hdr">HDR और डॉल्बी विज़न</string>
+    <string name="settings_hdr_hint">जब दोनों उपलब्ध हों तो प्राथमिकता। बंद करने पर सामान्य रिलीज़ चुनी जाती हैं।</string>
+    <string name="settings_match_frame_rate">फ़्रेम दर मिलाएं</string>
+    <string name="settings_match_frame_rate_hint">झटकों से बचने के लिए टीवी फ़िल्म की दर पर बदल जाता है।</string>
+    <string name="settings_passthrough">ऑडियो आउटपुट</string>
+    <string name="settings_passthrough_hint">रिसीवर डॉल्बी और DTS को साउंडबार पर भेजता है। टीवी स्पीकर यहां डिकोड करता है।</string>
+    <string name="settings_passthrough_receiver">रिसीवर (बिटस्ट्रीम)</string>
+    <string name="settings_passthrough_tv">टीवी स्पीकर (डिकोड)</string>
+    <string name="settings_subtitles_default">डिफ़ॉल्ट रूप से उपशीर्षक</string>
+    <string name="settings_subtitles_default_hint">उपलब्ध होने पर आपकी भाषा में उपशीर्षक शुरू होते हैं।</string>
+    <string name="settings_subtitle_size">उपशीर्षक का आकार</string>
+    <string name="settings_subtitle_size_hint">स्क्रीन पर उपशीर्षक कितने बड़े दिखें।</string>
+    <string name="settings_subtitle_background">उपशीर्षक पृष्ठभूमि</string>
+    <string name="settings_subtitle_background_hint">डार्क बॉक्स चमकदार दृश्यों में उपशीर्षक पढ़ने में मदद करता है।</string>
+    <string name="settings_default_tab">डिफ़ॉल्ट टैब</string>
+    <string name="settings_default_tab_hint">ऐप शुरू होने पर कौन सा टैब खुले।</string>
+    <string name="settings_movies_tab">फ़िल्में टैब</string>
+    <string name="settings_movies_tab_hint">शीर्ष बार में फ़िल्में टैब दिखाएं।</string>
+    <string name="settings_shows_tab">सीरीज़ टैब</string>
+    <string name="settings_shows_tab_hint">शीर्ष बार में सीरीज़ टैब दिखाएं।</string>
+    <string name="settings_live_tab">लाइव टैब</string>
+    <string name="settings_live_tab_hint">ऐड-ऑन में टीवी चैनल होने पर लाइव टैब दिखाएं।</string>
+    <string name="settings_featured_home">होम पर प्रमुख</string>
+    <string name="settings_featured_home_hint">देखना जारी रखें के नीचे शीर्ष सुझाव और ट्रेंडिंग दिखाएं।</string>
+    <string name="settings_blur_thumbnails">थंबनेल धुंधला करें</string>
+    <string name="settings_blur_thumbnails_hint">स्पॉइलर से बचने के लिए बिना देखे गए एपिसोड की तस्वीरें धुंधली करें।</string>
+    <string name="settings_app_language">ऐप भाषा</string>
+    <string name="settings_app_language_hint">ऐप इस टीवी की भाषा सेटिंग का पालन करता है।</string>
+    <string name="settings_clear_storage">स्थानीय स्टोरेज साफ़ करें</string>
+    <string name="settings_clear_storage_hint">इस टीवी से प्रोफ़ाइल, सेटिंग्स और डेटा हटाता है। Stremio खाते बने रहते हैं।</string>
+    <string name="settings_clear_storage_title">स्थानीय स्टोरेज साफ़ करें?</string>
+    <string name="settings_clear_storage_desc">यह इस टीवी से सहेजे गए प्रोफ़ाइल और डेटा हटाता है। यह आपके खाते को रद्द नहीं करता।</string>
+    <string name="settings_hidden_cw">जारी रखें से छिपाए गए</string>
+    <string name="settings_hidden_cw_hint">देखना जारी रखें से हटाया गया शीर्षक वापस लाएं।</string>
+    <string name="settings_hidden_rows">छिपाई गई पंक्तियां</string>
+    <string name="settings_hidden_rows_hint">कैटलॉग की छिपाई गई पंक्ति को वापस लाएं।</string>
+    <string name="settings_my_addons">मेरे ऐड-ऑन</string>
+    <string name="settings_my_addons_hint">URL से जोड़ें, क्रम बदलें या ऐड-ऑन हटाएं।</string>
+    <string name="settings_reload_addons">Stremio से पुनः लोड करें</string>
+    <string name="settings_reload_addons_hint">कहीं और इंस्टॉल करने के बाद ऐड-ऑन अपडेट करें।</string>
+
+    <!-- Search -->
+    <string name="search_recent">हाल ही में खोजा गया</string>
+    <string name="search_hold_ok_remove">हटाने के लिए OK दबाए रखें</string>
+    <string name="search_no_matches">कोई परिणाम नहीं मिला · छोटा शीर्षक आज़माएं</string>
+    <string name="search_voice_unavailable">इस टीवी पर वॉयस सर्च उपलब्ध नहीं है।</string>
+
+    <!-- Profiles & Onboarding -->
+    <string name="profiles_whos_here">आज कौन देख रहा है?</string>
+    <string name="profiles_manage">प्रोफ़ाइल प्रबंधित करें</string>
+    <string name="profiles_sign_in_again">पुनः साइन इन करें</string>
+    <string name="profiles_welcome">Alder में आपका स्वागत है</string>
+    <string name="profiles_new_profile">नई प्रोफ़ाइल</string>
+    <string name="profiles_name_color_prompt">इस प्रोफ़ाइल को एक नाम और रंग दें।</string>
+    <string name="profiles_all_set">सब तैयार है</string>
+
+    <!-- Updates -->
+    <string name="updates_ready_title">Alder %1$s तैयार है</string>
+    <string name="updates_install_prompt">Alder को अपडेट इंस्टॉल करने की अनुमति दें</string>
+    <string name="updates_install_instructions">Fire TV पर: सेटिंग्स › My Fire TV › डेवलपर विकल्प › अज्ञात ऐप्स इंस्टॉल करें, Alder चालू करें। Google TV पर: सेटिंग्स › ऐप्स › सुरक्षा › अज्ञात स्रोत, Alder चालू करें। फिर दोबारा इंस्टॉल चुनें।</string>
+    <string name="updates_download_failed">अपडेट डाउनलोड नहीं हो सका</string>
+    <string name="updates_download_failed_desc">टीवी का इंटरनेट कनेक्शन जांचें और सेटिंग्स › के बारे में से पुनः प्रयास करें।</string>
+    <string name="updates_whats_new">नया क्या है</string>
+    <string name="updates_no_notes">संस्करण %1$s के लिए कोई नोट नहीं है।</string>
+</resources>
