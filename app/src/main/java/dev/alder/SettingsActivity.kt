@@ -660,12 +660,19 @@ class SettingsActivity : Screen() {
         val cancel = chip("Cancel").apply {
             setOnClickListener { dialog.dismiss() }
         }
+        val refresh = chip("New code")
 
         val leftCol = column(Gravity.CENTER,
             qr.apply { layoutParams = LinearLayout.LayoutParams(dp(180), dp(180)) }
         ).apply {
             setPadding(dp(16), dp(16), dp(16), dp(16))
             background = glass(14)
+        }
+
+        val actions = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            addView(cancel)
+            addView(refresh, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(8) })
         }
 
         val rightCol = column(Gravity.START,
@@ -678,7 +685,7 @@ class SettingsActivity : Screen() {
                 addView(countdown, LinearLayout.LayoutParams(dp(18), dp(18)))
                 addView(status, wrap().apply { marginStart = dp(8) })
             }.marginTop(14),
-            cancel.marginTop(18)
+            actions.marginTop(18)
         ).apply {
             setPadding(dp(20), dp(10), dp(10), dp(10))
         }
@@ -703,60 +710,77 @@ class SettingsActivity : Screen() {
         dialog.show()
         cancel.requestFocus()
 
-        background({ Trakt.requestDeviceCode() }) { result ->
-            if (!active) return@background
-            result.onSuccess { devCode ->
-                qr.setImageBitmap(qrBitmap(devCode.verificationUrl, dp(180)))
-                val rawCode = devCode.userCode.replace("-", "").uppercase()
-                codeTiles.forEachIndexed { i, tile ->
-                    tile.text = rawCode.getOrNull(i)?.toString() ?: ""
-                }
-                val started = android.os.SystemClock.elapsedRealtime()
-                val totalMs = devCode.expiresInSeconds * 1000L
-                fun tick() {
-                    if (!active) return
-                    val left = ((totalMs - (android.os.SystemClock.elapsedRealtime() - started)).coerceAtLeast(0) / 1000).toInt()
-                    status.text = "Waiting for your phone · code expires in ${left / 60}:${"%02d".format(left % 60)}"
-                    countdown.progress = left * 100 / devCode.expiresInSeconds
-                    main.postDelayed(::tick, 1000)
-                }
-                tick()
+        var generation = 0
+        fun requestCode() {
+            val gen = ++generation
+            status.text = "Getting sign-in code…"
+            codeTiles.forEach { it.text = "–" }
+            countdown.progress = 0
+            qr.setImageDrawable(null)
 
-                fun poll() {
-                    if (!active) return
-                    background({ Trakt.pollToken(devCode.deviceCode) }) { pollRes ->
-                        if (!active) return@background
-                        when (val r = pollRes.getOrNull()) {
-                            is Trakt.PollResult.Success -> {
-                                status.text = "Authorizing…"
-                                background({ Trakt.fetchAndSaveUser(this, r.accessToken, r.refreshToken) }) { userRes ->
-                                    if (!active) return@background
-                                    val u = userRes.getOrNull()
-                                    status.text = "Connected as @$u ✓"
-                                    onDone()
-                                    main.postDelayed({ if (active) dialog.dismiss() }, 1500)
+            background({ Trakt.requestDeviceCode() }) { result ->
+                if (!active || gen != generation) return@background
+                result.onSuccess { devCode ->
+                    qr.setImageBitmap(qrBitmap("https://trakt.tv/activate/${devCode.userCode}", dp(180)))
+                    val rawCode = devCode.userCode.replace("-", "").uppercase()
+                    codeTiles.forEachIndexed { i, tile ->
+                        tile.text = rawCode.getOrNull(i)?.toString() ?: ""
+                    }
+                    val started = android.os.SystemClock.elapsedRealtime()
+                    val totalMs = devCode.expiresInSeconds * 1000L
+                    fun tick() {
+                        if (!active || gen != generation) return
+                        val left = ((totalMs - (android.os.SystemClock.elapsedRealtime() - started)).coerceAtLeast(0) / 1000).toInt()
+                        if (left <= 0) {
+                            status.text = "Code expired · getting new code…"
+                            requestCode()
+                            return
+                        }
+                        status.text = "Waiting for your phone · code in ${left / 60}:${"%02d".format(left % 60)}"
+                        countdown.progress = left * 100 / devCode.expiresInSeconds
+                        main.postDelayed(::tick, 1000)
+                    }
+                    tick()
+
+                    fun poll() {
+                        if (!active || gen != generation) return
+                        background({ Trakt.pollToken(devCode.deviceCode) }) { pollRes ->
+                            if (!active || gen != generation) return@background
+                            when (val r = pollRes.getOrNull()) {
+                                is Trakt.PollResult.Success -> {
+                                    status.text = "Authorizing…"
+                                    background({ Trakt.fetchAndSaveUser(this, r.accessToken, r.refreshToken) }) { userRes ->
+                                        if (!active || gen != generation) return@background
+                                        val u = userRes.getOrNull()
+                                        status.text = "Connected as @$u ✓"
+                                        onDone()
+                                        main.postDelayed({ if (active) dialog.dismiss() }, 1500)
+                                    }
                                 }
-                            }
-                            is Trakt.PollResult.Pending -> {
-                                main.postDelayed(::poll, devCode.intervalSeconds * 1000L)
-                            }
-                            is Trakt.PollResult.Expired -> {
-                                status.text = "Code expired. Please try again."
-                            }
-                            is Trakt.PollResult.Denied -> {
-                                status.text = "Authorization denied."
-                            }
-                            else -> {
-                                main.postDelayed(::poll, devCode.intervalSeconds * 1000L)
+                                is Trakt.PollResult.Pending -> {
+                                    main.postDelayed(::poll, devCode.intervalSeconds * 1000L)
+                                }
+                                is Trakt.PollResult.Expired -> {
+                                    status.text = "Code expired · getting new code…"
+                                    requestCode()
+                                }
+                                is Trakt.PollResult.Denied -> {
+                                    status.text = "Authorization denied."
+                                }
+                                else -> {
+                                    main.postDelayed(::poll, devCode.intervalSeconds * 1000L)
+                                }
                             }
                         }
                     }
+                    main.postDelayed(::poll, devCode.intervalSeconds * 1000L)
+                }.onFailure {
+                    status.text = "Can't reach Trakt. Select New code to retry."
                 }
-                main.postDelayed(::poll, devCode.intervalSeconds * 1000L)
-            }.onFailure {
-                status.text = "Can't reach Trakt. Check connection."
             }
         }
+        refresh.setOnClickListener { requestCode() }
+        requestCode()
     }
 
     private companion object {

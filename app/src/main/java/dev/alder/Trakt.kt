@@ -66,6 +66,9 @@ object Trakt {
             connectTimeout = 10_000
             readTimeout = 10_000
             setRequestProperty("Content-Type", "application/json")
+            setRequestProperty("trakt-api-version", "2")
+            setRequestProperty("trakt-api-key", CLIENT_ID)
+            setRequestProperty("User-Agent", "Alder/1.0")
             outputStream.use { it.write(payload.toByteArray()) }
         }
         val code = conn.responseCode
@@ -168,6 +171,7 @@ object Trakt {
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("trakt-api-version", "2")
             setRequestProperty("trakt-api-key", CLIENT_ID)
+            setRequestProperty("User-Agent", "Alder/1.0")
             token?.let { setRequestProperty("Authorization", "Bearer $it") }
             outputStream.use { it.write(body.toByteArray()) }
         }
@@ -185,6 +189,7 @@ object Trakt {
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("trakt-api-version", "2")
             setRequestProperty("trakt-api-key", CLIENT_ID)
+            setRequestProperty("User-Agent", "Alder/1.0")
             token?.let { setRequestProperty("Authorization", "Bearer $it") }
         }
         val code = conn.responseCode
