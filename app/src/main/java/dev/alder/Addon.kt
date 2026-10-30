@@ -223,6 +223,8 @@ class Meta(json: JSONObject) {
     val year = json.text("releaseInfo")?.trimEnd('–', '-', ' ') // "2026–" (still running) reads as 2026 everywhere
     val runtime = json.text("runtime")?.let(::runtime)
     val rating = json.text("imdbRating")
+    /** Content rating (PG-13, TV-MA) when the meta add-on sends one; otherwise IMDb fills it in on the title page. */
+    val certification = json.text("certification") ?: json.text("contentRating")
     val genres = json.optJSONArray("genres").strings().take(3)
     val directors: List<String> = (json.optJSONArray("director") ?: json.optJSONArray("directors"))?.strings()
         ?: json.text("director")?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }
@@ -540,6 +542,28 @@ internal fun orderTrailerStreams(videoTitle: String, playbackUrls: List<Pair<Str
             val label = if (quality.isNotBlank() && !quality.equals("AUTO", ignoreCase = true)) "$title ($quality)" else title
             Stream(label, quality, url, emptyMap(), 0L, null, null)
         }
+}
+
+/** The US content rating ("R", "TV-MA") from IMDb's `certificate` response, or null when IMDb has none. */
+internal fun parseImdbCertificate(json: JSONObject): String? =
+    json.optJSONObject("data")?.optJSONObject("title")?.optJSONObject("certificate")?.text("rating")
+        ?.trim()?.takeIf { it.isNotBlank() }
+
+private val imdbCertificateCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+internal fun imdbCertificate(imdbId: String): String? {
+    if (!imdbId.startsWith("tt")) return null
+    imdbCertificateCache[imdbId]?.let { return it }
+    return runCatching {
+        val query = JSONObject().put("query", "{title(id:\"$imdbId\"){certificate{rating}}}").toString()
+        val raw = Http.post(
+            "https://api.graphql.imdb.com/",
+            query,
+            timeoutMs = 5_000,
+            headers = mapOf("x-imdb-client-name" to "imdb-web-next-localized")
+        )
+        parseImdbCertificate(JSONObject(raw))?.also { imdbCertificateCache[imdbId] = it }
+    }.getOrNull()
 }
 
 /**
