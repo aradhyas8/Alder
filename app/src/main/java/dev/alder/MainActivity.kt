@@ -221,7 +221,7 @@ class MainActivity : Screen() {
         val bright = samplePixels(src, 16, 24)?.let { brightLeft(it, 16) } ?: false
         shade(canvas, w, h, bright)
         src.recycle()
-        out.copy(Bitmap.Config.HARDWARE, false).also { out.recycle() }
+        out.toGpu()
     }
 
     /**
@@ -240,7 +240,7 @@ class MainActivity : Screen() {
             shader = RadialGradient(w * 0.7f, h * 0.32f, w * 0.7f, tint and 0x00FFFFFF or (0xB3 shl 24), tint and 0x00FFFFFF, Shader.TileMode.CLAMP)
         })
         shade(canvas, w, h, false)
-        out.copy(Bitmap.Config.HARDWARE, false).also { out.recycle() }
+        out.toGpu()
     }
 
     /** The left darkening behind the words, the long one down to the cards, and a light one under the top bar. */
