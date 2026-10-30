@@ -46,7 +46,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 
 ### Easier to use
 <!-- Spotlight -->
-- **House Lights logos.** Alder uses the tungsten mark on the TV banner, transparent app icon, and small transparent logo.
+- **House Lights logos.** Alder uses the tungsten mark on the TV banner, transparent app icon, and small transparent logo. The profile picker and Settings headers use vector art.
 - **Content ratings on the title page.** A badge shows the content rating, for example PG-13, R, or TV-MA, before the year.
 - **Compact Up next prompt.** The Up next card uses a smaller width, smaller text, and a single Next episode button.
 - **QWERTY Search keys.** The Search keyboard uses QWERTY letter rows. The microphone icon stays dim until voice search is available.
