@@ -78,4 +78,6 @@ dependencies {
     // Software audio for what TVs can't decode themselves (DTS, TrueHD), so those files still have sound.
     implementation("org.jellyfin.media3:media3-ffmpeg-decoder:$media3+1")
     testImplementation("junit:junit:4.13.2")
+    // Android's org.json is a stub in local unit tests; the real one lets tests parse add-on and IMDb responses.
+    testImplementation("org.json:json:20240303")
 }

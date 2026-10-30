@@ -60,7 +60,7 @@ object Settings {
     fun featuredHome(c: Context) = prefs(c).getBoolean(profileKey(c, "featuredHome"), false)
     /** A removed profile's taste goes with it, so a new profile in its place starts with none. */
     fun forget(c: Context, profileId: String) = prefs(c).edit().apply {
-        listOf("release", "dub", "audioLang", "subLang", "hidden", "blurThumbnails", "hiddenRows", "startTab", "showMovies", "showShows", "showLive", "featuredHome").forEach { remove("$it@$profileId") }
+        listOf("release", "dub", "audioLang", "subLang", "hidden", "blurThumbnails", "hiddenRows", "startTab", "showMovies", "showShows", "showLive", "featuredHome", "recentSubLangs", "recentAudioLangs").forEach { remove("$it@$profileId") }
         prefs(c).all.keys.filter { it.startsWith("title:") && it.endsWith("@$profileId") }.forEach(::remove)
     }.apply()
 
@@ -113,7 +113,43 @@ object Settings {
     fun subtitleLanguage(c: Context): String = prefs(c).getString(profileKey(c, "subLang"), "")
         .orEmpty().ifEmpty { Languages.code(Locale.getDefault().toLanguageTag()) ?: "en" }
     fun subtitleSize(c: Context) = prefs(c).getInt("subSize", 100) // percent of Media3's default size
+    fun subtitleColorName(c: Context): String = prefs(c).getString("subColor", "white").orEmpty().ifEmpty { "white" }
+    fun subtitleColor(c: Context) = subtitleColorValue(subtitleColorName(c))
     fun subtitleBackground(c: Context) = prefs(c).getBoolean("subBackground", true)
+    fun setSubtitleSize(c: Context, size: Int) = prefs(c).edit().putInt("subSize", size).apply()
+    fun setSubtitleColor(c: Context, color: String) = prefs(c).edit().putString("subColor", color).apply()
+    fun setSubtitleBackground(c: Context, on: Boolean) = prefs(c).edit().putBoolean("subBackground", on).apply()
+
+    fun recentSubtitles(c: Context): List<String> = runCatching {
+        val raw = prefs(c).getString(profileKey(c, "recentSubLangs"), null) ?: return emptyList()
+        val arr = org.json.JSONArray(raw)
+        (0 until arr.length()).map { arr.getString(it) }
+    }.getOrDefault(emptyList())
+
+    fun addRecentSubtitle(c: Context, langCode: String) {
+        val updated = updateRecentLanguages(recentSubtitles(c), langCode, 3)
+        prefs(c).edit().putString(profileKey(c, "recentSubLangs"), org.json.JSONArray(updated).toString()).apply()
+    }
+
+    fun recentAudio(c: Context): List<String> = runCatching {
+        val raw = prefs(c).getString(profileKey(c, "recentAudioLangs"), null) ?: return emptyList()
+        val arr = org.json.JSONArray(raw)
+        (0 until arr.length()).map { arr.getString(it) }
+    }.getOrDefault(emptyList())
+
+    fun addRecentAudio(c: Context, langCode: String) {
+        val updated = updateRecentLanguages(recentAudio(c), langCode, 3)
+        prefs(c).edit().putString(profileKey(c, "recentAudioLangs"), org.json.JSONArray(updated).toString()).apply()
+    }
+}
+
+/** ARGB color for subtitle text from a preference name. */
+fun subtitleColorValue(name: String): Int = when (name.trim().lowercase()) {
+    "yellow" -> 0xFFFFE600.toInt()
+    "cyan" -> 0xFF00FFFF.toInt()
+    "cream" -> 0xFFFFF5C0.toInt()
+    "warm_white", "warm white", "warmwhite" -> 0xFFF3EEE6.toInt()
+    else -> 0xFFFFFFFF.toInt()
 }
 
 /**
@@ -217,6 +253,8 @@ class SettingsActivity : Screen() {
     private val subtitleLooks = listOf(
         Choice("subSize", "Subtitle size", "How big subtitles are on screen.",
             listOf(100 to "Medium", 130 to "Large", 160 to "Extra large", 80 to "Small")),
+        Choice("subColor", "Subtitle color", "The color of subtitle text.",
+            listOf("white" to "White", "yellow" to "Yellow", "cyan" to "Cyan", "cream" to "Cream", "warm_white" to "Warm white")),
         Choice("subBackground", "Subtitle background", "A dark box behind subtitles keeps them readable in bright scenes.",
             listOf(true to "On", false to "Off")),
     )
