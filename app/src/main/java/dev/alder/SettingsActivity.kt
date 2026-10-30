@@ -60,7 +60,7 @@ object Settings {
     fun featuredHome(c: Context) = prefs(c).getBoolean(profileKey(c, "featuredHome"), false)
     /** A removed profile's taste goes with it, so a new profile in its place starts with none. */
     fun forget(c: Context, profileId: String) = prefs(c).edit().apply {
-        listOf("release", "dub", "audioLang", "subLang", "hidden", "blurThumbnails", "hiddenRows", "startTab", "showMovies", "showShows", "showLive", "featuredHome").forEach { remove("$it@$profileId") }
+        listOf("release", "dub", "audioLang", "subLang", "hidden", "blurThumbnails", "hiddenRows", "startTab", "showMovies", "showShows", "showLive", "featuredHome", "recentSubLangs", "recentAudioLangs").forEach { remove("$it@$profileId") }
         prefs(c).all.keys.filter { it.startsWith("title:") && it.endsWith("@$profileId") }.forEach(::remove)
     }.apply()
 
@@ -89,7 +89,23 @@ object Settings {
     fun alwaysList(c: Context) = prefs(c).getBoolean("alwaysList", false)
     fun matchFrameRate(c: Context) = prefs(c).getBoolean("matchFrameRate", true)
     fun passthrough(c: Context) = prefs(c).getBoolean("passthrough", false)
-    fun subtitles(c: Context) = prefs(c).getBoolean("subtitles", true)
+    fun clearDialogue(c: Context) = prefs(c).getBoolean("clearDialogue", false)
+    fun setClearDialogue(c: Context, on: Boolean) = prefs(c).edit().putBoolean("clearDialogue", on).apply()
+    /** "on", "foreign" (only when audio differs or forced), "off". Migrates old Boolean "subtitles". */
+    fun subPref(c: Context): String {
+        val p = prefs(c)
+        val key = profileKey(c, "subPref")
+        val oldKey = "subtitles"
+        if (!p.contains(key)) {
+            val fallback = if (p.contains(oldKey)) {
+                val oldBool = runCatching { p.getBoolean(oldKey, true) }.getOrDefault(true)
+                if (oldBool) "on" else "off"
+            } else "on"
+            p.edit().putString(key, fallback).remove(oldKey).apply()
+        }
+        return p.getString(key, "on").orEmpty().ifEmpty { "on" }
+    }
+    fun subtitles(c: Context) = subPref(c) != "off"
     /** Two-letter code of the dub to start with: the TV's language unless one is picked. */
     fun audioLanguage(c: Context): String = prefs(c).getString(profileKey(c, "audioLang"), prefs(c).getString("audioLang", ""))
         .orEmpty().ifEmpty { Languages.code(Locale.getDefault().toLanguageTag()) ?: "en" }
@@ -97,15 +113,43 @@ object Settings {
     fun subtitleLanguage(c: Context): String = prefs(c).getString(profileKey(c, "subLang"), "")
         .orEmpty().ifEmpty { Languages.code(Locale.getDefault().toLanguageTag()) ?: "en" }
     fun subtitleSize(c: Context) = prefs(c).getInt("subSize", 100) // percent of Media3's default size
+    fun subtitleColorName(c: Context): String = prefs(c).getString("subColor", "white").orEmpty().ifEmpty { "white" }
+    fun subtitleColor(c: Context) = subtitleColorValue(subtitleColorName(c))
     fun subtitleBackground(c: Context) = prefs(c).getBoolean("subBackground", true)
-    fun appLanguage(c: Context): String = prefs(c).getString("appLocale", "") ?: ""
-    fun setAppLanguage(c: Context, lang: String) {
-        prefs(c).edit().putString("appLocale", lang).apply()
-        if (android.os.Build.VERSION.SDK_INT >= 33) {
-            val lm = c.getSystemService(android.app.LocaleManager::class.java)
-            lm?.applicationLocales = if (lang.isEmpty()) android.os.LocaleList.getEmptyLocaleList() else android.os.LocaleList.forLanguageTags(lang)
-        }
+    fun setSubtitleSize(c: Context, size: Int) = prefs(c).edit().putInt("subSize", size).apply()
+    fun setSubtitleColor(c: Context, color: String) = prefs(c).edit().putString("subColor", color).apply()
+    fun setSubtitleBackground(c: Context, on: Boolean) = prefs(c).edit().putBoolean("subBackground", on).apply()
+
+    fun recentSubtitles(c: Context): List<String> = runCatching {
+        val raw = prefs(c).getString(profileKey(c, "recentSubLangs"), null) ?: return emptyList()
+        val arr = org.json.JSONArray(raw)
+        (0 until arr.length()).map { arr.getString(it) }
+    }.getOrDefault(emptyList())
+
+    fun addRecentSubtitle(c: Context, langCode: String) {
+        val updated = updateRecentLanguages(recentSubtitles(c), langCode, 3)
+        prefs(c).edit().putString(profileKey(c, "recentSubLangs"), org.json.JSONArray(updated).toString()).apply()
     }
+
+    fun recentAudio(c: Context): List<String> = runCatching {
+        val raw = prefs(c).getString(profileKey(c, "recentAudioLangs"), null) ?: return emptyList()
+        val arr = org.json.JSONArray(raw)
+        (0 until arr.length()).map { arr.getString(it) }
+    }.getOrDefault(emptyList())
+
+    fun addRecentAudio(c: Context, langCode: String) {
+        val updated = updateRecentLanguages(recentAudio(c), langCode, 3)
+        prefs(c).edit().putString(profileKey(c, "recentAudioLangs"), org.json.JSONArray(updated).toString()).apply()
+    }
+}
+
+/** ARGB color for subtitle text from a preference name. */
+fun subtitleColorValue(name: String): Int = when (name.trim().lowercase()) {
+    "yellow" -> 0xFFFFE600.toInt()
+    "cyan" -> 0xFF00FFFF.toInt()
+    "cream" -> 0xFFFFF5C0.toInt()
+    "warm_white", "warm white", "warmwhite" -> 0xFFF3EEE6.toInt()
+    else -> 0xFFFFFFFF.toInt()
 }
 
 /**
@@ -167,16 +211,15 @@ class SettingsActivity : Screen() {
     private class Choice(val key: String, val label: String, val hint: String, val values: List<Pair<Any, String>>, val perProfile: Boolean = false) {
         init { require(values.isNotEmpty() && values.all { it.first.javaClass == values[0].first.javaClass }) }
     }
-    private enum class Group(val labelRes: Int, val icon: Int = 0, val glyph: String = "") {
-        STREAMS(R.string.settings_group_streams, R.drawable.ic_play),
-        PICTURE(R.string.settings_group_picture, R.drawable.ic_tv),
-        SUBTITLES(R.string.settings_group_subtitles, R.drawable.ic_subtitles),
-        ADDONS(R.string.settings_group_addons, R.drawable.ic_layers),
-        PROFILE(R.string.settings_group_profile, glyph = "♙"),
-        LANGUAGE(R.string.settings_group_language, glyph = "◎"),
-        STORAGE(R.string.settings_group_storage, glyph = "▤"),
-        ABOUT(R.string.settings_group_about, R.drawable.ic_info);
-        fun label(c: Context): String = c.getString(labelRes)
+    private enum class Group(val label: String, val icon: Int = 0, val glyph: String = "") {
+        STREAMS("Streams", R.drawable.ic_play),
+        PICTURE("Picture & Sound", R.drawable.ic_tv),
+        SUBTITLES("Subtitles", R.drawable.ic_subtitles),
+        ADDONS("Add-ons", R.drawable.ic_layers),
+        PROFILE("Profile", glyph = "♙"),
+        LANGUAGE("Language", glyph = "◎"),
+        STORAGE("Storage", glyph = "▤"),
+        ABOUT("About", R.drawable.ic_info),
     }
 
     private val streaming = listOf(
@@ -196,18 +239,22 @@ class SettingsActivity : Screen() {
             listOf(true to "On", false to "Off")),
         Choice("passthrough", "Audio output", "Receiver sends Dolby and DTS untouched to a soundbar or receiver. TV speakers decodes the sound here, which always works.",
             listOf(false to "TV speakers", true to "Receiver")),
+        Choice("clearDialogue", "Clear dialogue", "Lifts voices above music and loud effects when using TV speakers.",
+            listOf(false to "Off", true to "On")),
     )
     private val dubbed = listOf(
         Choice("dub", "Dubbed releases", "Original first puts dubbed releases last; My language first uses this profile's audio language.",
             listOf("" to "No preference", "original" to "Original first", "mine" to "My language first"), true),
     )
     private val subtitles = listOf(
-        Choice("subtitles", "Subtitles by default", "Subtitles in your subtitle language start with the video when available.",
-            listOf(true to "On", false to "Off")),
+        Choice("subPref", "Subtitles by default", "Subtitles in your subtitle language start with the video when available.",
+            listOf("on" to "Always on", "foreign" to "Foreign audio only", "off" to "Off"), true),
     )
     private val subtitleLooks = listOf(
         Choice("subSize", "Subtitle size", "How big subtitles are on screen.",
             listOf(100 to "Medium", 130 to "Large", 160 to "Extra large", 80 to "Small")),
+        Choice("subColor", "Subtitle color", "The color of subtitle text.",
+            listOf("white" to "White", "yellow" to "Yellow", "cyan" to "Cyan", "cream" to "Cream", "warm_white" to "Warm white")),
         Choice("subBackground", "Subtitle background", "A dark box behind subtitles keeps them readable in bright scenes.",
             listOf(true to "On", false to "Off")),
     )
@@ -233,6 +280,7 @@ class SettingsActivity : Screen() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Settings.hdrPref(this) // migrate the old HDR switch before any row reads it
+        Settings.subPref(this) // migrate the old subtitles switch before any row reads it
         val width = resources.displayMetrics.widthPixels / resources.displayMetrics.density
         val height = resources.displayMetrics.heightPixels / resources.displayMetrics.density
         val root = FrameLayout(this).apply { setBackgroundColor(BASE); clipChildren = false; clipToPadding = false }
@@ -339,7 +387,7 @@ class SettingsActivity : Screen() {
             setImageResource(group.icon)
             imageTintList = ColorStateList.valueOf(TEXT_3)
         } else text(group.glyph, BODY, color = TEXT_3).apply { gravity = Gravity.CENTER }
-        val label = text(group.label(this), BODY, bold = true, color = TEXT_2)
+        val label = text(group.label, BODY, bold = true, color = TEXT_2)
         val badge = View(this).apply {
             background = rounded(TUNGSTEN, 3)
             visibility = if (group == Group.ABOUT && Updates.hasUpdate(this@SettingsActivity)) View.VISIBLE else View.GONE
@@ -371,7 +419,7 @@ class SettingsActivity : Screen() {
             groupLabels[item]?.setTextColor(if (item == group) TEXT else if (item == Group.STORAGE || item == Group.ABOUT) TEXT_3 else TEXT_2)
             if (!view.hasFocus()) view.background = if (item == group) tile(8) else null
         }
-        detailTitle.text = group.label(this)
+        detailTitle.text = group.label
         detailRows.removeAllViews()
         rowsScroll.scrollTo(0, 0)
         choiceRows.clear()
@@ -475,27 +523,12 @@ class SettingsActivity : Screen() {
                     "Blur pictures of unwatched episodes in show guides to avoid spoilers.",
                     listOf(false to "Off", true to "On"), perProfile = true))
             }
-            Group.LANGUAGE -> {
-                val current = Settings.appLanguage(this)
-                val currentName = if (current.isEmpty()) "${getString(R.string.streams_tv_language)} (${Locale.getDefault().displayLanguage})" else Languages.name(current)
-                actionRow(getString(R.string.settings_app_language), currentName, getString(R.string.settings_app_language_hint)) {
-                    val supported = listOf(
-                        "" to getString(R.string.streams_tv_language),
-                        "en" to "English",
-                        "es" to "Español",
-                        "pt-BR" to "Português (Brasil)",
-                        "fr" to "Français",
-                        "de" to "Deutsch",
-                        "hi" to "हिन्दी",
-                        "it" to "Italiano"
-                    )
-                    val currentIndex = supported.indexOfFirst { it.first == current }.coerceAtLeast(0)
-                    choose(getString(R.string.settings_app_language), supported.map { it.second }, checked = currentIndex) { picked ->
-                        val code = supported[picked].first
-                        Settings.setAppLanguage(this, code)
-                        recreate()
-                    }
-                }
+            Group.LANGUAGE -> actionRow("App language", Locale.getDefault().displayLanguage,
+                "The app follows this TV's language setting.") {
+                runCatching { startActivity(Intent(android.provider.Settings.ACTION_APP_LOCALE_SETTINGS)
+                    .setData(android.net.Uri.parse("package:$packageName"))) }
+                    .recoverCatching { startActivity(Intent(android.provider.Settings.ACTION_LOCALE_SETTINGS)) }
+                    .onFailure { choose("Language settings are unavailable on this TV.", listOf("OK")) {} }
             }
             Group.STORAGE -> actionRow("Clear local storage", "", "Removes profiles, settings and saved data from this TV. Stremio accounts stay as they are.") {
                 choose("Clear local storage?", listOf("Cancel", "Clear"),

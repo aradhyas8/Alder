@@ -66,15 +66,15 @@ class StreamsActivity : Screen() {
         }
         val cols = LinearLayout(this).apply {
             setPadding(dp(12), dp(8), dp(12), dp(4))
-            addView(caps(R.string.streams_quality, TEXT_3).apply { maxLines = 1 }, LinearLayout.LayoutParams(dp(QUALITY_W), -2))
-            addView(caps(R.string.streams_release, TEXT_3), LinearLayout.LayoutParams(0, -2, 1f))
-            addView(caps(R.string.streams_size, TEXT_3).apply { gravity = Gravity.END }, LinearLayout.LayoutParams(dp(72), -2))
+            addView(caps("Quality", TEXT_3).apply { maxLines = 1 }, LinearLayout.LayoutParams(dp(QUALITY_W), -2))
+            addView(caps("Release", TEXT_3), LinearLayout.LayoutParams(0, -2, 1f))
+            addView(caps("Size", TEXT_3).apply { gravity = Gravity.END }, LinearLayout.LayoutParams(dp(72), -2))
         }
         languageStrip = HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false; clipChildren = false; clipToPadding = false; visibility = View.GONE
         }
         val rows = column(Gravity.START)
-        val status = text(intent.getStringExtra("message") ?: getString(R.string.streams_finding_sources), BODY, color = TEXT_2).onArt()
+        val status = text(intent.getStringExtra("message") ?: "Finding sources…", BODY, color = TEXT_2).onArt()
         rows.addView(status, LinearLayout.LayoutParams(-1, -2).apply { marginStart = dp(12); topMargin = dp(12) })
         val scroll = ScrollView(this).apply {
             isVerticalScrollBarEnabled = false
@@ -143,7 +143,7 @@ class StreamsActivity : Screen() {
         val lenders = Profiles.streamLenders(this)
         // Asks every add-on again (a fixed connection, or an add-on set up again on the phone); a source found plays.
         fun tryAgain(focus: Boolean = true) {
-            val again = pill(R.string.action_try_again).apply { setOnClickListener { recreate() } }
+            val again = pill("Try again").apply { setOnClickListener { recreate() } }
             rows.addView(again, wrap().apply { marginStart = dp(12); topMargin = dp(16); bottomMargin = dp(12) })
             if (focus) again.requestFocus()
         }
@@ -187,7 +187,7 @@ class StreamsActivity : Screen() {
                 rows.removeAllViews()
                 cols.visibility = if (shown.isEmpty()) View.GONE else View.VISIBLE
                 if (shown.isEmpty()) {
-                    rows.addView(text(R.string.streams_no_sources_found, BODY, color = TEXT_2).onArt().apply {
+                    rows.addView(text("No playable sources found.", BODY, color = TEXT_2).onArt().apply {
                         setPadding(dp(12), dp(12), 0, 0)
                     })
                     val unplayable = answers.sumOf { a -> a.orEmpty().count { it.isVideo && !it.playableOn(tv) } }
@@ -335,9 +335,9 @@ class StreamsActivity : Screen() {
         StreamsResolver.wanted(this, s, intent.getIntExtra("maxHeight", 0))
 
     private fun streamRow(s: Stream, addon: String, best: Boolean): View {
-        val quality = text(if (s.height > 0) "${s.height}p" else getString(R.string.streams_auto), BODY, bold = true).onArt()
+        val quality = text(if (s.height > 0) "${s.height}p" else "Auto", BODY, bold = true).onArt()
         val detail = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        if (best) detail.addView(text(R.string.streams_best_match, 9f, bold = true, color = BASE).apply {
+        if (best) detail.addView(text("BEST MATCH", 9f, bold = true, color = BASE).apply {
             letterSpacing = 0.04f
             background = rounded(TUNGSTEN, 3)
             setPadding(dp(5), dp(2), dp(5), dp(2))
