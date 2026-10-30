@@ -42,6 +42,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - **Blur episode thumbnails.** Turn on **Settings → Profile → Blur episode thumbnails**. Alder blurs pictures of unwatched episodes to prevent spoilers.
 
 ### Easier to use
+- **Content ratings on the title page.** A badge shows the content rating, for example PG-13, R, or TV-MA, before the year.
 - **Compact Up next prompt.** The Up next card uses a smaller width, smaller text, and a single Next episode button.
 - **QWERTY Search keys.** The Search keyboard uses QWERTY letter rows. The microphone icon stays dim until voice search is available.
 - **Audio and subtitle tabs.** Select **Subtitles**, **Audio**, or **Sync & Style**. Active, preferred, and recent tracks appear first. Adjust subtitle sync in the panel.

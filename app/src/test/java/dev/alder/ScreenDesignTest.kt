@@ -428,6 +428,14 @@ class ScreenDesignTest {
         )
     }
 
+    @Test fun contentRatingParsesFromImdbAndMeta() {
+        assertEquals("TV-MA", parseImdbCertificate(org.json.JSONObject("""{"data":{"title":{"certificate":{"rating":"TV-MA"}}}}""")))
+        assertEquals(null, parseImdbCertificate(org.json.JSONObject("""{"data":{"title":{"certificate":null}}}""")))
+        assertEquals("PG-13", Meta(org.json.JSONObject("""{"id":"tt1","certification":"PG-13"}""")).certification)
+        assertEquals("R", Meta(org.json.JSONObject("""{"id":"tt1","contentRating":"R"}""")).certification)
+        assertEquals(null, Meta(org.json.JSONObject("""{"id":"tt1"}""")).certification)
+    }
+
     @Test fun playerPauseFactsAndBrandBadges() {
         assertEquals("2025  ·  Ends 7:18 PM", playerPauseFacts("2025", "7:18 PM", isTrailer = false, isLive = false))
         assertEquals("S5 E2  ·  Ends 8:56 PM", playerPauseFacts("S5 E2", "8:56 PM", isTrailer = false, isLive = false))

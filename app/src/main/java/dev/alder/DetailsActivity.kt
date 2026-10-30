@@ -129,6 +129,8 @@ class DetailsActivity : Screen() {
     private var similarRequested = false
     private var imdbTrailers: List<Stream> = emptyList()
     private var trailerRequested = false
+    private var certificate: String? = null
+    private var certificateRequested = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -165,10 +167,21 @@ class DetailsActivity : Screen() {
                 refrost()
             }
             richCast = m.castMembers
+            certificate = m.certification ?: certificate
             showHero(m)
             if (type == "series" && m.videos.isNotEmpty()) buildGuide(m.videos)
             if (type == "movie" && !similarRequested) { similarRequested = true; loadSimilar() }
             loadRichCast()
+            if (!certificateRequested && certificate == null && m.id.startsWith("tt")) {
+                certificateRequested = true
+                background<String?>({ imdbCertificate(m.id) }) { r ->
+                    val resolved = r.getOrNull()
+                    if (resolved != null && resolved != certificate) {
+                        certificate = resolved
+                        if (!guideOpen && !infoOpen && !similarOpen && !filmographyOpen) showHero(meta)
+                    }
+                }
+            }
             if (!trailerRequested && m.id.startsWith("tt")) {
                 trailerRequested = true
                 background({ imdbTrailerStreams(m.id) }) { r ->
@@ -239,6 +252,19 @@ class DetailsActivity : Screen() {
                 .takeIf { it > 0 }?.let(::seasons) else m.runtime
             val facts = listOfNotNull(m.year, m.genres.firstOrNull(), length).joinToString(DOT)
             val factRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+            // Content rating first, as a hairline-bordered badge: [ TV-MA ] · 2024 · Drama · 2 seasons
+            certificate?.let { cert ->
+                factRow.addView(text(cert, 9.5f, bold = true, color = TEXT_2).apply {
+                    includeFontPadding = false
+                    setLineSpacing(0f, 1f)
+                    setPadding(dp(5), dp(2), dp(5), dp(2))
+                    background = GradientDrawable().apply {
+                        cornerRadius = dp(3).toFloat()
+                        setStroke(dp(1), 0x55FFFFFF)
+                    }
+                })
+                if (facts.isNotBlank()) factRow.addView(text(DOT, SMALL, color = TEXT_2).onArt())
+            }
             factRow.addView(text(facts, SMALL, color = TEXT_2).onArt().apply {
                 maxLines = 1; ellipsize = TextUtils.TruncateAt.END
             })
