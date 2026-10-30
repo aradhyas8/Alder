@@ -42,6 +42,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - **Blur episode thumbnails.** Turn on **Settings → Profile → Blur episode thumbnails**. Alder blurs pictures of unwatched episodes to prevent spoilers.
 
 ### Easier to use
+- **New Alder logo and TV banner.** Clean brand mark and banner with warm colors. The in-app header uses sharp vector art.
 - **Clearer title page.** Cast names stay clear in dark glass capsules.
 - **Clearer menus.** Add-on lists, Search, and choice menus use glass that is easy to read.
 - **Clearer player controls.** The control bar shows more video. Player tags and panels use dark glass.
