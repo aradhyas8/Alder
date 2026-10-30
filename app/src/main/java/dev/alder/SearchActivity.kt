@@ -113,7 +113,7 @@ class SearchActivity : Screen() {
             imageTintList = ColorStateList.valueOf(TEXT_2)
         }, LinearLayout.LayoutParams(dp(15), dp(15)))
         input = EditText(this).apply {
-            hint = "Search"
+            hint = getString(R.string.nav_search)
             setHintTextColor(TEXT_3)
             setTextColor(TEXT)
             textSize = BODY
@@ -137,7 +137,7 @@ class SearchActivity : Screen() {
             setImageResource(R.drawable.ic_close)
             imageTintList = ColorStateList.valueOf(TEXT_2)
             setPadding(dp(4), dp(4), dp(4), dp(4))
-            contentDescription = "Clear search"
+            contentDescription = getString(R.string.search_clear)
             visibility = View.GONE
             rowFocus(11)
             setOnClickListener {
@@ -248,7 +248,8 @@ class SearchActivity : Screen() {
             background = glass(15)
             rowFocus(15, rest = { glass(15) })
             setOnClickListener {
-                choose(profile?.name ?: "Profile", listOf("Switch profile", "Settings")) { picked ->
+                choose(profile?.name ?: getString(R.string.nav_profile),
+                    listOf(getString(R.string.menu_switch_profile), getString(R.string.menu_settings))) { picked ->
                     startActivity(Intent(this@SearchActivity,
                         if (picked == 0) ProfilesActivity::class.java else SettingsActivity::class.java)
                         .apply { if (picked == 0) {
@@ -265,7 +266,7 @@ class SearchActivity : Screen() {
         }
         val searchTab = FrameLayout(this).apply {
             isFocusable = true
-            contentDescription = "Search"
+            contentDescription = getString(R.string.nav_search)
             addView(ImageView(this@SearchActivity).apply {
                 setImageResource(R.drawable.ic_search)
                 imageTintList = ColorStateList.valueOf(TEXT)
@@ -276,8 +277,10 @@ class SearchActivity : Screen() {
             setOnClickListener { input.requestFocus() }
         }
         nav.addView(searchTab, LinearLayout.LayoutParams(dp(44), dp(30)))
-        listOf("Home", "Shows", "Movies", "My List").forEach { page ->
-            nav.addView(text(page, BODY, color = TEXT_2).apply {
+        // The page goes to MainActivity by its English name; the bar shows it in the viewer's language.
+        listOf("Home" to R.string.tab_home, "Shows" to R.string.tab_shows, "Movies" to R.string.tab_movies,
+            "My List" to R.string.tab_my_list).forEach { (page, words) ->
+            nav.addView(text(words, BODY, color = TEXT_2).apply {
                 gravity = Gravity.CENTER
                 setPadding(dp(12), 0, dp(12), 0)
                 isFocusable = true
@@ -331,13 +334,13 @@ class SearchActivity : Screen() {
         key("−", controls, 2, false) { append("-") }
         key("⌫", controls, 5, true) { delete() }
         val last = keyRow()
-        key("SPACE", last, 8, true) { append(" ") }
+        key(getString(R.string.search_space).uppercase(), last, 8, true) { append(" ") }
         last.addView(ImageView(this).apply {
             setImageResource(R.drawable.ic_mic)
             imageTintList = ColorStateList.valueOf(TEXT_3)
             scaleType = ImageView.ScaleType.CENTER
             alpha = 0.45f
-            contentDescription = "Voice search unavailable"
+            contentDescription = getString(R.string.search_voice_unavailable)
             isFocusable = false
             isClickable = false
         }, LinearLayout.LayoutParams(dp(49), -1).apply { marginStart = dp(3) })
@@ -428,7 +431,7 @@ class SearchActivity : Screen() {
         recentBox.removeAllViews()
         val values = recent()
         if (values.isEmpty()) return
-        recentBox.addView(caps("Recent", TEXT_3), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(7) })
+        recentBox.addView(caps(R.string.search_recent, TEXT_3), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(7) })
         values.chunked(2).forEach { pair ->
             val line = LinearLayout(this)
             pair.forEach { query ->
@@ -437,7 +440,7 @@ class SearchActivity : Screen() {
                     maxWidth = dp(110)
                     maxLines = 1
                     ellipsize = TextUtils.TruncateAt.END
-                    contentDescription = "$query. Hold OK to remove from recent searches"
+                    contentDescription = getString(R.string.search_recent_hint, query)
                     setOnClickListener {
                         input.setText(query)
                         input.setSelection(query.length)
@@ -445,7 +448,8 @@ class SearchActivity : Screen() {
                         search(true)
                     }
                     setOnLongClickListener {
-                        choose("Remove recent search?", listOf("Remove $query", "Cancel")) { picked ->
+                        choose(getString(R.string.search_remove_recent),
+                            listOf(getString(R.string.search_remove_query, query), getString(R.string.action_cancel))) { picked ->
                             if (picked == 0) {
                                 getSharedPreferences("search", MODE_PRIVATE).edit()
                                     .putString(recentKey(), recent().filterNot { it == query }.joinToString("\n")).apply()
@@ -458,7 +462,7 @@ class SearchActivity : Screen() {
             }
             recentBox.addView(line, LinearLayout.LayoutParams(-1, dp(27)))
         }
-        recentBox.addView(text("Hold OK to remove", SMALL, color = TEXT_3),
+        recentBox.addView(text(R.string.search_hold_to_remove, SMALL, color = TEXT_3),
             LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(5) })
     }
 
@@ -491,8 +495,8 @@ class SearchActivity : Screen() {
                 val titles = answer.getOrNull().orEmpty()
                 if (titles.isEmpty()) {
                     results.removeAllViews()
-                    results.addView(failed("Popular titles are unavailable.") { search(false) })
-                } else render(linkedMapOf("Popular" to titles), "", false)
+                    results.addView(failed(getString(R.string.search_popular_unavailable)) { search(false) })
+                } else render(linkedMapOf(getString(R.string.search_popular) to titles), "", false)
             }
             return
         }
@@ -500,7 +504,7 @@ class SearchActivity : Screen() {
             if (token != request) return@background
             val addons = loaded.getOrElse {
                 results.removeAllViews()
-                results.addView(failed("Search is unavailable right now.") { search(false) })
+                results.addView(failed(getString(R.string.search_unavailable)) { search(false) })
                 return@background
             }
             val answers = arrayOfNulls<List<Meta>>(addons.size)
@@ -514,14 +518,14 @@ class SearchActivity : Screen() {
                     .filterNot { isAddonMessage(it.name) }
                     .distinctBy { it.type to it.id }
                 val ranked = rankSearchTitles(found, query) { it.name }
-                val sections = linkedMapOf("Movies" to ranked.filter { it.type == "movie" }.take(PER_TYPE),
-                    "Shows" to ranked.filter { it.type == "series" }.take(PER_TYPE)).filterValues { it.isNotEmpty() }
+                val sections = linkedMapOf(getString(R.string.tab_movies) to ranked.filter { it.type == "movie" }.take(PER_TYPE),
+                    getString(R.string.tab_shows) to ranked.filter { it.type == "series" }.take(PER_TYPE)).filterValues { it.isNotEmpty() }
                 if (sections.isNotEmpty()) render(sections, query, moveFocus && (final || completed == addons.size))
                 else if (final || completed == addons.size) {
                     results.removeAllViews()
                     results.addView(if (failedCount == completed && (completed > 0 || final))
-                        failed("Search is unavailable right now.") { search(false) }
-                    else text("No matches · Try a shorter title", BODY, color = TEXT_2))
+                        failed(getString(R.string.search_unavailable)) { search(false) }
+                    else text(R.string.search_no_matches, BODY, color = TEXT_2))
                     resultCount.text = ""
                 }
             }
@@ -553,10 +557,10 @@ class SearchActivity : Screen() {
         firstResult = null
         results.removeAllViews()
         val total = sections.values.sumOf { it.size }
-        resultCount.text = if (total == 0 || query.isEmpty()) "" else if (total == 1) "1 title" else "$total titles" // not for Popular
+        resultCount.text = if (total == 0 || query.isEmpty()) "" else plural(R.plurals.search_titles, total) // not for Popular
         if (total == 0) {
             hero.visibility = View.INVISIBLE
-            results.addView(text("No matches · Try a shorter title", BODY, color = TEXT_2))
+            results.addView(text(R.string.search_no_matches, BODY, color = TEXT_2))
             return
         }
         sections.forEach { (label, list) ->
