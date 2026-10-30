@@ -64,6 +64,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - **Faster update checks.** Alder checks for new releases every 4 hours instead of once a day.
 
 ### Fixes
+- **Subtitle language list in Audio & subtitles.** All add-on subtitle languages now appear immediately under Subtitles. Quick timing sits below the language list so remote focus moves smoothly.
 - **Up next episode card timing.** When credit timing is present, Alder shows Up next only after the credits start. Fallback window now triggers during the final 15 to 25 seconds instead of a minute early.
 - **Skip intro button timing.** Alder reads MKV intro chapters first. Alder filters low confidence IntroDB segments and stops false zero second prompts when cold opens exist.
 - **Remote focus and scrolling in Audio & subtitles.** Selecting an audio or subtitle track keeps remote focus on the selected track and does not reset the scroll position. Scrolling between tracks operates smoothly and clips cleanly within the scroll viewport.
