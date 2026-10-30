@@ -386,9 +386,9 @@ class PlayerActivity : Screen() {
             keepScreenOn = true
             useController = false
             setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
-            // Settings' size and background, with a shadow so white text holds up on bright scenes either way.
+            // Settings' size, color and background, with a shadow so text holds up on bright scenes either way.
             subtitleView?.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * Settings.subtitleSize(context) / 100f)
-            subtitleView?.setStyle(CaptionStyleCompat(Color.WHITE,
+            subtitleView?.setStyle(CaptionStyleCompat(Settings.subtitleColor(context),
                 if (Settings.subtitleBackground(context)) 0xB3000000.toInt() else Color.TRANSPARENT, Color.TRANSPARENT,
                 CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW, Color.BLACK, null))
             setBackgroundColor(Color.BLACK)
@@ -2091,6 +2091,62 @@ class PlayerActivity : Screen() {
             updateAllTimingHeaders()
         }
 
+        var currentBg = Settings.subtitleBackground(this)
+        fun applySubtitleStyle() {
+            view.subtitleView?.setStyle(CaptionStyleCompat(Settings.subtitleColor(this@PlayerActivity),
+                if (currentBg) 0xB3000000.toInt() else Color.TRANSPARENT, Color.TRANSPARENT,
+                CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW, Color.BLACK, null))
+        }
+
+        val colors = listOf(
+            "white" to "White",
+            "yellow" to "Yellow",
+            "cyan" to "Cyan",
+            "cream" to "Cream",
+            "warm_white" to "Warm white"
+        )
+        var currentSubColor = Settings.subtitleColorName(this)
+        val colorPillUpdaters = mutableListOf<() -> Unit>()
+
+        fun selectColor(colorValue: String) {
+            currentSubColor = colorValue
+            Settings.setSubtitleColor(this@PlayerActivity, colorValue)
+            applySubtitleStyle()
+            colorPillUpdaters.forEach { it() }
+        }
+
+        fun createColorRow(): LinearLayout {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            val pills = mutableListOf<TextView>()
+            colors.forEachIndexed { idx, (colorValue, colorLabel) ->
+                val isCur = currentSubColor == colorValue
+                val p = text(colorLabel, SMALL, bold = true, color = if (isCur) TUNGSTEN else TEXT_2).apply {
+                    gravity = Gravity.CENTER
+                    maxLines = 1
+                    background = if (isCur) rounded(0x3DF3D9B1.toInt(), 8) else glass(8)
+                    rowFocus(8, rest = { if (currentSubColor == colorValue) rounded(0x3DF3D9B1.toInt(), 8) else glass(8) }) { has ->
+                        setTextColor(if (has || currentSubColor == colorValue) TEXT else TEXT_2)
+                    }
+                    setOnClickListener { selectColor(colorValue) }
+                }
+                pills.add(p)
+                row.addView(p, LinearLayout.LayoutParams(0, dp(30), 1f).apply {
+                    if (idx < colors.lastIndex) marginEnd = dp(5)
+                })
+            }
+            colorPillUpdaters.add {
+                pills.forEachIndexed { i, pill ->
+                    val active = colors[i].first == currentSubColor
+                    pill.background = if (active) rounded(0x3DF3D9B1.toInt(), 8) else glass(8)
+                    pill.setTextColor(if (active) TUNGSTEN else TEXT_2)
+                }
+            }
+            return row
+        }
+
         fun timingPill(label: String, isReset: Boolean = false, onClick: () -> Unit) = text(label, SMALL, bold = true,
             color = if (isReset && subDelay == 0L) TEXT_3 else TEXT_2).apply {
             if (isReset) timingResetPills.add(this)
@@ -2240,6 +2296,8 @@ class PlayerActivity : Screen() {
             addView(plus, LinearLayout.LayoutParams(0, dp(30), 1f))
         }
         quickTimingCard.addView(quickTimingButtons, LinearLayout.LayoutParams(-1, dp(30)))
+        quickTimingCard.addView(caps("SUBTITLE COLOR", TEXT_3), wrap().apply { topMargin = dp(8); bottomMargin = dp(4) })
+        quickTimingCard.addView(createColorRow(), LinearLayout.LayoutParams(-1, dp(30)))
 
         val subHolders = mutableListOf<TrackRowHolder>()
 
@@ -2571,8 +2629,10 @@ class PlayerActivity : Screen() {
         }
         syncPanel.addView(sizeRow, LinearLayout.LayoutParams(-1, dp(30)).apply { bottomMargin = dp(10) })
 
+        syncPanel.addView(caps("COLOR", TEXT_3), wrap().apply { bottomMargin = dp(4) })
+        syncPanel.addView(createColorRow(), LinearLayout.LayoutParams(-1, dp(30)).apply { bottomMargin = dp(10) })
+
         syncPanel.addView(caps("BACKGROUND BOX", TEXT_3), wrap().apply { bottomMargin = dp(4) })
-        var currentBg = Settings.subtitleBackground(this)
         val bgOptions = listOf(true to "On", false to "Off")
         val bgPills = mutableListOf<TextView>()
         val bgRow = LinearLayout(this).apply {
@@ -2591,9 +2651,7 @@ class PlayerActivity : Screen() {
                 setOnClickListener {
                     currentBg = bgValue
                     Settings.setSubtitleBackground(this@PlayerActivity, bgValue)
-                    view.subtitleView?.setStyle(CaptionStyleCompat(Color.WHITE,
-                        if (bgValue) 0xB3000000.toInt() else Color.TRANSPARENT, Color.TRANSPARENT,
-                        CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW, Color.BLACK, null))
+                    applySubtitleStyle()
                     bgPills.forEachIndexed { i, pill ->
                         val active = bgOptions[i].first == currentBg
                         pill.background = if (active) rounded(0x3DF3D9B1.toInt(), 8) else glass(8)
