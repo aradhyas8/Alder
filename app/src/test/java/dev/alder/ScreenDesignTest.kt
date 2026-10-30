@@ -266,8 +266,8 @@ class ScreenDesignTest {
     }
 
     @Test fun upNextNeverInterruptsMoreThanTheFinalMinute() {
-        assertEquals(30_000L, upNextWindow(10 * 60_000L))
-        assertEquals(60_000L, upNextWindow(60 * 60_000L))
+        assertEquals(15_000L, upNextWindow(10 * 60_000L))
+        assertEquals(25_000L, upNextWindow(60 * 60_000L))
     }
 
     @Test fun sourceRowsUseFileFactsWithoutShowingAddonDescriptions() {
@@ -383,6 +383,26 @@ class ScreenDesignTest {
         assertEquals(listOf("a2"), more.map { it.id })
     }
 
+    @Test fun smartPinningPreservesAllMoreTracksWhenAddonSubtitlesArrive() {
+        val initialTracks = listOf(
+            TrackChoice("sub:0", "Off", isOff = true),
+            TrackChoice("sub:1", "English", "in the file", langCode = "en", isSelected = true)
+        )
+        val (initialPinned, initialMore) = partitionPinnedTracks(initialTracks, preferredLang = "en", recentLangs = emptyList())
+        assertEquals(listOf("sub:0", "sub:1"), initialPinned.map { it.id })
+        assertEquals(emptyList<String>(), initialMore.map { it.id })
+
+        val updatedWithAddons = initialTracks + listOf(
+            TrackChoice("sub:2", "English", "OpenSubtitles", langCode = "en"),
+            TrackChoice("sub:3", "Spanish", "OpenSubtitles", langCode = "es"),
+            TrackChoice("sub:4", "French", "OpenSubtitles", langCode = "fr"),
+            TrackChoice("sub:5", "German", "OpenSubtitles", langCode = "de")
+        )
+        val (updatedPinned, updatedMore) = partitionPinnedTracks(updatedWithAddons, preferredLang = "en", recentLangs = emptyList())
+        assertEquals(listOf("sub:0", "sub:1", "sub:2"), updatedPinned.map { it.id })
+        assertEquals(listOf("sub:3", "sub:4", "sub:5"), updatedMore.map { it.id })
+    }
+
     @Test fun recentLanguagesUpdatesAndCapsToThree() {
         assertEquals(listOf("en"), updateRecentLanguages(emptyList(), "en"))
         assertEquals(listOf("es", "en"), updateRecentLanguages(listOf("en"), "es"))
@@ -426,6 +446,14 @@ class ScreenDesignTest {
             listOf("Official Trailer (1080p)", "Official Trailer", "Official Trailer (480p)"),
             ordered.map { it.title }
         )
+    }
+
+    @Test fun contentRatingParsesFromImdbAndMeta() {
+        assertEquals("TV-MA", parseImdbCertificate(org.json.JSONObject("""{"data":{"title":{"certificate":{"rating":"TV-MA"}}}}""")))
+        assertEquals(null, parseImdbCertificate(org.json.JSONObject("""{"data":{"title":{"certificate":null}}}""")))
+        assertEquals("PG-13", Meta(org.json.JSONObject("""{"id":"tt1","certification":"PG-13"}""")).certification)
+        assertEquals("R", Meta(org.json.JSONObject("""{"id":"tt1","contentRating":"R"}""")).certification)
+        assertEquals(null, Meta(org.json.JSONObject("""{"id":"tt1"}""")).certification)
     }
 
     @Test fun playerPauseFactsAndBrandBadges() {
