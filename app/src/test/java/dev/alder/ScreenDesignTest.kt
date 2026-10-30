@@ -266,8 +266,8 @@ class ScreenDesignTest {
     }
 
     @Test fun upNextNeverInterruptsMoreThanTheFinalMinute() {
-        assertEquals(15_000L, upNextWindow(10 * 60_000L))
-        assertEquals(25_000L, upNextWindow(60 * 60_000L))
+        assertEquals(30_000L, upNextWindow(10 * 60_000L))
+        assertEquals(60_000L, upNextWindow(60 * 60_000L))
     }
 
     @Test fun sourceRowsUseFileFactsWithoutShowingAddonDescriptions() {
@@ -381,6 +381,26 @@ class ScreenDesignTest {
         val (pinned, more) = partitionPinnedTracks(tracks, preferredLang = "fr", recentLangs = emptyList())
         assertEquals(listOf("a1", "a3"), pinned.map { it.id })
         assertEquals(listOf("a2"), more.map { it.id })
+    }
+
+    @Test fun smartPinningPreservesAllMoreTracksWhenAddonSubtitlesArrive() {
+        val initialTracks = listOf(
+            TrackChoice("sub:0", "Off", isOff = true),
+            TrackChoice("sub:1", "English", "in the file", langCode = "en", isSelected = true)
+        )
+        val (initialPinned, initialMore) = partitionPinnedTracks(initialTracks, preferredLang = "en", recentLangs = emptyList())
+        assertEquals(listOf("sub:0", "sub:1"), initialPinned.map { it.id })
+        assertEquals(emptyList<String>(), initialMore.map { it.id })
+
+        val updatedWithAddons = initialTracks + listOf(
+            TrackChoice("sub:2", "English", "OpenSubtitles", langCode = "en"),
+            TrackChoice("sub:3", "Spanish", "OpenSubtitles", langCode = "es"),
+            TrackChoice("sub:4", "French", "OpenSubtitles", langCode = "fr"),
+            TrackChoice("sub:5", "German", "OpenSubtitles", langCode = "de")
+        )
+        val (updatedPinned, updatedMore) = partitionPinnedTracks(updatedWithAddons, preferredLang = "en", recentLangs = emptyList())
+        assertEquals(listOf("sub:0", "sub:1", "sub:2"), updatedPinned.map { it.id })
+        assertEquals(listOf("sub:3", "sub:4", "sub:5"), updatedMore.map { it.id })
     }
 
     @Test fun recentLanguagesUpdatesAndCapsToThree() {

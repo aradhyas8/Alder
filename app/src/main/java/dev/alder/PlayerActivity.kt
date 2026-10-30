@@ -58,7 +58,7 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 internal fun lowerSourceHeight(height: Int): Int? = listOf(1080, 720, 480).firstOrNull { it < height }
-internal fun upNextWindow(durationMs: Long) = minOf(25_000L, maxOf(15_000L, durationMs / 60))
+internal fun upNextWindow(durationMs: Long) = minOf(60_000L, maxOf(30_000L, durationMs / 25))
 internal fun plausibleEpisode(durationMs: Long) = durationMs >= 2 * 60_000L
 
 // Fall-asleep protection: episodes that end in a row with no remote key pressed are counted, and the next one waits
@@ -284,6 +284,7 @@ class PlayerActivity : Screen() {
     // Subtitles from addons (OpenSubtitles): offered in Playback options after the file's own. Picking one reloads the
     // source from the same second with that file attached, then selects it once its track shows up.
     private var addonSubs: List<Subtitle> = emptyList()
+    private var refreshOptionsSubtitles: (() -> Unit)? = null
     private var chosenSub: Subtitle? = null
     private var selectAddonSub = false
     // The languages to start with: what was picked in Audio & subtitles for this title before (the next episode, a
@@ -552,6 +553,7 @@ class PlayerActivity : Screen() {
                     selectAddonSub = false
                     player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
                         .setOverrideForType(TrackSelectionOverride(g.mediaTrackGroup, 0)).build()
+                    refreshOptionsSubtitles?.invoke()
                 }
                 val audio = tracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }
                 if (audio.isNotEmpty()) audioGroups = audio
@@ -665,6 +667,9 @@ class PlayerActivity : Screen() {
         }) { r ->
             addonSubs = r.getOrDefault(emptyList())
             android.util.Log.i("Alder", "addon subtitles: ${addonSubs.size}", r.exceptionOrNull())
+            if (options.visibility == View.VISIBLE) {
+                refreshOptionsSubtitles?.invoke()
+            }
             val exact = addonSubs.firstOrNull { "addon:" + it.url == pickedSub }
             if (subsAnswered) { // too late for the start: offered in the list, and the file picked last time attached now
                 if (exact != null && chosenSub == null) {
@@ -945,9 +950,7 @@ class PlayerActivity : Screen() {
             Library.markWatched(item, videos, videoId)
         }
         // Keep the current episode full screen; offer the next one only near its actual end.
-        // If credits timing (outroAt) is known, wait until outroAt before showing Up next.
-        val shouldShowUpNext = if (outroAt > 0) position >= outroAt else duration - position < upNextWindow(duration)
-        if (!upNextDismissed && upNextPanel.visibility != View.VISIBLE && shouldShowUpNext) showUpNext()
+        if (!upNextDismissed && upNextPanel.visibility != View.VISIBLE && duration - position < upNextWindow(duration)) showUpNext()
     }
 
     /** The episode after this one, or null for a film, the last episode, or before the episode list is in. */
@@ -1037,22 +1040,26 @@ class PlayerActivity : Screen() {
         options.visibility = View.GONE
         hideLoading()
         upNextPanel.removeAllViews()
-        val playNext = pill("Next episode", R.drawable.ic_play).apply { setOnClickListener { playNext() } }
+        val actions = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        val playNow = pill("Play now", R.drawable.ic_play).apply { setOnClickListener { playNext() } }
+        actions.addView(playNow, wrap())
+        actions.addView(chip("Watch the credits").apply { setOnClickListener { dismissUpNext() } },
+            wrap().apply { marginStart = dp(8) })
         val content = column(Gravity.START).apply {
             setPadding(dp(18), dp(14), dp(18), dp(14))
             // Video can't be frosted: a dark base under the glass keeps it readable over white end cards.
             background = videoGlass(14)
             addView(caps("Up next", TUNGSTEN).onArt())
-            addView(text(next.title.ifBlank { "Episode ${next.episode}" }, SERIF_TITLE, serif = true).onArt(),
+            addView(text(next.title.ifBlank { "Episode ${next.episode}" }, SERIF_HERO, serif = true).onArt(),
                 wrap().apply { topMargin = dp(6) })
             addView(text("S${next.season} E${next.episode}", SMALL, color = TEXT_2).onArt(), wrap().apply { topMargin = dp(5) })
-            addView(playNext, wrap().apply { topMargin = dp(16) })
+            addView(actions, wrap().apply { topMargin = dp(16) })
         }
-        upNextPanel.addView(content, FrameLayout.LayoutParams(dp(360), -2, Gravity.BOTTOM or Gravity.END).apply {
+        upNextPanel.addView(content, FrameLayout.LayoutParams(dp(500), -2, Gravity.BOTTOM or Gravity.END).apply {
             rightMargin = dp(PAD); bottomMargin = dp(68)
         })
         upNextPanel.visibility = View.VISIBLE
-        playNext.requestFocus()
+        playNow.requestFocus()
     }
 
     private fun dismissUpNext() {
@@ -1984,6 +1991,18 @@ class PlayerActivity : Screen() {
             setPadding(0, 0, 0, dp(48))
         }
         val contentScroll = object : ScrollView(this) {
+            override fun computeScrollDeltaToGetChildRectOnScreen(rect: Rect): Int {
+                if (childCount == 0) return 0
+                val screenTop = scrollY
+                val screenBottom = screenTop + height
+                val margin = dp(44)
+                return when {
+                    rect.top < screenTop + margin -> rect.top - (screenTop + margin)
+                    rect.bottom > screenBottom - margin -> rect.bottom - (screenBottom - margin)
+                    else -> 0
+                }
+            }
+
             override fun dispatchDraw(canvas: Canvas) {
                 val count = canvas.save()
                 canvas.clipRect(0, 0, width, height)
@@ -1995,6 +2014,7 @@ class PlayerActivity : Screen() {
             clipToPadding = true
             clipChildren = true
             isFillViewport = true
+            isSmoothScrollingEnabled = true
             addView(panelsContainer, FrameLayout.LayoutParams(-1, -2))
         }
         sheet.addView(contentScroll, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -2220,148 +2240,193 @@ class PlayerActivity : Screen() {
         }
 
         // Subtitles tab setup
-        val texts = player.currentTracks.groups.filter { it.type == C.TRACK_TYPE_TEXT && it.isTrackSupported(0) }
-        val subs = texts.filterNot(::isAddonSub)
-        val loaded = texts.firstOrNull(::isAddonSub)
-        var chosenSubIndex = when {
-            C.TRACK_TYPE_TEXT in player.trackSelectionParameters.disabledTrackTypes -> 0
-            loaded?.isSelected == true -> 1 + subs.size + addonSubs.indexOf(chosenSub)
-            else -> subs.indexOfFirst { it.isSelected } + 1
-        }
-
-        val subChoices = mutableListOf<TrackChoice>()
-        subChoices.add(TrackChoice("sub:0", "Off", isSelected = chosenSubIndex == 0, isOff = true))
-        subs.forEachIndexed { i, group ->
-            val format = group.getTrackFormat(0)
-            subChoices.add(TrackChoice("sub:${1 + i}", trackName(format, false), "in the file",
-                Languages.code(format.language), isSelected = chosenSubIndex == 1 + i))
-        }
-        addonSubs.forEachIndexed { i, sub ->
-            subChoices.add(TrackChoice("sub:${1 + subs.size + i}", sub.language, sub.addon,
-                Languages.code(sub.lang), isSelected = chosenSubIndex == 1 + subs.size + i))
-        }
-
-        val (pinnedSubs, moreSubs) = partitionPinnedTracks(subChoices, Settings.subtitleLanguage(this), Settings.recentSubtitles(this))
-        val initialChosenSub = subChoices.getOrNull(chosenSubIndex)
-        var currentSelectedSubId = initialChosenSub?.id ?: "sub:0"
-
-        val subActiveHeader = caps(if (currentSelectedSubId == "sub:0") "SUBTITLES · OFF" else "SUBTITLES · ${initialChosenSub?.name?.uppercase() ?: "OFF"}", TUNGSTEN)
-        subtitlesPanel.addView(subActiveHeader, wrap().apply { topMargin = dp(4); bottomMargin = dp(6) })
-
-        val quickTimingCard = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(10), dp(8), dp(10), dp(8))
-            background = glass(8)
-            visibility = if (currentSelectedSubId == "sub:0") View.GONE else View.VISIBLE
-        }
-        quickTimingCard.addView(caps("QUICK TIMING", TEXT_3), wrap().apply { bottomMargin = dp(6) })
-        val quickTimingButtons = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            val minus = timingPill("− 0.25s") { adjustTiming(-250L) }
-            val reset = timingPill(formatTiming(subDelay), isReset = true) { resetTiming() }.also { quickTimingValue = it }
-            val plus = timingPill("+ 0.25s") { adjustTiming(+250L) }
-            addView(minus, LinearLayout.LayoutParams(0, dp(30), 1f).apply { marginEnd = dp(6) })
-            addView(reset, LinearLayout.LayoutParams(0, dp(30), 1.2f).apply { marginEnd = dp(6) })
-            addView(plus, LinearLayout.LayoutParams(0, dp(30), 1f))
-        }
-        quickTimingCard.addView(quickTimingButtons, LinearLayout.LayoutParams(-1, dp(30)))
-
         val subHolders = mutableListOf<TrackRowHolder>()
+        var quickTimingCard: LinearLayout? = null
+        var quickTimingDivider: View? = null
 
-        fun updateSubSelection(selectedId: String) {
-            val selChoice = subChoices.firstOrNull { it.id == selectedId }
-            subActiveHeader.text = if (selChoice == null || selChoice.isOff) "SUBTITLES · OFF" else "SUBTITLES · ${selChoice.name.uppercase()}"
-            quickTimingCard.visibility = if (selChoice?.isOff != false) View.GONE else View.VISIBLE
+        fun populateSubtitles() {
+            val focusedTrackId = subHolders.firstOrNull { it.row.isFocused }?.track?.id
+            val wasTimingFocused = quickTimingCard?.hasFocus() == true
+            subtitlesPanel.removeAllViews()
+            subHolders.clear()
 
-            subHolders.forEach { holder ->
-                val track = holder.track
-                val isSel = track.id == selectedId
-                holder.check.visibility = if (isSel) View.VISIBLE else View.INVISIBLE
-                holder.name.setTextColor(if (isSel || holder.row.isFocused) TEXT else TEXT_2)
+            val texts = player.currentTracks.groups.filter { it.type == C.TRACK_TYPE_TEXT && it.isTrackSupported(0) }
+            val subs = texts.filterNot(::isAddonSub)
+            val loaded = texts.firstOrNull(::isAddonSub)
+            var chosenSubIndex = when {
+                C.TRACK_TYPE_TEXT in player.trackSelectionParameters.disabledTrackTypes -> 0
+                loaded?.isSelected == true -> 1 + subs.size + addonSubs.indexOf(chosenSub)
+                else -> subs.indexOfFirst { it.isSelected } + 1
+            }
 
-                val isPref = !track.isOff && Languages.match(track.langCode, Settings.subtitleLanguage(this@PlayerActivity)) > 0
-                val isRec = !track.isOff && Settings.recentSubtitles(this@PlayerActivity).any { Languages.match(track.langCode, it) > 0 }
+            val subChoices = mutableListOf<TrackChoice>()
+            subChoices.add(TrackChoice("sub:0", "Off", isSelected = chosenSubIndex == 0, isOff = true))
+            subs.forEachIndexed { i, group ->
+                val format = group.getTrackFormat(0)
+                subChoices.add(TrackChoice("sub:${1 + i}", trackName(format, false), "in the file",
+                    Languages.code(format.language), isSelected = chosenSubIndex == 1 + i))
+            }
+            addonSubs.forEachIndexed { i, sub ->
+                subChoices.add(TrackChoice("sub:${1 + subs.size + i}", sub.language, sub.addon,
+                    Languages.code(sub.lang), isSelected = chosenSubIndex == 1 + subs.size + i))
+            }
 
-                val badgeLabel = when {
-                    isSel && !track.isOff -> "Active"
-                    isPref -> "Preferred"
-                    isRec -> "Recent"
-                    else -> ""
+            val (pinnedSubs, moreSubs) = partitionPinnedTracks(subChoices, Settings.subtitleLanguage(this), Settings.recentSubtitles(this))
+            val initialChosenSub = subChoices.getOrNull(chosenSubIndex)
+            var currentSelectedSubId = initialChosenSub?.id ?: "sub:0"
+
+            val subActiveHeader = caps(if (currentSelectedSubId == "sub:0") "SUBTITLES · OFF" else "SUBTITLES · ${initialChosenSub?.name?.uppercase() ?: "OFF"}", TUNGSTEN)
+            subtitlesPanel.addView(subActiveHeader, wrap().apply { topMargin = dp(4); bottomMargin = dp(6) })
+
+            val timingCard = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(10), dp(8), dp(10), dp(8))
+                background = glass(8)
+                visibility = if (currentSelectedSubId == "sub:0") View.GONE else View.VISIBLE
+            }
+            quickTimingCard = timingCard
+            timingCard.addView(caps("QUICK TIMING", TEXT_3), wrap().apply { bottomMargin = dp(6) })
+            val timingCardButtons = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                val minus = timingPill("− 0.25s") { adjustTiming(-250L) }
+                val reset = timingPill(formatTiming(subDelay), isReset = true) { resetTiming() }.also { quickTimingValue = it }
+                val plus = timingPill("+ 0.25s") { adjustTiming(+250L) }
+                val onUpToLastTrack = View.OnKeyListener { _, keyCode, event ->
+                    if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+                        subHolders.lastOrNull()?.row?.requestFocus()
+                        return@OnKeyListener true
+                    }
+                    false
                 }
-                holder.badge.text = badgeLabel
-                holder.badge.setTextColor(if (isSel) TUNGSTEN else TEXT_2)
-                holder.badge.background = rounded(if (isSel) 0x3DF3D9B1.toInt() else 0x22FFFFFF.toInt(), 4)
-                holder.badge.visibility = if (badgeLabel.isNotEmpty()) View.VISIBLE else View.GONE
+                minus.setOnKeyListener(onUpToLastTrack)
+                reset.setOnKeyListener(onUpToLastTrack)
+                plus.setOnKeyListener(onUpToLastTrack)
+                addView(minus, LinearLayout.LayoutParams(0, dp(30), 1f).apply { marginEnd = dp(6) })
+                addView(reset, LinearLayout.LayoutParams(0, dp(30), 1.2f).apply { marginEnd = dp(6) })
+                addView(plus, LinearLayout.LayoutParams(0, dp(30), 1f))
+            }
+            timingCard.addView(timingCardButtons, LinearLayout.LayoutParams(-1, dp(30)))
 
-                if (!holder.row.isFocused) {
-                    holder.row.background = trackRowRest(isSel)
+            val timingDivider = divider().apply {
+                layoutParams = LinearLayout.LayoutParams(-1, dp(1)).apply { setMargins(0, dp(12), 0, dp(8)) }
+                visibility = if (currentSelectedSubId == "sub:0") View.GONE else View.VISIBLE
+            }
+            quickTimingDivider = timingDivider
+
+            fun updateSubSelection(selectedId: String) {
+                val selChoice = subChoices.firstOrNull { it.id == selectedId }
+                subActiveHeader.text = if (selChoice == null || selChoice.isOff) "SUBTITLES · OFF" else "SUBTITLES · ${selChoice.name.uppercase()}"
+                val timingVisible = selChoice?.isOff == false
+                timingCard.visibility = if (timingVisible) View.VISIBLE else View.GONE
+                timingDivider.visibility = if (timingVisible) View.VISIBLE else View.GONE
+
+                subHolders.forEach { holder ->
+                    val track = holder.track
+                    val isSel = track.id == selectedId
+                    holder.check.visibility = if (isSel) View.VISIBLE else View.INVISIBLE
+                    holder.name.setTextColor(if (isSel || holder.row.isFocused) TEXT else TEXT_2)
+
+                    val isPref = !track.isOff && Languages.match(track.langCode, Settings.subtitleLanguage(this@PlayerActivity)) > 0
+                    val isRec = !track.isOff && Settings.recentSubtitles(this@PlayerActivity).any { Languages.match(track.langCode, it) > 0 }
+
+                    val badgeLabel = when {
+                        isSel && !track.isOff -> "Active"
+                        isPref -> "Preferred"
+                        isRec -> "Recent"
+                        else -> ""
+                    }
+                    holder.badge.text = badgeLabel
+                    holder.badge.setTextColor(if (isSel) TUNGSTEN else TEXT_2)
+                    holder.badge.background = rounded(if (isSel) 0x3DF3D9B1.toInt() else 0x22FFFFFF.toInt(), 4)
+                    holder.badge.visibility = if (badgeLabel.isNotEmpty()) View.VISIBLE else View.GONE
+
+                    if (!holder.row.isFocused) {
+                        holder.row.background = trackRowRest(isSel)
+                    }
                 }
             }
-        }
 
-        fun selectSubtitleTrack(track: TrackChoice) {
-            val i = subChoices.indexOfFirst { it.id == track.id }
-            if (i < 0) return
-            val p = player.trackSelectionParameters.buildUpon()
-            val sub = addonSubs.getOrNull(i - 1 - subs.size)
-            val lang = if (i == 0) "" else sub?.lang ?: subs[i - 1].getTrackFormat(0).language
-            remember(lang, addonFile = sub != null,
-                pick = when { i == 0 -> ""; sub != null -> "addon:" + sub.url; else -> "file:" + subs[i - 1].getTrackFormat(0).id.orEmpty() })
-            if (i != 0) {
-                track.langCode?.let { Settings.addRecentSubtitle(this@PlayerActivity, it) }
+            fun selectSubtitleTrack(track: TrackChoice) {
+                val i = subChoices.indexOfFirst { it.id == track.id }
+                if (i < 0) return
+                val p = player.trackSelectionParameters.buildUpon()
+                val sub = addonSubs.getOrNull(i - 1 - subs.size)
+                val lang = if (i == 0) "" else sub?.lang ?: subs[i - 1].getTrackFormat(0).language
+                remember(lang, addonFile = sub != null,
+                    pick = when { i == 0 -> ""; sub != null -> "addon:" + sub.url; else -> "file:" + subs[i - 1].getTrackFormat(0).id.orEmpty() })
+                if (i != 0) {
+                    track.langCode?.let { Settings.addRecentSubtitle(this@PlayerActivity, it) }
+                }
+                player.trackSelectionParameters = when {
+                    i == 0 -> p.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).build()
+                    sub == null -> p.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                        .setOverrideForType(TrackSelectionOverride(subs[i - 1].mediaTrackGroup, 0)).build()
+                    sub == chosenSub && loaded != null -> p.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                        .setOverrideForType(TrackSelectionOverride(loaded.mediaTrackGroup, 0)).build()
+                    else -> { chosenSub = sub; subDelay = 0L; textRenderer?.offsetUs = 0L; selectAddonSub = true; load(position()); return }
+                }
+                chosenSubIndex = i
+                currentSelectedSubId = track.id
+                updateSubSelection(track.id)
             }
-            player.trackSelectionParameters = when {
-                i == 0 -> p.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).build()
-                sub == null -> p.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-                    .setOverrideForType(TrackSelectionOverride(subs[i - 1].mediaTrackGroup, 0)).build()
-                sub == chosenSub && loaded != null -> p.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-                    .setOverrideForType(TrackSelectionOverride(loaded.mediaTrackGroup, 0)).build()
-                else -> { chosenSub = sub; subDelay = 0L; textRenderer?.offsetUs = 0L; selectAddonSub = true; load(position()); return }
+
+            if (pinnedSubs.isNotEmpty()) {
+                subtitlesPanel.addView(caps("PINNED", TEXT_3), wrap().apply {
+                    topMargin = dp(6); bottomMargin = dp(4)
+                })
+
+                pinnedSubs.forEachIndexed { idx, track ->
+                    val (row, holder) = createTrackRow(
+                        track = track,
+                        isSelected = track.id == currentSelectedSubId,
+                        isPreferred = !track.isOff && Languages.match(track.langCode, Settings.subtitleLanguage(this)) > 0,
+                        isRecent = !track.isOff && Settings.recentSubtitles(this).any { Languages.match(track.langCode, it) > 0 },
+                        onUpToTabs = if (idx == 0) { { tabPills[0].requestFocus() } } else null,
+                        onClick = { selectSubtitleTrack(track) }
+                    )
+                    subHolders.add(holder)
+                    subtitlesPanel.addView(row, LinearLayout.LayoutParams(-1, dp(36)))
+                }
             }
-            chosenSubIndex = i
-            currentSelectedSubId = track.id
-            updateSubSelection(track.id)
-        }
 
-        subtitlesPanel.addView(caps("PINNED", TEXT_3), wrap().apply {
-            topMargin = dp(6); bottomMargin = dp(4)
-        })
+            if (moreSubs.isNotEmpty()) {
+                subtitlesPanel.addView(divider().apply {
+                    layoutParams = LinearLayout.LayoutParams(-1, dp(1)).apply { setMargins(0, dp(10), 0, dp(8)) }
+                })
+                subtitlesPanel.addView(caps("ALL LANGUAGES (${moreSubs.size})", TEXT_3), wrap().apply {
+                    bottomMargin = dp(4)
+                })
+                moreSubs.forEachIndexed { idx, track ->
+                    val (row, holder) = createTrackRow(
+                        track = track,
+                        isSelected = track.id == currentSelectedSubId,
+                        isPreferred = Languages.match(track.langCode, Settings.subtitleLanguage(this)) > 0,
+                        isRecent = Settings.recentSubtitles(this).any { Languages.match(track.langCode, it) > 0 },
+                        onUpToTabs = if (pinnedSubs.isEmpty() && idx == 0) { { tabPills[0].requestFocus() } } else null,
+                        onClick = { selectSubtitleTrack(track) }
+                    )
+                    subHolders.add(holder)
+                    subtitlesPanel.addView(row, LinearLayout.LayoutParams(-1, dp(36)))
+                }
+            }
 
-        pinnedSubs.forEachIndexed { idx, track ->
-            val (row, holder) = createTrackRow(
-                track = track,
-                isSelected = track.id == currentSelectedSubId,
-                isPreferred = !track.isOff && Languages.match(track.langCode, Settings.subtitleLanguage(this)) > 0,
-                isRecent = !track.isOff && Settings.recentSubtitles(this).any { Languages.match(track.langCode, it) > 0 },
-                onUpToTabs = if (idx == 0) { { tabPills[0].requestFocus() } } else null,
-                onClick = { selectSubtitleTrack(track) }
-            )
-            subHolders.add(holder)
-            subtitlesPanel.addView(row, LinearLayout.LayoutParams(-1, dp(36)))
-        }
-
-        subtitlesPanel.addView(quickTimingCard, LinearLayout.LayoutParams(-1, -2).apply {
-            topMargin = dp(8); bottomMargin = dp(4)
-        })
-
-        if (moreSubs.isNotEmpty()) {
-            subtitlesPanel.addView(divider().apply {
-                layoutParams = LinearLayout.LayoutParams(-1, dp(1)).apply { setMargins(0, dp(10), 0, dp(8)) }
-            })
-            subtitlesPanel.addView(caps("ALL LANGUAGES (${moreSubs.size})", TEXT_3), wrap().apply {
+            subtitlesPanel.addView(timingDivider)
+            subtitlesPanel.addView(timingCard, LinearLayout.LayoutParams(-1, -2).apply {
                 bottomMargin = dp(4)
             })
-            moreSubs.forEach { track ->
-                val (row, holder) = createTrackRow(
-                    track = track,
-                    isSelected = track.id == currentSelectedSubId,
-                    isPreferred = Languages.match(track.langCode, Settings.subtitleLanguage(this)) > 0,
-                    isRecent = Settings.recentSubtitles(this).any { Languages.match(track.langCode, it) > 0 },
-                    onClick = { selectSubtitleTrack(track) }
-                )
-                subHolders.add(holder)
-                subtitlesPanel.addView(row, LinearLayout.LayoutParams(-1, dp(36)))
+
+            if (focusedTrackId != null) {
+                subHolders.firstOrNull { it.track.id == focusedTrackId }?.row?.requestFocus()
+            } else if (wasTimingFocused) {
+                timingCardButtons.getChildAt(1)?.requestFocus()
+            }
+        }
+
+        populateSubtitles()
+        refreshOptionsSubtitles = {
+            if (options.visibility == View.VISIBLE && currentTab == 0) {
+                populateSubtitles()
             }
         }
 
@@ -2704,6 +2769,7 @@ class PlayerActivity : Screen() {
     }
 
     private fun closeOptions() {
+        refreshOptionsSubtitles = null
         options.visibility = View.GONE
         showControls(audioButton)
     }
