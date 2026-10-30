@@ -58,7 +58,7 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 internal fun lowerSourceHeight(height: Int): Int? = listOf(1080, 720, 480).firstOrNull { it < height }
-internal fun upNextWindow(durationMs: Long) = minOf(60_000L, maxOf(30_000L, durationMs / 25))
+internal fun upNextWindow(durationMs: Long) = minOf(25_000L, maxOf(15_000L, durationMs / 60))
 internal fun plausibleEpisode(durationMs: Long) = durationMs >= 2 * 60_000L
 
 // Fall-asleep protection: episodes that end in a row with no remote key pressed are counted, and the next one waits
@@ -950,7 +950,9 @@ class PlayerActivity : Screen() {
             Library.markWatched(item, videos, videoId)
         }
         // Keep the current episode full screen; offer the next one only near its actual end.
-        if (!upNextDismissed && upNextPanel.visibility != View.VISIBLE && duration - position < upNextWindow(duration)) showUpNext()
+        // If credits timing (outroAt) is known, wait until outroAt before showing Up next.
+        val shouldShowUpNext = if (outroAt > 0) position >= outroAt else duration - position < upNextWindow(duration)
+        if (!upNextDismissed && upNextPanel.visibility != View.VISIBLE && shouldShowUpNext) showUpNext()
     }
 
     /** The episode after this one, or null for a film, the last episode, or before the episode list is in. */
@@ -1040,26 +1042,22 @@ class PlayerActivity : Screen() {
         options.visibility = View.GONE
         hideLoading()
         upNextPanel.removeAllViews()
-        val actions = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        val playNow = pill("Play now", R.drawable.ic_play).apply { setOnClickListener { playNext() } }
-        actions.addView(playNow, wrap())
-        actions.addView(chip("Watch the credits").apply { setOnClickListener { dismissUpNext() } },
-            wrap().apply { marginStart = dp(8) })
+        val playNext = pill("Next episode", R.drawable.ic_play).apply { setOnClickListener { playNext() } }
         val content = column(Gravity.START).apply {
             setPadding(dp(18), dp(14), dp(18), dp(14))
             // Video can't be frosted: a dark base under the glass keeps it readable over white end cards.
             background = videoGlass(14)
             addView(caps("Up next", TUNGSTEN).onArt())
-            addView(text(next.title.ifBlank { "Episode ${next.episode}" }, SERIF_HERO, serif = true).onArt(),
+            addView(text(next.title.ifBlank { "Episode ${next.episode}" }, SERIF_TITLE, serif = true).onArt(),
                 wrap().apply { topMargin = dp(6) })
             addView(text("S${next.season} E${next.episode}", SMALL, color = TEXT_2).onArt(), wrap().apply { topMargin = dp(5) })
-            addView(actions, wrap().apply { topMargin = dp(16) })
+            addView(playNext, wrap().apply { topMargin = dp(16) })
         }
-        upNextPanel.addView(content, FrameLayout.LayoutParams(dp(500), -2, Gravity.BOTTOM or Gravity.END).apply {
+        upNextPanel.addView(content, FrameLayout.LayoutParams(dp(360), -2, Gravity.BOTTOM or Gravity.END).apply {
             rightMargin = dp(PAD); bottomMargin = dp(68)
         })
         upNextPanel.visibility = View.VISIBLE
-        playNow.requestFocus()
+        playNext.requestFocus()
     }
 
     private fun dismissUpNext() {
@@ -2002,13 +2000,6 @@ class PlayerActivity : Screen() {
                     else -> 0
                 }
             }
-
-            override fun dispatchDraw(canvas: Canvas) {
-                val count = canvas.save()
-                canvas.clipRect(0, 0, width, height)
-                super.dispatchDraw(canvas)
-                canvas.restoreToCount(count)
-            }
         }.apply {
             isVerticalScrollBarEnabled = false
             clipToPadding = true
@@ -2080,6 +2071,7 @@ class PlayerActivity : Screen() {
                 setOnFocusChangeListener { v, hasFocus ->
                     if (hasFocus) {
                         switchTab(i)
+                        contentScroll.scrollTo(0, 0)
                     }
                     styleTabPill(i)
                 }
