@@ -67,17 +67,19 @@ internal const val QUIET_EPISODES = 3
 internal const val SLEEP_TIMER = 60 * 60_000L
 /** [endedQuietly] episodes in a row, this one included, ended with no key pressed: ask before the next one. */
 internal fun askStillWatching(endedQuietly: Int) = endedQuietly >= QUIET_EPISODES
-/** The Sleep row's value in Audio & subtitles: "Off", "After this episode" or "In 42 min". */
-internal fun sleepLabel(stopAfter: Boolean, sleepAt: Long, now: Long) = when {
-    stopAfter -> "After this episode"
-    sleepAt > now -> "In ${(sleepAt - now + 59_999) / 60_000} min"
-    else -> "Off"
+/** The Sleep row's value in Audio & subtitles: "Off", "After this episode" or "In 42 min". The screen passes its words. */
+internal fun sleepLabel(stopAfter: Boolean, sleepAt: Long, now: Long,
+                        afterEpisode: String = "After this episode", inMinutes: String = "In %1\$d min", off: String = "Off") = when {
+    stopAfter -> afterEpisode
+    sleepAt > now -> inMinutes.format(((sleepAt - now + 59_999) / 60_000).toInt())
+    else -> off
 }
 
-internal fun formatTiming(delay: Long) = when {
-    delay == 0L -> "On time"
-    delay < 0L -> "%+.2f s  earlier".format(delay / 1000f)
-    else -> "%+.2f s  later".format(delay / 1000f)
+internal fun formatTiming(delay: Long, onTime: String = "On time",
+                          earlier: String = "%1\$+.2f s  earlier", later: String = "%1\$+.2f s  later") = when {
+    delay == 0L -> onTime
+    delay < 0L -> earlier.format(delay / 1000f)
+    else -> later.format(delay / 1000f)
 }
 
 /** Holds track data for display and smart pinning in the Audio & Subtitles overlay. */
@@ -149,10 +151,11 @@ internal fun <T> chunkGrid(tracks: List<T>, columns: Int = 3): List<List<T>> {
     return tracks.chunked(columns)
 }
 
-internal fun playerPauseFacts(subtitle: String, endClock: String?, isTrailer: Boolean, isLive: Boolean): String =
+internal fun playerPauseFacts(subtitle: String, endClock: String?, isTrailer: Boolean, isLive: Boolean,
+                              endsAt: String = "Ends %1\$s"): String =
     listOfNotNull(
         subtitle.takeIf { it.isNotBlank() },
-        endClock?.takeIf { it.isNotBlank() && !isTrailer && !isLive }?.let { "Ends $it" },
+        endClock?.takeIf { it.isNotBlank() && !isTrailer && !isLive }?.let { endsAt.format(it) },
     ).joinToString(Screen.DOT)
 
 internal enum class BadgeBrand { NONE, DOLBY, DTS, SUBTITLES, DEBRID }
@@ -322,7 +325,8 @@ class PlayerActivity : Screen() {
     private val loadingTask = object : Runnable {
         override fun run() {
             if (loading.visibility != View.VISIBLE || player.playbackState != Player.STATE_BUFFERING) return
-            showLoading(if (started) "Loading" else startMessage ?: "Starting · ${sources.getOrNull(at)?.label.orEmpty()}")
+            showLoading(if (started) getString(R.string.player_loading) else startMessage
+                ?: getString(R.string.player_starting, sources.getOrNull(at)?.label.orEmpty()))
         }
     }
     private val startTimeout = Runnable {
@@ -440,7 +444,7 @@ class PlayerActivity : Screen() {
             val m = meta ?: return@background
             val episode = if (isTrailer) null else m.videos.firstOrNull { it.id == videoId }
             pauseTitle.text = episode?.title?.takeIf { it.isNotBlank() } ?: m.name
-            subtitle.text = if (isTrailer) "Trailer" else episode?.let { "S${it.season} E${it.episode}" } ?: m.year.orEmpty()
+            subtitle.text = if (isTrailer) getString(R.string.action_trailer) else episode?.let { "S${it.season} E${it.episode}" } ?: m.year.orEmpty()
             Images.load(m.logo ?: Images.logoFor(m.id), playerLogo, dp(300), urgent = true, failed = {
                 playerLogo.visibility = View.GONE; topName.visibility = View.VISIBLE
             }) {
@@ -518,7 +522,8 @@ class PlayerActivity : Screen() {
                     else if (askStillWatching(quiet + 1)) showStillWatching(upcoming)
                     else playNext(quiet + 1)
                 }
-                if (state == Player.STATE_BUFFERING) showLoading(if (started) "Loading" else startMessage ?: "Starting · ${sources.getOrNull(at)?.label.orEmpty()}")
+                if (state == Player.STATE_BUFFERING) showLoading(if (started) getString(R.string.player_loading) else startMessage
+                    ?: getString(R.string.player_starting, sources.getOrNull(at)?.label.orEmpty()))
                 if (state == Player.STATE_READY) {
                     if (started) {
                         hideLoading()
@@ -531,7 +536,7 @@ class PlayerActivity : Screen() {
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
                 playPause.foreground = centred(if (playWhenReady) R.drawable.ic_pause else R.drawable.ic_play, 25, BASE)
-                buttonLabels[playPause]?.text = if (playWhenReady) "Pause" else "Play"
+                buttonLabels[playPause]?.text = getString(if (playWhenReady) R.string.player_pause else R.string.action_play)
                 pausedShade.visibility = if (playWhenReady) View.GONE else View.VISIBLE
                 pauseKicker.visibility = if (isTrailer || !playWhenReady) View.VISIBLE else View.GONE
                 if (playWhenReady) { if (shown) showControls(null) }
@@ -625,7 +630,7 @@ class PlayerActivity : Screen() {
             return
         }
         if (sources.isEmpty()) {
-            pauseFacts.text = "Finding sources…"
+            pauseFacts.text = getString(R.string.finding_sources)
             pauseFacts.visibility = View.VISIBLE
             bar.isIndeterminate = true
             showControls(null)
@@ -640,7 +645,7 @@ class PlayerActivity : Screen() {
                     if (isFinishing || isDestroyed) return@resolve
                     sources = best
                     refreshBadges()
-                    pauseFacts.text = "Starting stream…"
+                    pauseFacts.text = getString(R.string.player_starting_stream)
                     val resumeToStart = pendingResume ?: known ?: 0L
                     begin(resumeToStart)
                 },
@@ -759,8 +764,8 @@ class PlayerActivity : Screen() {
 
     private fun showLoading(message: String) {
         if (started) {
-            status.text = if (message == "Loading" && player.bufferedPercentage in 1..99)
-                "Loading · ${player.bufferedPercentage}%" else message
+            status.text = if (message == getString(R.string.player_loading) && player.bufferedPercentage in 1..99)
+                getString(R.string.player_loading_percent, player.bufferedPercentage) else message
             loading.visibility = View.VISIBLE
             main.removeCallbacks(loadingTask)
             if (player.playbackState == Player.STATE_BUFFERING) main.postDelayed(loadingTask, 500)
@@ -799,7 +804,7 @@ class PlayerActivity : Screen() {
         startAt = position
         started = false
         toldUnseekable = false
-        startMessage = message ?: "Starting · ${s.label}"
+        startMessage = message ?: getString(R.string.player_starting, s.label)
         bar.isIndeterminate = true
         showLoading(startMessage!!)
         subDelay = 0L
@@ -852,7 +857,7 @@ class PlayerActivity : Screen() {
             subsPicked = false
             failedAudio.clear()
             android.util.Log.w("Alder", "Source failed: $reason; trying another")
-            return load(position, "That source failed · trying the next one")
+            return load(position, getString(R.string.player_source_failed_next))
         }
         if (isTrailer) {
             intent.getStringExtra("trailerYtId")?.takeIf { it.isNotBlank() }?.let { ytId ->
@@ -869,7 +874,7 @@ class PlayerActivity : Screen() {
         if (intent.getBooleanExtra("picked", false)) {
             showSourceError()
             player.stop()
-            showLoading("That source failed · choose another source")
+            showLoading(getString(R.string.player_source_failed_choose))
             return
         }
         startActivity(Intent(this, StreamsActivity::class.java).putExtras(intent).putExtra("pick", true)
@@ -979,17 +984,17 @@ class PlayerActivity : Screen() {
         val card = column(Gravity.START).apply {
             setPadding(dp(16), dp(15), dp(16), dp(14))
             background = videoGlass(14)
-            addView(caps("Keeps buffering", TUNGSTEN))
-            addView(text("Switch to ${lower}p?", SERIF_TITLE, serif = true),
+            addView(caps(R.string.player_keeps_buffering, TUNGSTEN))
+            addView(text(getString(R.string.player_switch_prompt, lower), SERIF_TITLE, serif = true),
                 wrap().apply { topMargin = dp(4) })
-            addView(text("This ${height}p source stopped 3 times in a minute. A smaller file may play more smoothly from ${clock(position())}.",
+            addView(text(getString(R.string.player_switch_desc, height, clock(position())),
                 SMALL, color = TEXT_2), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(5) })
             val actions = LinearLayout(this@PlayerActivity).apply { gravity = Gravity.CENTER_VERTICAL }
-            val lowerButton = pill("Switch to ${lower}p").apply { setOnClickListener { lowerQuality() } }
+            val lowerButton = pill(getString(R.string.player_switch_to, lower)).apply { setOnClickListener { lowerQuality() } }
             actions.addView(lowerButton, wrap())
-            actions.addView(chip("Keep ${height}p").apply { setOnClickListener { dismissStall() } },
+            actions.addView(chip(getString(R.string.player_keep, height)).apply { setOnClickListener { dismissStall() } },
                 wrap().apply { marginStart = dp(6) })
-            actions.addView(chip("Other sources").apply { setOnClickListener { changeStream() } },
+            actions.addView(chip(R.string.player_other_sources).apply { setOnClickListener { changeStream() } },
                 wrap().apply { marginStart = dp(6) })
             addView(actions, wrap().apply { topMargin = dp(12) })
             lowerButton.post { lowerButton.requestFocus() }
@@ -1009,9 +1014,9 @@ class PlayerActivity : Screen() {
     private fun showSourceError() {
         stallPanel.removeAllViews()
         val card = column(Gravity.START,
-            caps("Source failed", TUNGSTEN),
-            text("Try another source", SERIF_TITLE, serif = true).marginTop(6),
-            pill("Other sources").apply { setOnClickListener { changeStream() } }.marginTop(12)
+            caps(R.string.player_source_failed, TUNGSTEN),
+            text(R.string.player_try_another, SERIF_TITLE, serif = true).marginTop(6),
+            pill(R.string.player_other_sources).apply { setOnClickListener { changeStream() } }.marginTop(12)
         ).apply {
             setPadding(dp(18), dp(18), dp(18), dp(18))
             background = videoGlass(14)
@@ -1042,13 +1047,13 @@ class PlayerActivity : Screen() {
         options.visibility = View.GONE
         hideLoading()
         upNextPanel.removeAllViews()
-        val playNext = pill("Next episode", R.drawable.ic_play).apply { setOnClickListener { playNext() } }
+        val playNext = pill(R.string.player_next_episode, R.drawable.ic_play).apply { setOnClickListener { playNext() } }
         val content = column(Gravity.START).apply {
             setPadding(dp(18), dp(14), dp(18), dp(14))
             // Video can't be frosted: a dark base under the glass keeps it readable over white end cards.
             background = videoGlass(14)
-            addView(caps("Up next", TUNGSTEN).onArt())
-            addView(text(next.title.ifBlank { "Episode ${next.episode}" }, SERIF_TITLE, serif = true).onArt(),
+            addView(caps(R.string.player_up_next, TUNGSTEN).onArt())
+            addView(text(next.title.ifBlank { getString(R.string.episode_number, next.episode) }, SERIF_TITLE, serif = true).onArt(),
                 wrap().apply { topMargin = dp(6) })
             addView(text("S${next.season} E${next.episode}", SMALL, color = TEXT_2).onArt(), wrap().apply { topMargin = dp(5) })
             addView(playNext, wrap().apply { topMargin = dp(16) })
@@ -1098,24 +1103,25 @@ class PlayerActivity : Screen() {
         player.pause()
         pausedShade.visibility = View.VISIBLE
         view.keepScreenOn = false // nobody may be watching: let the TV's own screen saver and sleep take over
-        val play = pill(if (next != null) "Play S${next.season} E${next.episode}" else "Resume", R.drawable.ic_play).apply {
+        val play = pill(if (next != null) getString(R.string.player_play_episode, next.season, next.episode)
+            else getString(R.string.action_resume), R.drawable.ic_play).apply {
             setOnClickListener { if (next != null) playNext() else leaveStillWatching() }
         }
         val actions = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         actions.addView(play, wrap())
-        actions.addView(chip("Exit to Home").apply {
+        actions.addView(chip(R.string.player_exit_home).apply {
             setOnClickListener {
                 startActivity(Intent(this@PlayerActivity, MainActivity::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
                 finish()
             }
         }, wrap().apply { marginStart = dp(8) })
-        val title = next?.let { it.title.ifBlank { "Episode ${it.episode}" } } ?: pauseTitle.text.toString()
-        val why = if (next != null) "$QUIET_EPISODES episodes played with no remote press." else "The sleep timer paused playback."
+        val title = next?.let { it.title.ifBlank { getString(R.string.episode_number, it.episode) } } ?: pauseTitle.text.toString()
+        val why = if (next != null) getString(R.string.player_quiet_episodes, QUIET_EPISODES) else getString(R.string.player_sleep_paused)
         val content = column(Gravity.START).apply {
             setPadding(dp(18), dp(14), dp(18), dp(14))
             background = videoGlass(14)
-            addView(caps("Still watching?", TUNGSTEN).onArt())
+            addView(caps(R.string.player_still_watching, TUNGSTEN).onArt())
             addView(text(title, SERIF_HERO, serif = true).onArt().apply { maxLines = 2; ellipsize = TextUtils.TruncateAt.END },
                 LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
             addView(text(why, SMALL, color = TEXT_2).onArt(), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(5) })
@@ -1334,7 +1340,8 @@ class PlayerActivity : Screen() {
         else if (skip.tag !== now || skip.visibility != View.VISIBLE) {
             if (skip.tag !== now) skipShownAt = System.currentTimeMillis()
             skip.tag = now
-            skip.text = "${now.label}   OK"
+            // The label names the kind ("Skip recap"); the words come from the viewer's language.
+            skip.text = getString(if (now.label.contains("recap", ignoreCase = true)) R.string.skip_recap else R.string.skip_intro) + "   OK"
             skip.visibility = View.VISIBLE
         }
         if (now != null && skip.tag === now && System.currentTimeMillis() - skipShownAt > SKIP_SHOWN) { skipped += now; skip.visibility = View.GONE }
@@ -1410,15 +1417,15 @@ class PlayerActivity : Screen() {
             ?: name, SERIF_HERO, serif = true).onArt().apply {
             maxLines = 1; ellipsize = TextUtils.TruncateAt.END
         }
-        subtitle = text(if (isTrailer) "Trailer" else intent.getStringExtra("episode")?.substringBefore("  ·  ").orEmpty(), SMALL, color = TEXT_2).onArt()
-        pauseFacts = text(if (sources.isEmpty() && !isTrailer) "Finding sources…" else "", SMALL, color = TEXT_2).onArt()
+        subtitle = text(if (isTrailer) getString(R.string.action_trailer) else intent.getStringExtra("episode")?.substringBefore("  ·  ").orEmpty(), SMALL, color = TEXT_2).onArt()
+        pauseFacts = text(if (sources.isEmpty() && !isTrailer) getString(R.string.finding_sources) else "", SMALL, color = TEXT_2).onArt()
         pauseBadges = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         val pauseMetaRow = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
             addView(pauseFacts, wrap().apply { marginEnd = dp(10) })
             addView(pauseBadges, wrap())
         }
-        pauseKicker = caps(if (isTrailer) "Trailer" else "Paused", TUNGSTEN).onArt().apply {
+        pauseKicker = caps(if (isTrailer) R.string.action_trailer else R.string.player_paused, TUNGSTEN).onArt().apply {
             visibility = if (isTrailer) View.VISIBLE else View.GONE
         }
         pauseInfo = column(Gravity.START).apply {
@@ -1441,7 +1448,7 @@ class PlayerActivity : Screen() {
         bar = SeekBar(this).apply {
             id = View.generateViewId()
             isFocusable = true
-            contentDescription = "Seek"
+            contentDescription = getString(R.string.player_seek)
             setOnFocusChangeListener { _, focused ->
                 if (!focused) setChapterSnapMode(false)
                 invalidate()
@@ -1517,13 +1524,13 @@ class PlayerActivity : Screen() {
             }
         }
 
-        audioButton = button("Audio & subtitles", R.drawable.ic_subtitles) { openOptions() }
-        val streamButton = button("Change stream", R.drawable.ic_layers) { changeStream() }
-        playPause = button("Pause", R.drawable.ic_pause, primary = true) {
+        audioButton = button(getString(R.string.player_audio_subtitles), R.drawable.ic_subtitles) { openOptions() }
+        val streamButton = button(getString(R.string.player_change_stream), R.drawable.ic_layers) { changeStream() }
+        playPause = button(getString(R.string.player_pause), R.drawable.ic_pause, primary = true) {
             if (player.playWhenReady) player.pause() else player.play()
         }
-        val nextButton = button("Next episode", R.drawable.ic_next_episode) { playNext() }
-        val infoButton = button("Info", R.drawable.ic_info) {
+        val nextButton = button(getString(R.string.player_next_episode), R.drawable.ic_next_episode) { playNext() }
+        val infoButton = button(getString(R.string.player_info), R.drawable.ic_info) {
             startActivity(Intent(this, DetailsActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 .putExtra("type", type).putExtra("id", metaId)
@@ -1596,7 +1603,8 @@ class PlayerActivity : Screen() {
             addView(buttons, FrameLayout.LayoutParams(-1, dp(76), Gravity.BOTTOM).apply {
                 bottomMargin = dp(11)
             })
-            addView(column(Gravity.END, keyHint("OK", "Play / pause"), keyHint("◀ ▶", "Seek on the bar")), FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.END).apply {
+            addView(column(Gravity.END, keyHint("OK", getString(R.string.key_play_pause)), keyHint("◀ ▶", getString(R.string.key_seek))),
+                FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.END).apply {
                 rightMargin = dp(PAD); bottomMargin = dp(35)
             })
         }
@@ -1612,7 +1620,7 @@ class PlayerActivity : Screen() {
         val textGroup = tracks.groups.firstOrNull { it.type == C.TRACK_TYPE_TEXT && it.isSelected }
         val subLang = if (textGroup == null || C.TRACK_TYPE_TEXT in player.trackSelectionParameters.disabledTrackTypes) null
         else (if (isAddonSub(textGroup)) chosenSub?.lang else textGroup.getTrackFormat(0).language)
-            ?.let(Languages::code)?.let(Languages::name) ?: "On"
+            ?.let(Languages::code)?.let(Languages::name) ?: getString(R.string.state_on)
         val videoHeight = player.videoFormat?.height?.takeIf { it > 0 }
             ?: tracks.groups.firstOrNull { it.type == C.TRACK_TYPE_VIDEO && it.isSelected }?.getTrackFormat(0)?.height ?: 0
         val badges = playerBadges(
@@ -1865,14 +1873,14 @@ class PlayerActivity : Screen() {
         if (shown) {
             if (!bar.isIndeterminate) {
                 bar.set(position, player.bufferedPosition, if (live) 0L else duration)
-                elapsed.text = if (live) "Live" else clock(position)
+                elapsed.text = if (live) getString(R.string.player_live) else clock(position)
                 length.text = if (live || duration <= 0) "" else "−${clock((duration - position).coerceAtLeast(0))}"
             }
             val active = if (markers.size > 1) TimelineMarkers.findCurrent(markers, position) else null
             if ((bar.isFocused || scrubTo >= 0 || chapterSnapMode) && active != null && !live) {
                 chapterPill.text = when {
                     chapterSnapMode -> "‹  ${active.title}  ›"
-                    bar.isFocused && scrubTo < 0 -> "${active.title}  ·  ▲ Chapters"
+                    bar.isFocused && scrubTo < 0 -> getString(R.string.player_chapters, active.title)
                     else -> active.title
                 }
                 chapterPill.visibility = View.VISIBLE
@@ -1890,13 +1898,13 @@ class PlayerActivity : Screen() {
         }
         if (options.visibility == View.VISIBLE) {
             optionsBar.set(position, player.bufferedPosition, if (live) 0L else duration)
-            optionsElapsed.text = if (live) "Live" else clock(position)
+            optionsElapsed.text = if (live) getString(R.string.player_live) else clock(position)
             optionsLeft.text = if (live || duration <= 0) "" else "−${clock((duration - position).coerceAtLeast(0))}"
         }
         val remaining = (duration - position).coerceAtLeast(0)
         val end = if (duration > 0) SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(System.currentTimeMillis() + remaining)) else null
         if (started) {
-            pauseFacts.text = playerPauseFacts(subtitle.text.toString(), end, isTrailer, live)
+            pauseFacts.text = playerPauseFacts(subtitle.text.toString(), end, isTrailer, live, getString(R.string.player_ends_at))
             pauseFacts.visibility = if (pauseFacts.text.isEmpty()) View.GONE else View.VISIBLE
         }
         main.postDelayed(progressTask, 500)
@@ -1923,7 +1931,7 @@ class PlayerActivity : Screen() {
         if (player.isCurrentMediaItemSeekable) return true
         if (!toldUnseekable) {
             toldUnseekable = true
-            android.widget.Toast.makeText(this, "This source can't skip ahead · Change stream to try another", android.widget.Toast.LENGTH_LONG).show()
+            android.widget.Toast.makeText(this, getString(R.string.player_cannot_seek), android.widget.Toast.LENGTH_LONG).show()
         }
         return false
     }
@@ -1964,7 +1972,7 @@ class PlayerActivity : Screen() {
             leftMargin = dp(27); topMargin = dp(27)
         })
 
-        sheet.addView(text("Audio & subtitles", SERIF_TITLE, serif = true), wrap())
+        sheet.addView(text(R.string.player_audio_subtitles, SERIF_TITLE, serif = true), wrap())
         sheet.addView(text(listOfNotNull(pauseTitle.text.toString().takeIf { it.isNotBlank() },
             subtitle.text.toString().takeIf { it.isNotBlank() }).joinToString(DOT),
             SMALL, color = TEXT_2).apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END }, wrap().apply { topMargin = dp(4) })
@@ -1980,7 +1988,7 @@ class PlayerActivity : Screen() {
         })
 
         val tabPills = mutableListOf<TextView>()
-        val tabNames = listOf("Subtitles", "Audio", "Sync & Style")
+        val tabNames = listOf(R.string.tab_subtitles, R.string.tab_audio, R.string.tab_sync_style).map(::getString)
         var currentTab = 0
 
         val panelsContainer = FrameLayout(this).apply {
@@ -2113,8 +2121,8 @@ class PlayerActivity : Screen() {
         val timingResetPills = mutableListOf<TextView>()
 
         fun updateAllTimingHeaders() {
-            val label = formatTiming(subDelay)
-            syncTimingHeader?.text = "SUBTITLE TIMING · ${label.uppercase()}"
+            val label = timing(subDelay)
+            syncTimingHeader?.text = getString(R.string.subtitle_timing_heading, label).uppercase()
             quickTimingValue?.text = label
             timingResetPills.forEach { it.setTextColor(if (subDelay != 0L) TUNGSTEN else TEXT_3) }
         }
@@ -2137,11 +2145,11 @@ class PlayerActivity : Screen() {
         }
 
         val colors = listOf(
-            "white" to "White",
-            "yellow" to "Yellow",
-            "cyan" to "Cyan",
-            "cream" to "Cream",
-            "warm_white" to "Warm white"
+            "white" to getString(R.string.color_white),
+            "yellow" to getString(R.string.color_yellow),
+            "cyan" to getString(R.string.color_cyan),
+            "cream" to getString(R.string.color_cream),
+            "warm_white" to getString(R.string.color_warm_white)
         )
         var currentSubColor = Settings.subtitleColorName(this)
         val colorPillUpdaters = mutableMapOf<String, () -> Unit>()
@@ -2237,9 +2245,9 @@ class PlayerActivity : Screen() {
                 visibility = if (track.tag.isNotEmpty()) View.VISIBLE else View.GONE
             }
             val badgeText = when {
-                isSelected && !track.isOff -> "Active"
-                isPreferred -> "Preferred"
-                isRecent -> "Recent"
+                isSelected && !track.isOff -> getString(R.string.track_active)
+                isPreferred -> getString(R.string.track_preferred)
+                isRecent -> getString(R.string.track_recent)
                 else -> ""
             }
             val badge = text(badgeText, 10f, bold = true, color = if (isSelected) TUNGSTEN else TEXT_2).apply {
@@ -2308,10 +2316,10 @@ class PlayerActivity : Screen() {
             }
 
             val subChoices = mutableListOf<TrackChoice>()
-            subChoices.add(TrackChoice("sub:0", "Off", isSelected = chosenSubIndex == 0, isOff = true))
+            subChoices.add(TrackChoice("sub:0", getString(R.string.state_off), isSelected = chosenSubIndex == 0, isOff = true))
             subs.forEachIndexed { i, group ->
                 val format = group.getTrackFormat(0)
-                subChoices.add(TrackChoice("sub:${1 + i}", trackName(format, false), "in the file",
+                subChoices.add(TrackChoice("sub:${1 + i}", trackName(format, false), getString(R.string.track_in_file),
                     Languages.code(format.language), isSelected = chosenSubIndex == 1 + i))
             }
             addonSubs.forEachIndexed { i, sub ->
@@ -2323,7 +2331,8 @@ class PlayerActivity : Screen() {
             val initialChosenSub = subChoices.getOrNull(chosenSubIndex)
             var currentSelectedSubId = initialChosenSub?.id ?: "sub:0"
 
-            val subActiveHeader = caps(if (currentSelectedSubId == "sub:0") "SUBTITLES · OFF" else "SUBTITLES · ${initialChosenSub?.name?.uppercase() ?: "OFF"}", TUNGSTEN)
+            val subActiveHeader = caps(getString(R.string.subtitles_heading,
+                initialChosenSub?.takeIf { currentSelectedSubId != "sub:0" }?.name ?: getString(R.string.state_off)), TUNGSTEN)
             subtitlesPanel.addView(subActiveHeader, wrap().apply { topMargin = dp(4); bottomMargin = dp(6) })
 
             val timingCard = LinearLayout(this).apply {
@@ -2333,12 +2342,12 @@ class PlayerActivity : Screen() {
                 visibility = if (currentSelectedSubId == "sub:0") View.GONE else View.VISIBLE
             }
             quickTimingCard = timingCard
-            timingCard.addView(caps("QUICK TIMING", TEXT_3), wrap().apply { bottomMargin = dp(6) })
+            timingCard.addView(caps(R.string.quick_timing, TEXT_3), wrap().apply { bottomMargin = dp(6) })
             val timingCardButtons = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 val minus = timingPill("− 0.25s") { adjustTiming(-250L) }
-                val reset = timingPill(formatTiming(subDelay), isReset = true) { resetTiming() }.also { quickTimingValue = it }
+                val reset = timingPill(timing(subDelay), isReset = true) { resetTiming() }.also { quickTimingValue = it }
                 val plus = timingPill("+ 0.25s") { adjustTiming(+250L) }
                 val onUpToLastTrack = View.OnKeyListener { _, keyCode, event ->
                     if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_UP) {
@@ -2355,7 +2364,7 @@ class PlayerActivity : Screen() {
                 addView(plus, LinearLayout.LayoutParams(0, dp(30), 1f))
             }
             timingCard.addView(timingCardButtons, LinearLayout.LayoutParams(-1, dp(30)))
-            timingCard.addView(caps("SUBTITLE COLOR", TEXT_3), wrap().apply { topMargin = dp(8); bottomMargin = dp(4) })
+            timingCard.addView(caps(R.string.subtitle_color, TEXT_3), wrap().apply { topMargin = dp(8); bottomMargin = dp(4) })
             timingCard.addView(createColorRow("subtitles"), LinearLayout.LayoutParams(-1, dp(30)))
 
             val timingDivider = divider().apply {
@@ -2366,7 +2375,8 @@ class PlayerActivity : Screen() {
 
             fun updateSubSelection(selectedId: String) {
                 val selChoice = subChoices.firstOrNull { it.id == selectedId }
-                subActiveHeader.text = if (selChoice == null || selChoice.isOff) "SUBTITLES · OFF" else "SUBTITLES · ${selChoice.name.uppercase()}"
+                subActiveHeader.text = getString(R.string.subtitles_heading,
+                    selChoice?.takeIf { !it.isOff }?.name ?: getString(R.string.state_off)).uppercase()
                 val timingVisible = selChoice?.isOff == false
                 timingCard.visibility = if (timingVisible) View.VISIBLE else View.GONE
                 timingDivider.visibility = if (timingVisible) View.VISIBLE else View.GONE
@@ -2381,9 +2391,9 @@ class PlayerActivity : Screen() {
                     val isRec = !track.isOff && Settings.recentSubtitles(this@PlayerActivity).any { Languages.match(track.langCode, it) > 0 }
 
                     val badgeLabel = when {
-                        isSel && !track.isOff -> "Active"
-                        isPref -> "Preferred"
-                        isRec -> "Recent"
+                        isSel && !track.isOff -> getString(R.string.track_active)
+                        isPref -> getString(R.string.track_preferred)
+                        isRec -> getString(R.string.track_recent)
                         else -> ""
                     }
                     holder.badge.text = badgeLabel
@@ -2422,7 +2432,7 @@ class PlayerActivity : Screen() {
             }
 
             if (pinnedSubs.isNotEmpty()) {
-                subtitlesPanel.addView(caps("PINNED", TEXT_3), wrap().apply {
+                subtitlesPanel.addView(caps(R.string.tracks_pinned, TEXT_3), wrap().apply {
                     topMargin = dp(6); bottomMargin = dp(4)
                 })
 
@@ -2444,7 +2454,7 @@ class PlayerActivity : Screen() {
                 subtitlesPanel.addView(divider().apply {
                     layoutParams = LinearLayout.LayoutParams(-1, dp(1)).apply { setMargins(0, dp(10), 0, dp(8)) }
                 })
-                subtitlesPanel.addView(caps("ALL LANGUAGES (${moreSubs.size})", TEXT_3), wrap().apply {
+                subtitlesPanel.addView(caps(getString(R.string.all_languages, moreSubs.size), TEXT_3), wrap().apply {
                     bottomMargin = dp(4)
                 })
                 moreSubs.forEachIndexed { idx, track ->
@@ -2497,14 +2507,16 @@ class PlayerActivity : Screen() {
         val initialChosenAudio = audioChoices.getOrNull(chosenAudioIndex)
         var currentSelectedAudioId = initialChosenAudio?.id.orEmpty()
 
-        val audioActiveHeader = caps(if (initialChosenAudio != null) "AUDIO · ${initialChosenAudio.name.uppercase()}" else "AUDIO", TUNGSTEN)
+        val audioActiveHeader = caps(if (initialChosenAudio != null) getString(R.string.audio_heading, initialChosenAudio.name)
+            else getString(R.string.tab_audio), TUNGSTEN)
         audioPanel.addView(audioActiveHeader, wrap().apply { topMargin = dp(4); bottomMargin = dp(6) })
 
         val audioHolders = mutableListOf<TrackRowHolder>()
 
         fun updateAudioSelection(selectedId: String) {
             val selChoice = audioChoices.firstOrNull { it.id == selectedId }
-            audioActiveHeader.text = if (selChoice != null) "AUDIO · ${selChoice.name.uppercase()}" else "AUDIO"
+            audioActiveHeader.text = (if (selChoice != null) getString(R.string.audio_heading, selChoice.name)
+                else getString(R.string.tab_audio)).uppercase()
 
             audioHolders.forEach { holder ->
                 val track = holder.track
@@ -2516,9 +2528,9 @@ class PlayerActivity : Screen() {
                 val isRec = Settings.recentAudio(this@PlayerActivity).any { Languages.match(track.langCode, it) > 0 }
 
                 val badgeLabel = when {
-                    isSel -> "Active"
-                    isPref -> "Preferred"
-                    isRec -> "Recent"
+                    isSel -> getString(R.string.track_active)
+                    isPref -> getString(R.string.track_preferred)
+                    isRec -> getString(R.string.track_recent)
                     else -> ""
                 }
                 holder.badge.text = badgeLabel
@@ -2549,7 +2561,7 @@ class PlayerActivity : Screen() {
             }
         }
 
-        audioPanel.addView(caps("PINNED", TEXT_3), wrap().apply {
+        audioPanel.addView(caps(R.string.tracks_pinned, TEXT_3), wrap().apply {
             topMargin = dp(6); bottomMargin = dp(4)
         })
 
@@ -2570,7 +2582,7 @@ class PlayerActivity : Screen() {
             audioPanel.addView(divider().apply {
                 layoutParams = LinearLayout.LayoutParams(-1, dp(1)).apply { setMargins(0, dp(10), 0, dp(8)) }
             })
-            audioPanel.addView(caps("ALL AUDIO TRACKS (${moreAudio.size})", TEXT_3), wrap().apply {
+            audioPanel.addView(caps(getString(R.string.all_audio_tracks, moreAudio.size), TEXT_3), wrap().apply {
                 bottomMargin = dp(4)
             })
             moreAudio.forEach { track ->
@@ -2590,9 +2602,9 @@ class PlayerActivity : Screen() {
             audioPanel.addView(divider().apply {
                 layoutParams = LinearLayout.LayoutParams(-1, dp(1)).apply { setMargins(0, dp(12), 0, dp(8)) }
             })
-            audioPanel.addView(caps("AUDIO ENHANCEMENT", TEXT_3), wrap().apply { bottomMargin = dp(4) })
+            audioPanel.addView(caps(R.string.audio_enhancement, TEXT_3), wrap().apply { bottomMargin = dp(4) })
             var clearOn = dialogueProcessor.enabled
-            val clearStatus = text(if (clearOn) "On" else "Off", 10f, bold = true, color = if (clearOn) TUNGSTEN else TEXT_3).apply {
+            val clearStatus = text(if (clearOn) R.string.state_on else R.string.state_off, 10f, bold = true, color = if (clearOn) TUNGSTEN else TEXT_3).apply {
                 setPadding(dp(7), dp(2), dp(7), dp(2))
                 background = rounded(if (clearOn) 0x3DF3D9B1.toInt() else 0x1AFFFFFF.toInt(), 4)
             }
@@ -2600,8 +2612,8 @@ class PlayerActivity : Screen() {
                 gravity = Gravity.CENTER_VERTICAL
                 isFocusable = true
                 setPadding(dp(10), 0, dp(10), 0)
-                val label = text("Clear dialogue", BODY, color = TEXT_2).apply { maxLines = 1 }
-                val sub = text("Boost voices above music and effects", SMALL, color = TEXT_3).apply { maxLines = 1 }
+                val label = text(R.string.clear_dialogue, BODY, color = TEXT_2).apply { maxLines = 1 }
+                val sub = text(R.string.clear_dialogue_hint, SMALL, color = TEXT_3).apply { maxLines = 1 }
                 val left = LinearLayout(context).apply {
                     orientation = LinearLayout.VERTICAL
                     addView(label)
@@ -2614,7 +2626,7 @@ class PlayerActivity : Screen() {
                     clearOn = !dialogueProcessor.enabled
                     dialogueProcessor.enabled = clearOn
                     Settings.setClearDialogue(this@PlayerActivity, clearOn)
-                    clearStatus.text = if (clearOn) "On" else "Off"
+                    clearStatus.text = getString(if (clearOn) R.string.state_on else R.string.state_off)
                     clearStatus.setTextColor(if (clearOn) TUNGSTEN else TEXT_3)
                     clearStatus.background = rounded(if (clearOn) 0x3DF3D9B1.toInt() else 0x1AFFFFFF.toInt(), 4)
                 }
@@ -2623,12 +2635,12 @@ class PlayerActivity : Screen() {
         }
 
         // Sync & Style tab setup
-        fun timingHeading(delay: Long) = "SUBTITLE TIMING · ${formatTiming(delay).uppercase()}"
+        fun timingHeading(delay: Long) = getString(R.string.subtitle_timing_heading, timing(delay))
         val timingHeader = caps(timingHeading(subDelay), TUNGSTEN)
         syncTimingHeader = timingHeader
         syncPanel.addView(timingHeader, wrap().apply { topMargin = dp(4); bottomMargin = dp(8) })
 
-        syncPanel.addView(caps("EARLIER", TEXT_3), wrap().apply { bottomMargin = dp(4) })
+        syncPanel.addView(caps(R.string.timing_earlier_heading, TEXT_3), wrap().apply { bottomMargin = dp(4) })
         val earlierRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -2652,7 +2664,7 @@ class PlayerActivity : Screen() {
         }
         syncPanel.addView(earlierRow, LinearLayout.LayoutParams(-1, dp(32)).apply { bottomMargin = dp(8) })
 
-        syncPanel.addView(caps("LATER", TEXT_3), wrap().apply { bottomMargin = dp(4) })
+        syncPanel.addView(caps(R.string.timing_later_heading, TEXT_3), wrap().apply { bottomMargin = dp(4) })
         val laterRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -2669,16 +2681,17 @@ class PlayerActivity : Screen() {
         }
         syncPanel.addView(laterRow, LinearLayout.LayoutParams(-1, dp(32)).apply { bottomMargin = dp(8) })
 
-        val resetPill = timingPill("Reset timing (0.0s)", isReset = true) { resetTiming() }
+        val resetPill = timingPill(getString(R.string.timing_reset), isReset = true) { resetTiming() }
         syncPanel.addView(resetPill, LinearLayout.LayoutParams(-1, dp(32)).apply { bottomMargin = dp(14) })
 
         syncPanel.addView(divider().apply {
             layoutParams = LinearLayout.LayoutParams(-1, dp(1)).apply { setMargins(0, dp(4), 0, dp(10)) }
         })
-        syncPanel.addView(caps("SUBTITLE APPEARANCE", TUNGSTEN), wrap().apply { bottomMargin = dp(8) })
+        syncPanel.addView(caps(R.string.subtitle_appearance, TUNGSTEN), wrap().apply { bottomMargin = dp(8) })
 
-        syncPanel.addView(caps("SIZE", TEXT_3), wrap().apply { bottomMargin = dp(4) })
-        val sizes = listOf(80 to "Small", 100 to "Medium", 130 to "Large", 160 to "Extra large")
+        syncPanel.addView(caps(R.string.subtitle_size, TEXT_3), wrap().apply { bottomMargin = dp(4) })
+        val sizes = listOf(80 to R.string.size_small, 100 to R.string.size_medium, 130 to R.string.size_large,
+            160 to R.string.size_extra_large).map { (size, words) -> size to getString(words) }
         var currentSubSize = Settings.subtitleSize(this)
         val sizePills = mutableListOf<TextView>()
         val sizeRow = LinearLayout(this).apply {
@@ -2712,11 +2725,11 @@ class PlayerActivity : Screen() {
         }
         syncPanel.addView(sizeRow, LinearLayout.LayoutParams(-1, dp(30)).apply { bottomMargin = dp(10) })
 
-        syncPanel.addView(caps("COLOR", TEXT_3), wrap().apply { bottomMargin = dp(4) })
+        syncPanel.addView(caps(R.string.color, TEXT_3), wrap().apply { bottomMargin = dp(4) })
         syncPanel.addView(createColorRow("sync"), LinearLayout.LayoutParams(-1, dp(30)).apply { bottomMargin = dp(10) })
 
-        syncPanel.addView(caps("BACKGROUND BOX", TEXT_3), wrap().apply { bottomMargin = dp(4) })
-        val bgOptions = listOf(true to "On", false to "Off")
+        syncPanel.addView(caps(R.string.background_box, TEXT_3), wrap().apply { bottomMargin = dp(4) })
+        val bgOptions = listOf(true to getString(R.string.state_on), false to getString(R.string.state_off))
         val bgPills = mutableListOf<TextView>()
         val bgRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -2752,26 +2765,26 @@ class PlayerActivity : Screen() {
         syncPanel.addView(divider().apply {
             layoutParams = LinearLayout.LayoutParams(-1, dp(1)).apply { setMargins(0, dp(4), 0, dp(10)) }
         })
-        syncPanel.addView(caps("PLAYBACK & SLEEP", TUNGSTEN), wrap().apply { bottomMargin = dp(6) })
+        syncPanel.addView(caps(R.string.playback_sleep, TUNGSTEN), wrap().apply { bottomMargin = dp(6) })
 
-        val sleepValue = text(sleepLabel(stopAfter, sleepAt, System.currentTimeMillis()), SMALL, color = TEXT_3)
+        val sleepValue = text(sleep(), SMALL, color = TEXT_3)
         val sleepRow = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(10), 0, dp(10), 0)
-            addView(text("Sleep timer", BODY, color = TEXT_2), wrap())
+            addView(text(R.string.sleep_timer, BODY, color = TEXT_2), wrap())
             addView(View(context), LinearLayout.LayoutParams(0, 1, 1f))
             addView(sleepValue, wrap())
             rowFocus(8)
             setOnClickListener {
                 cycleSleep()
-                sleepValue.text = sleepLabel(stopAfter, sleepAt, System.currentTimeMillis())
+                sleepValue.text = sleep()
             }
         }
         syncPanel.addView(sleepRow, LinearLayout.LayoutParams(-1, dp(36)))
 
         val changeStreamRow = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            val head = text("Change stream  →", BODY, bold = true).apply { setPadding(dp(10), dp(5), dp(10), dp(3)) }
+            val head = text(R.string.player_change_stream_arrow, BODY, bold = true).apply { setPadding(dp(10), dp(5), dp(10), dp(3)) }
             addView(head, wrap())
             val label = sources[at].label.split(DOT.trim()).map { it.trim() }.filter { it.isNotEmpty() }
             addView(text((label.drop(1) + label.take(1)).joinToString(DOT), SMALL, color = TEXT_3).apply {
@@ -2830,8 +2843,9 @@ class PlayerActivity : Screen() {
         val audio = tracks.groups.firstOrNull { it.type == C.TRACK_TYPE_AUDIO && it.isSelected }?.getTrackFormat(0)?.language
         val text = tracks.groups.firstOrNull { it.type == C.TRACK_TYPE_TEXT && it.isSelected }
         val subtitles = when {
-            text == null || C.TRACK_TYPE_TEXT in player.trackSelectionParameters.disabledTrackTypes -> "Subtitles off"
-            else -> name(if (isAddonSub(text)) chosenSub?.lang else text.getTrackFormat(0).language)?.let { "$it subtitles" } ?: "Subtitles on"
+            text == null || C.TRACK_TYPE_TEXT in player.trackSelectionParameters.disabledTrackTypes -> getString(R.string.subtitles_off)
+            else -> name(if (isAddonSub(text)) chosenSub?.lang else text.getTrackFormat(0).language)
+                ?.let { getString(R.string.subtitles_in, it) } ?: getString(R.string.subtitles_on)
         }
         return listOfNotNull(name(audio), subtitles).joinToString(DOT)
     }
@@ -2862,11 +2876,20 @@ class PlayerActivity : Screen() {
             MimeTypes.AUDIO_OPUS -> "Opus"
             MimeTypes.AUDIO_FLAC -> "FLAC"
             else -> null
-        }, when (f.channelCount) { 1 -> "Mono"; 2 -> "Stereo"; 6 -> "5.1"; 8 -> "7.1"; Format.NO_VALUE -> null; else -> "${f.channelCount} ch" })
+        }, when (f.channelCount) {
+            1 -> getString(R.string.audio_mono); 2 -> getString(R.string.audio_stereo); 6 -> "5.1"; 8 -> "7.1"
+            Format.NO_VALUE -> null; else -> getString(R.string.audio_channels, f.channelCount)
+        })
             .joinToString(" ").ifEmpty { null }
         val label = f.label?.takeIf { it.isNotBlank() && !it.equals(language, ignoreCase = true) }
-        return listOfNotNull(language, label ?: format).joinToString("  ·  ").ifEmpty { "Track ${f.id ?: ""}".trim() }
+        return listOfNotNull(language, label ?: format).joinToString("  ·  ").ifEmpty { getString(R.string.track_number, f.id.orEmpty()).trim() }
     }
+
+    private fun timing(delay: Long) = formatTiming(delay, getString(R.string.timing_on_time),
+        getString(R.string.timing_earlier), getString(R.string.timing_later))
+
+    private fun sleep() = sleepLabel(stopAfter, sleepAt, System.currentTimeMillis(), getString(R.string.sleep_after_episode),
+        getString(R.string.sleep_in_minutes), getString(R.string.state_off))
 
     override fun onStop() {
         super.onStop()

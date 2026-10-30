@@ -98,6 +98,18 @@ abstract class Screen : Activity() {
     /** The Stremio account of the profile in use. */
     protected val authKey: String? get() = Profiles.active(this)?.authKey
 
+    /** Settings › Language › App language, for TVs without Android 13's per-app language page (it applies it itself). */
+    override fun attachBaseContext(newBase: Context) {
+        if (android.os.Build.VERSION.SDK_INT >= 33) return super.attachBaseContext(newBase)
+        val config = android.content.res.Configuration(newBase.resources.configuration)
+        val lang = Settings.appLanguage(newBase)
+        @Suppress("DEPRECATION") val locale = if (lang.isEmpty()) config.locale else java.util.Locale.forLanguageTag(lang)
+        java.util.Locale.setDefault(locale) // language names and dates follow it too
+        if (lang.isEmpty()) return super.attachBaseContext(newBase)
+        config.setLocale(locale)
+        super.attachBaseContext(newBase.createConfigurationContext(config))
+    }
+
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
         if (Http.saved != null) return
@@ -124,17 +136,16 @@ abstract class Screen : Activity() {
             pendingInstall = release
             if (!Updates.askToInstall(this)) {
                 pendingInstall = null
-                choose("Allow Alder to install updates", listOf("OK"),
-                    "On Fire TV: Settings › My Fire TV › Developer options › Install unknown apps, then turn on Alder. " +
-                        "On Google TV: Settings › Apps › Security & restrictions › Unknown sources, then turn on Alder. " +
-                        "Then select Install again.") {}
+                choose(getString(R.string.updates_allow_title), listOf(getString(R.string.action_ok)),
+                    getString(R.string.updates_allow_steps)) {}
             }
             return
         }
-        android.widget.Toast.makeText(this, "Downloading Alder ${release.version}… Alder closes to update. Open it again after.",
+        android.widget.Toast.makeText(this, getString(R.string.updates_downloading, release.version),
             android.widget.Toast.LENGTH_LONG).show()
         background({ Updates.install(applicationContext, release) }) { r ->
-            if (r.isFailure) choose("Couldn't download the update", listOf("OK"), "Check the TV's connection and try again from Settings › About.") {}
+            if (r.isFailure) choose(getString(R.string.updates_download_failed), listOf(getString(R.string.action_ok)),
+                getString(R.string.updates_download_failed_desc)) {}
         }
     }
 
@@ -172,9 +183,18 @@ abstract class Screen : Activity() {
             }
         }
 
+    protected fun text(words: Int, sp: Float, bold: Boolean = false, color: Int = TEXT, serif: Boolean = false) =
+        text(getString(words), sp, bold, color, serif)
+
     protected fun caps(value: String, color: Int = TEXT_2) = text(value.uppercase(), CAPS, bold = true, color = color).apply {
         letterSpacing = 0.12f
     }
+
+    protected fun caps(words: Int, color: Int = TEXT_2) = caps(getString(words), color)
+
+    /** [count] in the plural form the viewer's language needs ("1 season", "5 seasons"). */
+    protected fun plural(words: Int, count: Int, vararg more: Any): String =
+        resources.getQuantityString(words, count, count, *more)
 
     protected fun column(gravity: Int, vararg views: View) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
@@ -300,6 +320,8 @@ abstract class Screen : Activity() {
         return shape.apply { op(lower, Path.Op.DIFFERENCE) }
     }
 
+    protected fun pill(words: Int, icon: Int = 0): TextView = pill(getString(words), icon)
+
     /** The warm-white primary action; focus lifts and grows it with a centered tungsten glow. */
     protected fun pill(label: String, icon: Int = 0): TextView = text(label, SMALL, bold = true).apply {
         isFocusable = true
@@ -362,6 +384,8 @@ abstract class Screen : Activity() {
             .forEach { it.clipChildren = false; it.clipToPadding = false }
         return animate().scaleX(if (on) by else 1f).scaleY(if (on) by else 1f).setDuration(150)
     }
+
+    protected fun chip(words: Int, selected: Boolean = false) = chip(getString(words), selected)
 
     /** A persistent choice: its dot remains after remote focus moves. */
     protected fun chip(label: String, selected: Boolean = false) = text(label, SMALL).apply {
@@ -454,7 +478,7 @@ abstract class Screen : Activity() {
     }
 
     /** On-screen progress overlay: dark veil with a tungsten ring and status message in the center. */
-    protected fun loadingOverlay(statusText: String = "Finding sources…"): Pair<FrameLayout, TextView> {
+    protected fun loadingOverlay(statusText: String = getString(R.string.finding_sources)): Pair<FrameLayout, TextView> {
         val label = text(statusText, BODY, color = TEXT_2).onArt()
         val veil = FrameLayout(this).apply {
             visibility = View.GONE
@@ -646,7 +670,8 @@ abstract class Screen : Activity() {
         val changes = runCatching { assets.open("CHANGELOG.md").bufferedReader().use { it.readText() } }.getOrNull()
             ?.let { text -> changesFor(text, version).ifEmpty { changesFor(text, "Unreleased") } }.orEmpty()
         if (changes.isEmpty()) {
-            if (!quiet) choose("What's new", listOf("OK"), "There are no notes for version $version.") {}
+            if (!quiet) choose(getString(R.string.whats_new), listOf(getString(R.string.action_ok)),
+                getString(R.string.whats_new_no_notes, version)) {}
             return
         }
         val dialog = android.app.Dialog(this).apply { requestWindowFeature(android.view.Window.FEATURE_NO_TITLE) }
@@ -684,7 +709,7 @@ abstract class Screen : Activity() {
         val header = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
             addView(brand(WORDMARK))
-            addView(tag("Version $version", TUNGSTEN).apply {
+            addView(tag(getString(R.string.whats_new_version, version), TUNGSTEN).apply {
                 layoutParams = LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(10) }
             })
         }
@@ -697,7 +722,7 @@ abstract class Screen : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(0, dp(24), dp(16), dp(16))
         }
-        val categoryTag = caps("NEW", TUNGSTEN)
+        val categoryTag = caps(R.string.whats_new_group, TUNGSTEN)
         val titleView = text("", SERIF_TITLE, serif = true).apply {
             setLineSpacing(dp(2).toFloat(), 1f)
         }
@@ -710,7 +735,7 @@ abstract class Screen : Activity() {
         heroScroll.addView(heroContent)
         left.addView(heroScroll, LinearLayout.LayoutParams(-1, 0, 1f))
 
-        val gotIt = pill("Got it").apply {
+        val gotIt = pill(R.string.action_got_it).apply {
             id = View.generateViewId()
             setOnClickListener { dialog.dismiss() }
         }
@@ -735,7 +760,7 @@ abstract class Screen : Activity() {
         }
         columns.addView(right, LinearLayout.LayoutParams(0, -1, 0.42f))
 
-        val listHeader = caps("What's new · ${highlights.size} highlights", TUNGSTEN)
+        val listHeader = caps(plural(R.plurals.whats_new_highlights, highlights.size), TUNGSTEN)
         right.addView(listHeader)
 
         val listScroll = android.widget.ScrollView(this).apply {
@@ -749,16 +774,16 @@ abstract class Screen : Activity() {
 
         val keyHints = LinearLayout(this).apply {
             gravity = Gravity.END or Gravity.CENTER_VERTICAL
-            addView(keyHint("↑ ↓", "Browse"))
+            addView(keyHint("↑ ↓", getString(R.string.key_browse)))
         }
-        val backHint = keyHint("Back", "Exit").apply {
+        val backHint = keyHint(getString(R.string.key_back), getString(R.string.key_exit)).apply {
             layoutParams = LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(12) }
         }
         keyHints.addView(backHint)
         right.addView(keyHints, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
 
         fun updateHero(change: Change, index: Int, total: Int) {
-            val group = change.group?.uppercase() ?: "NEW"
+            val group = (change.group ?: getString(R.string.whats_new_group)).uppercase()
             categoryTag.text = "✦ $group  ·  ${index + 1} / $total"
             val displayTitle = change.title.ifEmpty { change.text }
             titleView.text = displayTitle
@@ -772,8 +797,9 @@ abstract class Screen : Activity() {
         fun render(showAll: Boolean) {
             allChangesShown = showAll
             val visible = if (showAll) changes else highlights
-            listHeader.text = if (showAll) "All changes (${changes.size})" else "What's new · ${highlights.size} highlights"
-            (backHint.getChildAt(1) as TextView).text = if (showAll) "Highlights" else "Exit"
+            listHeader.text = if (showAll) getString(R.string.whats_new_all, changes.size)
+                else plural(R.plurals.whats_new_highlights, highlights.size)
+            (backHint.getChildAt(1) as TextView).text = getString(if (showAll) R.string.whats_new_highlights_short else R.string.key_exit)
             entriesColumn.removeAllViews()
             listScroll.scrollTo(0, 0)
             firstRow = null
@@ -824,7 +850,8 @@ abstract class Screen : Activity() {
                 entriesColumn.addView(row, LinearLayout.LayoutParams(-1, -2))
             }
 
-            val action = text(if (showAll) "← Back to highlights" else "See all ${changes.size} changes  →", BODY, color = TUNGSTEN).apply {
+            val action = text(if (showAll) getString(R.string.whats_new_back) else plural(R.plurals.whats_new_see_all, changes.size),
+                BODY, color = TUNGSTEN).apply {
                 id = View.generateViewId()
                 isFocusable = true
                 isFocusableInTouchMode = true
@@ -863,7 +890,7 @@ abstract class Screen : Activity() {
     protected fun failed(message: String, retry: () -> Unit) = column(Gravity.START,
         text("!", SERIF_NAME, color = TUNGSTEN, serif = true),
         text(message, BODY, color = TEXT).marginTop(10),
-        pill("Try again").apply { setOnClickListener { retry() } }.marginTop(16),
+        pill(R.string.action_try_again).apply { setOnClickListener { retry() } }.marginTop(16),
     ).apply {
         setPadding(dp(18), dp(18), dp(18), dp(18))
         background = glassOver(this, 14, shade = FROST_READING)

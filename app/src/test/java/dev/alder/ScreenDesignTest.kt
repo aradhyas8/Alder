@@ -223,7 +223,7 @@ class ScreenDesignTest {
     }
 
     @Test fun episodeDateUsesOnlyValidAvailableDates() {
-        assertEquals("25 Sep 2013", episodeDate("2013-09-25T00:00:00.000Z"))
+        assertEquals("25 Sep 2013", episodeDate("2013-09-25T00:00:00.000Z", java.util.Locale.US))
         assertEquals(null, episodeDate("2013-02-30"))
         assertEquals(null, episodeDate(null))
     }
@@ -247,9 +247,9 @@ class ScreenDesignTest {
         assertEquals(false, isEpisodeAired("2026-11-14T00:00:00.000Z", fixedNow))
 
         // Air date labels
-        assertEquals("Airs 14 Nov", airDateLabel("2026-11-14"))
-        assertEquals("Airs 14 Nov", airDateLabel("2026-11-14T00:00:00.000Z"))
-        assertEquals(null, airDateLabel(null))
+        assertEquals("14 Nov", airDay("2026-11-14", java.util.Locale.US))
+        assertEquals("14 Nov", airDay("2026-11-14T00:00:00.000Z", java.util.Locale.US))
+        assertEquals(null, airDay(null))
 
         // Recently aired: within the last 7 days
         assertEquals(true, isRecentlyAired("2026-10-29", fixedNow)) // today

@@ -57,11 +57,12 @@ internal fun isEpisodeAired(released: String?, now: Long = System.currentTimeMil
     return day <= localToday || day <= utcToday
 }
 
-internal fun airDateLabel(released: String?): String? {
+/** "14 Nov" for an episode that airs later, in the viewer's language; the screen puts it in "Airs …". */
+internal fun airDay(released: String?, locale: Locale = Locale.getDefault()): String? {
     val day = released?.take(10)?.takeIf { it.matches(Regex("\\d{4}-\\d{2}-\\d{2}")) } ?: return null
     val source = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false; timeZone = TimeZone.getTimeZone("UTC") }
     val parsed = runCatching { source.parse(day) }.getOrNull() ?: return null
-    return "Airs " + SimpleDateFormat("d MMM", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }.format(parsed)
+    return SimpleDateFormat("d MMM", locale).apply { timeZone = TimeZone.getTimeZone("UTC") }.format(parsed)
 }
 
 internal fun isRecentlyAired(released: String?, now: Long = System.currentTimeMillis()): Boolean {
@@ -73,11 +74,11 @@ internal fun isRecentlyAired(released: String?, now: Long = System.currentTimeMi
     return age in 0..(8L * 24 * 60 * 60 * 1000L)
 }
 
-internal fun episodeDate(value: String?): String? {
+internal fun episodeDate(value: String?, locale: Locale = Locale.getDefault()): String? {
     val day = value?.take(10)?.takeIf { it.matches(Regex("\\d{4}-\\d{2}-\\d{2}")) } ?: return null
     val source = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false; timeZone = TimeZone.getTimeZone("UTC") }
     val parsed = runCatching { source.parse(day) }.getOrNull() ?: return null
-    return SimpleDateFormat("d MMM yyyy", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }.format(parsed)
+    return SimpleDateFormat("d MMM yyyy", locale).apply { timeZone = TimeZone.getTimeZone("UTC") }.format(parsed)
 }
 
 // A title stays in place over its art; episodes and related titles open over the same scene.
@@ -150,7 +151,7 @@ class DetailsActivity : Screen() {
             }, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply {
                 topMargin = dp(36); rightMargin = dp(PAD)
             })
-            val (loading, loadingText) = loadingOverlay("Finding sources…")
+            val (loading, loadingText) = loadingOverlay()
             loadingView = loading
             loadingStatus = loadingText
             addView(loadingView, FrameLayout.LayoutParams(-1, -1))
@@ -244,7 +245,7 @@ class DetailsActivity : Screen() {
         }
         val stack = column(Gravity.START).apply { addView(titleArea, LinearLayout.LayoutParams(-1, -2)) }
         if (m == null) {
-            val error = failed("Couldn't load this title's details.") { recreate() }
+            val error = failed(getString(R.string.details_load_failed)) { recreate() }
             stack.addView(error.marginTop(16))
             error.post { error.getChildAt(2).requestFocus() }
         } else {
@@ -285,7 +286,7 @@ class DetailsActivity : Screen() {
                 }, LinearLayout.LayoutParams(dp(470), -2).apply { topMargin = dp(8) })
             }
             val initialCast = richCast.ifEmpty {
-                val dirMembers = m.directors.map { CastMember(it, character = "Director", role = "director") }
+                val dirMembers = m.directors.map { CastMember(it, character = getString(R.string.cast_director), role = "director") }
                 dirMembers + m.castMembers
             }
             buildCastChips(initialCast)?.let { castStrip ->
@@ -304,7 +305,7 @@ class DetailsActivity : Screen() {
         })
         val hasEpisodes = type == "series" && m?.videos?.isNotEmpty() == true
         if (hasEpisodes || ::similarOverlay.isInitialized) {
-            hero.addView(caps(if (hasEpisodes) "▾  Episodes" else "▾  More like this", TEXT_2).onArt().apply {
+            hero.addView(caps(if (hasEpisodes) R.string.details_episodes_below else R.string.details_more_below, TEXT_2).onArt().apply {
                 isFocusable = true
                 setOnClickListener { if (hasEpisodes) showGuide() else showSimilar() }
                 rowFocus(rest = { null })
@@ -341,21 +342,19 @@ class DetailsActivity : Screen() {
         val hasTrailer = m.trailerStreams.isNotEmpty() || m.trailerYtId != null || imdbTrailers.isNotEmpty()
 
         if (type == "series" && unairedNext != null) {
-            val airDate = airDateLabel(unairedNext.released)?.removePrefix("Airs ")
-                ?: episodeDate(unairedNext.released)?.replace(Regex(" \\d{4}$"), "")
-                ?: "soon"
-            val prefix = if (airedVideos.isEmpty()) "Premiere" else "Up to date"
-            val caughtUp = "$prefix  ·  S${unairedNext.season} E${unairedNext.episode} airs $airDate"
+            val airDate = airDay(unairedNext.released) ?: getString(R.string.details_airs_soon)
+            val caughtUp = getString(if (airedVideos.isEmpty()) R.string.details_premiere else R.string.details_up_to_date,
+                unairedNext.season, unairedNext.episode, airDate)
             stack.addView(text(caughtUp, SMALL, bold = true).onArt().apply {
                 maxLines = 1; ellipsize = TextUtils.TruncateAt.END
             }.marginTop(16))
 
-            playButton = pill("Episodes").apply {
+            playButton = pill(R.string.action_episodes).apply {
                 setOnClickListener { showGuide() }
             }
             val trailerButton = if (hasTrailer) trailerPill { playTrailer(m) } else null
-            infoButton = iconButton("ⓘ", "More information") { showInfo() }
-            listButton = iconButton(if (Library.inList(item)) "✓" else "+", "My List") { toggleList() }
+            infoButton = iconButton("ⓘ", getString(R.string.action_more_info)) { showInfo() }
+            listButton = iconButton(if (Library.inList(item)) "✓" else "+", getString(R.string.tab_my_list)) { toggleList() }
             buttonRow = LinearLayout(this).apply {
                 gravity = Gravity.CENTER_VERTICAL
                 clipChildren = false
@@ -370,24 +369,24 @@ class DetailsActivity : Screen() {
             return
         }
         val duration = item?.optJSONObject("state")?.optLong("duration") ?: 0L
-        val remaining = if (resumeAt > 0 && duration > resumeAt) runtime("${(duration - resumeAt) / 60_000} min") + " left" else null
+        val remaining = if (resumeAt > 0 && duration > resumeAt) getString(R.string.time_left, runtime("${(duration - resumeAt) / 60_000} min")) else null
         val where = listOfNotNull(episode?.let { "S${it.season} E${it.episode}" }, episode?.title?.takeIf { it.isNotBlank() }, remaining).joinToString(DOT)
         if (where.isNotEmpty() && resumeAt > 0) stack.addView(text(where, SMALL, bold = true).onArt().apply {
             maxLines = 1; ellipsize = TextUtils.TruncateAt.END
         }.marginTop(16))
         if (remaining != null) stack.addView(progressBar(resumeAt.toFloat() / duration), LinearLayout.LayoutParams(dp(240), dp(3)).apply { topMargin = dp(8) })
 
-        playButton = pill(if (resumeAt > 0) "Resume" else "Play", R.drawable.ic_play).apply {
+        playButton = pill(if (resumeAt > 0) R.string.action_resume else R.string.action_play, R.drawable.ic_play).apply {
             setOnClickListener { openSources(target?.first ?: metaId, startOver = false) }
             // Held OK: every source, to choose one by hand.
             setOnLongClickListener { openSources(target?.first ?: metaId, startOver = false, pick = true); true }
         }
         val trailerButton = if (hasTrailer) trailerPill { playTrailer(m) } else null
-        val startOver = if (resumeAt > 0) iconButton("↺", "Start over") {
+        val startOver = if (resumeAt > 0) iconButton("↺", getString(R.string.action_start_over)) {
             openSources(target?.first ?: metaId, startOver = true)
         } else null
-        infoButton = iconButton("ⓘ", "More information") { showInfo(focusCast = false) }
-        listButton = iconButton(if (Library.inList(item)) "✓" else "+", "My List") { toggleList() }
+        infoButton = iconButton("ⓘ", getString(R.string.action_more_info)) { showInfo(focusCast = false) }
+        listButton = iconButton(if (Library.inList(item)) "✓" else "+", getString(R.string.tab_my_list)) { toggleList() }
         buttonRow = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
             clipChildren = false
@@ -402,7 +401,9 @@ class DetailsActivity : Screen() {
         playButton.post { if (!guideOpen && !infoOpen && !similarOpen && !filmographyOpen) playButton.requestFocus() }
     }
 
-    private fun trailerPill(action: () -> Unit) = text("Trailer", SMALL, bold = true).apply {
+    private fun seasonName(season: Int) = if (season == 0) getString(R.string.season_specials) else getString(R.string.season_number, season)
+
+    private fun trailerPill(action: () -> Unit) = text(R.string.action_trailer, SMALL, bold = true).apply {
         isFocusable = true
         gravity = Gravity.CENTER_VERTICAL
         minHeight = dp(BUTTON_H)
@@ -517,7 +518,7 @@ class DetailsActivity : Screen() {
         Library.setInList(entry, !Library.inList(item))
         item = entry
         listButton.text = if (Library.inList(entry)) "✓" else "+"
-        listButton.contentDescription = if (Library.inList(entry)) "Remove from My List" else "Add to My List"
+        listButton.contentDescription = getString(if (Library.inList(entry)) R.string.action_remove_from_list else R.string.action_add_to_list)
         val snapshot = JSONObject(entry.toString())
         background({ Stremio.saveLibrary(key, listOf(snapshot)) }) {}
     }
@@ -623,9 +624,8 @@ class DetailsActivity : Screen() {
         val seasons = videos.map { it.season }.distinct()
         seasonStrip.removeAllViews()
         seasonButtons = seasons.associateWith { season ->
-            chip(if (season == selectedSeason) {
-                if (season == 0) "Specials" else "Season $season"
-            } else if (season == 0) "Specials" else season.toString(), season == selectedSeason).apply {
+            chip(if (season == selectedSeason) seasonName(season)
+                else if (season == 0) getString(R.string.season_specials) else season.toString(), season == selectedSeason).apply {
                 setOnClickListener {
                     selectedSeason = season
                     fillGuide()
@@ -654,9 +654,9 @@ class DetailsActivity : Screen() {
                 ?.optLong("duration") ?: 0L
             val aired = isEpisodeAired(video.released)
             val status = when {
-                !aired -> airDateLabel(video.released).orEmpty()
+                !aired -> airDay(video.released)?.let { getString(R.string.airs_on, it) }.orEmpty()
                 video.id in watched -> "✓"
-                resumeAt > 0 && duration > resumeAt -> "${(duration - resumeAt) / 60_000} min left"
+                resumeAt > 0 && duration > resumeAt -> getString(R.string.time_left_minutes, ((duration - resumeAt) / 60_000).toInt())
                 else -> meta?.runtime.orEmpty()
             }
             val titleColor = when {
@@ -664,7 +664,7 @@ class DetailsActivity : Screen() {
                 video.id in watched -> TEXT_2
                 else -> TEXT
             }
-            row.addView(text(video.title.ifBlank { "Episode ${video.episode}" }, BODY,
+            row.addView(text(video.title.ifBlank { getString(R.string.episode_number, video.episode) }, BODY,
                 color = titleColor).apply {
                 maxLines = 1; ellipsize = TextUtils.TruncateAt.END
             }, FrameLayout.LayoutParams(dp(225), -2, Gravity.CENTER_VERTICAL).apply { leftMargin = dp(46) })
@@ -694,7 +694,7 @@ class DetailsActivity : Screen() {
     private fun updatePreview(video: Video) {
         val blur = Settings.blurThumbnails(this) && video.id !in Library.watched(item, meta?.videos.orEmpty())
         Images.load(video.thumbnail, previewImage, dp(870), orElse = meta?.background, look = if (blur) Images.blurred else null)
-        previewTitle.text = video.title.ifBlank { "Episode ${video.episode}" }
+        previewTitle.text = video.title.ifBlank { getString(R.string.episode_number, video.episode) }
         previewFacts.text = listOfNotNull("S${video.season} E${video.episode}", meta?.runtime,
             episodeDate(video.released)).joinToString(DOT)
         previewAbout.text = video.overview.orEmpty()
@@ -764,27 +764,25 @@ class DetailsActivity : Screen() {
         val isWatched = video.id in watched
         val prior = Library.priorEpisodes(videos, video)
 
-        val options = mutableListOf<String>()
-        options.add("Choose a source")
-        options.add(if (isWatched) "Mark as unwatched" else "Mark as watched")
+        val options = mutableListOf(R.string.action_choose_source, if (isWatched) R.string.action_mark_unwatched else R.string.action_mark_watched)
         if (prior.isNotEmpty()) {
-            options.add("Mark previous episodes watched")
+            options.add(R.string.action_mark_previous_watched)
         }
 
         val epNumber = if (video.season > 0) "S${video.season} E${video.episode}" else "E${video.episode}"
         val title = video.title.ifBlank { epNumber }
         val message = if (video.title.isNotBlank()) epNumber else null
 
-        choose(title, options, message = message) { selected ->
+        choose(title, options.map(::getString), message = message) { selected ->
             when (options[selected]) {
-                "Choose a source" -> {
+                R.string.action_choose_source -> {
                     val next = videos.getOrNull(videos.indexOf(video) + 1)?.id
                     openSources(video.id, startOver = false, next = next,
                         label = "S${video.season} E${video.episode}", pick = true)
                 }
-                "Mark as watched" -> markEpisodeWatched(video, true)
-                "Mark as unwatched" -> markEpisodeWatched(video, false)
-                "Mark previous episodes watched" -> markPreviousEpisodesWatched(video, prior)
+                R.string.action_mark_watched -> markEpisodeWatched(video, true)
+                R.string.action_mark_unwatched -> markEpisodeWatched(video, false)
+                R.string.action_mark_previous_watched -> markPreviousEpisodesWatched(video, prior)
             }
         }
     }
@@ -835,8 +833,8 @@ class DetailsActivity : Screen() {
         if (seasonVideos.isEmpty()) return
         val watched = Library.watched(item, videos)
         val allWatched = seasonVideos.all { it.id in watched }
-        val title = if (season == 0) "Specials" else "Season $season"
-        val option = if (allWatched) "Mark $title as unwatched" else "Mark $title as watched"
+        val title = seasonName(season)
+        val option = getString(if (allWatched) R.string.mark_season_unwatched else R.string.mark_season_watched, title)
         choose(title, listOf(option)) { selected ->
             if (selected == 0) {
                 markSeasonWatched(season, !allWatched)
@@ -910,7 +908,7 @@ class DetailsActivity : Screen() {
         }.marginTop(6))
 
         m.description?.takeIf { it.isNotBlank() }?.let { desc ->
-            content.addView(caps("The story", TEXT_2).onArt().marginTop(14))
+            content.addView(caps(R.string.details_the_story, TEXT_2).onArt().marginTop(14))
             val story = ScrollView(this).apply {
                 isVerticalScrollBarEnabled = false
                 isFocusable = true
@@ -921,12 +919,12 @@ class DetailsActivity : Screen() {
         }
 
         val fullCast = richCast.ifEmpty {
-            val directors = m.directors.map { CastMember(it, "Director", null, role = "director") }
+            val directors = m.directors.map { CastMember(it, getString(R.string.cast_director), null, role = "director") }
             val directorNames = directors.map { it.name.lowercase() }.toSet()
             directors + m.castMembers.filter { it.name.lowercase() !in directorNames }
         }
         if (fullCast.isNotEmpty()) {
-            content.addView(caps("Cast", TEXT_2).onArt().marginTop(14))
+            content.addView(caps(R.string.details_cast, TEXT_2).onArt().marginTop(14))
             val castRow = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
@@ -1002,8 +1000,9 @@ class DetailsActivity : Screen() {
                 }
                 card.addView(nameView, LinearLayout.LayoutParams(dp(82), -2).apply { topMargin = dp(6) })
 
-                val charView = if (!actor.character.isNullOrBlank()) {
-                    text(actor.character, 11f, color = TEXT_2).apply {
+                val role = if (actor.isDirector) getString(R.string.cast_director) else actor.character
+                val charView = if (!role.isNullOrBlank()) {
+                    text(role, 11f, color = TEXT_2).apply {
                         gravity = Gravity.CENTER_HORIZONTAL
                         textAlignment = View.TEXT_ALIGNMENT_CENTER
                         maxLines = 1
@@ -1085,7 +1084,7 @@ class DetailsActivity : Screen() {
             result.getOrNull()?.let { titles ->
                 titles.asSequence().filter { it.id != metaId && it.type == type }
                     .distinctBy { it.id }.take(12).toList().takeIf { it.isNotEmpty() }
-                    ?.let { showSimilar("More like this", it) }
+                    ?.let { showSimilar(getString(R.string.details_more_like_this), it) }
             }
         }
     }
@@ -1288,7 +1287,7 @@ class DetailsActivity : Screen() {
         val totalCastCount = (richCast.ifEmpty { allMembers }).size
         val remainingCount = totalCastCount - members.size
         if (remainingCount > 0) {
-            val moreChip = text("+$remainingCount more", SMALL, color = TEXT).apply {
+            val moreChip = text(getString(R.string.cast_more, remainingCount), SMALL, color = TEXT).apply {
                 gravity = Gravity.CENTER
                 includeFontPadding = false
                 minHeight = dp(28)
@@ -1353,7 +1352,7 @@ class DetailsActivity : Screen() {
                 if (!infoOpen) showInfo(focusCast = true)
                 return@background
             }
-            val heading = if (actor.isDirector) "Directed by ${actor.name}" else actor.name
+            val heading = if (actor.isDirector) getString(R.string.directed_by, actor.name) else actor.name
             buildFilmographyOverlay(heading, titles)
             openFilmography()
         }
@@ -1492,7 +1491,7 @@ class DetailsActivity : Screen() {
         }
         var canceled = false
         resolvingStreams = object : Cancellable { override fun cancel() { canceled = true } }
-        loadingStatus.text = "Loading trailer…"
+        loadingStatus.text = getString(R.string.loading_trailer)
         loadingView.visibility = View.VISIBLE
         loadingView.bringToFront()
         background({ imdbTrailerStreams(m.id) }) { result ->
