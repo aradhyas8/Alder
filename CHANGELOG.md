@@ -15,6 +15,11 @@ Write every entry in ASD-STE100 Simplified Technical English (STE):
 
 Put changes that are not released under `## Unreleased`. Before each release, read all of `## Unreleased` again and rewrite each entry that does not obey these rules. Then rename that heading to the version number.
 
+## 1.3.1
+
+### Fixes
+- **Alder.apk download.** The release file uses the Alder.apk name.
+
 ## 1.3
 
 ### New
