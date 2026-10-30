@@ -18,8 +18,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 ## Unreleased
 
 ### New
-- Add an Alder image for website cards.
-- Add an Alder card image with a large logo.
+- Add an Alder website card image with the app screen and product text.
 
 ## 1.3.1
 
