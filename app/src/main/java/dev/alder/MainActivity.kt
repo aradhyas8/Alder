@@ -141,7 +141,11 @@ internal fun logoTint(pixels: IntArray): Int? {
 //    where you are and Resume, moving on to the next every ADVANCE. OK resumes; any other key returns to where you were.
 //    The TV's own screensaver takes over later (10 min on the test TV), so nothing stays still for hours.
 class MainActivity : Screen() {
-    private enum class Page(val label: String) { HOME("Home"), SHOWS("Shows"), MOVIES("Movies"), LIVE("Live"), LIBRARY("My List") }
+    /** [label] names a page in intents and saved answers; [words] is what the top bar shows. */
+    private enum class Page(val label: String, val words: Int) {
+        HOME("Home", R.string.tab_home), SHOWS("Shows", R.string.tab_shows), MOVIES("Movies", R.string.tab_movies),
+        LIVE("Live", R.string.tab_live), LIBRARY("My List", R.string.tab_my_list)
+    }
     private enum class Mode { CINEMA, BROWSE }
     private enum class ListFilter { ALL, MOVIES, SHOWS }
     private enum class ListSort { RECENT, NAME, UNWATCHED }
@@ -290,6 +294,7 @@ class MainActivity : Screen() {
         val videoId: String?, val progress: Float,
         val resume: Boolean, // has watch progress (Continue Watching, Library): its facts come from the meta addon
         val left: String?, // Continue Watching: "S1 E3 · 31 min left"
+        val timeLeft: String? = null, // the "31 min left" part of [left]
         val stoppedAt: Long? = null,
         val addedAt: String? = null,
         val finished: Boolean = false,
@@ -388,7 +393,7 @@ class MainActivity : Screen() {
                 leftMargin = dp(PAD); topMargin = dp(232)
             })
             // On glass: it sits over the next row's posters.
-            listHint = text("Hold OK for options", SMALL, color = TEXT_2).apply {
+            listHint = text(R.string.home_hold_ok, SMALL, color = TEXT_2).apply {
                 visibility = View.GONE
                 background = glass(CHIP_H / 2)
                 setPadding(dp(14), dp(4), dp(14), dp(5))
@@ -411,7 +416,7 @@ class MainActivity : Screen() {
                 topMargin = dp(HEADER_H + 6)
             })
             addView(header().apply { alpha = 0f }, FrameLayout.LayoutParams(-1, dp(HEADER_H))) // fades in if the page wants it
-            val (loading, loadingText) = loadingOverlay("Finding sources…")
+            val (loading, loadingText) = loadingOverlay()
             loadingView = loading
             loadingStatus = loadingText
             addView(loadingView, FrameLayout.LayoutParams(-1, -1))
@@ -552,8 +557,9 @@ class MainActivity : Screen() {
         if (Updates.due(this)) background({ Updates.latest(applicationContext) }) { r ->
             val release = r.getOrNull()?.takeIf { newerVersion(it.version, Updates.mine(this)) } ?: return@background
             updateDot?.visibility = View.VISIBLE
-            if (Updates.offerOnce(this, release.version)) choose("Alder ${release.version} is ready", listOf("Later", "Install"),
-                "Install it now? It takes a minute, and your profiles and settings stay.") { if (it == 1) installUpdate(release) }
+            if (Updates.offerOnce(this, release.version)) choose(getString(R.string.updates_ready, release.version),
+                listOf(getString(R.string.action_later), getString(R.string.action_install)),
+                getString(R.string.updates_ready_desc)) { if (it == 1) installUpdate(release) }
         }
     }
 
@@ -693,7 +699,7 @@ class MainActivity : Screen() {
         // The profile: a small round avatar on the margin. OK opens a small menu (switch profile, settings).
         val avatar = text(profile.name.take(1).uppercase(), SMALL, bold = true, color = TUNGSTEN).apply {
             gravity = Gravity.CENTER
-            contentDescription = "Profile"
+            contentDescription = getString(R.string.nav_profile)
             val rest = glassOver(this, 20)
             fun style(focused: Boolean) {
                 background = if (focused) glass(20, true) else rest
@@ -733,7 +739,7 @@ class MainActivity : Screen() {
         // As tall as the words' pills (match parent), the glyph 18 dp inside it.
         search = ImageView(this).apply {
             setImageResource(R.drawable.ic_search)
-            contentDescription = "Search"
+            contentDescription = getString(R.string.nav_search)
             setPadding(dp(13), dp(7), dp(13), dp(7))
             setOnFocusChangeListener { _, _ -> styleNav() }
             setOnClickListener { startActivity(Intent(this@MainActivity, SearchActivity::class.java)) }
@@ -741,7 +747,7 @@ class MainActivity : Screen() {
         // A page opens as soon as the remote rests on its name. OK on Shows or Movies goes to its genres. Live shows only
         // once the profile's add-ons have a live catalog ([showLiveTab]).
         Page.entries.forEach { p ->
-            navItems[p] = text(p.label, BODY).apply {
+            navItems[p] = text(p.words, BODY).apply {
                 gravity = Gravity.CENTER
                 compoundDrawablePadding = dp(2)
                 setPadding(dp(12), dp(4), dp(12), dp(2))
@@ -800,8 +806,8 @@ class MainActivity : Screen() {
 
     private fun profileMenu() {
         val update = Updates.available(this)
-        val options = if (update != null) listOf("Install update (${update.version})", "Switch profile", "Settings")
-                      else listOf("Switch profile", "Settings")
+        val usual = listOf(getString(R.string.menu_switch_profile), getString(R.string.menu_settings))
+        val options = if (update != null) listOf(getString(R.string.menu_install_update, update.version)) + usual else usual
         choose(profile.name, options) { i ->
             if (update != null) {
                 when (i) {
@@ -823,7 +829,7 @@ class MainActivity : Screen() {
             val focused = item.isFocused
             item.background = if (focused) glass(NAV_R, true) else null
             item.setTextColor(if (p == page || focused) TEXT else TEXT_2)
-            item.text = p.label
+            item.text = getString(p.words)
             // The open page's dot hangs under its name; the others keep an empty one, so every name sits on one line.
             item.setCompoundDrawablesRelative(null, null, null, GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
@@ -926,7 +932,7 @@ class MainActivity : Screen() {
         cinemaName = text("", SERIF_HERO, serif = true).onArt().apply { maxLines = 2; ellipsize = TextUtils.TruncateAt.END; maxWidth = dp(520) }
         cinemaLogo = ImageView(this).apply { adjustViewBounds = true; scaleType = ImageView.ScaleType.FIT_START; maxHeight = dp(LOGO_H); maxWidth = dp(LOGO_W) }
         cinemaLine = text("", SMALL, color = TEXT).onArt().apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END; maxWidth = dp(INFO_W) }
-        cinemaPlay = pill("Resume", R.drawable.ic_play).apply {
+        cinemaPlay = pill(R.string.action_resume, R.drawable.ic_play).apply {
             isFocusable = false
             setOnClickListener { cinema.getOrNull(cinemaAt)?.let(::play) }
         }
@@ -977,7 +983,7 @@ class MainActivity : Screen() {
         if (logoUrl == null) { cinemaName.visibility = View.VISIBLE; part() }
         else Images.load(logoUrl, cinemaLogo, dp(LOGO_W), urgent = true, failed = { cinemaName.visibility = View.VISIBLE; part() }) { part() }
         cinemaLine.text = where(item)
-        cinemaPlay.text = if (item.progress > 0) "Resume" else "Play"
+        cinemaPlay.text = getString(if (item.progress > 0) R.string.action_resume else R.string.action_play)
         dots.removeAllViews()
         cinema.indices.forEach { i ->
             dots.addView(View(this).apply { background = rounded(if (i == index) TUNGSTEN else TEXT_3, 3) },
@@ -1032,7 +1038,7 @@ class MainActivity : Screen() {
         heroScore = text("", SMALL, color = TEXT_2).onArt().apply { visibility = View.GONE }
         heroAdded = text("", SMALL, color = TEXT_3).onArt().apply { visibility = View.GONE }
         heroAbout = text("", BODY, color = TEXT).onArt().apply { maxLines = 2; ellipsize = TextUtils.TruncateAt.END }
-        heroResume = pill("Resume", R.drawable.ic_play).apply {
+        heroResume = pill(R.string.action_resume, R.drawable.ic_play).apply {
             setOnClickListener { heroItem?.let(::play) }
             setOnLongClickListener { heroItem?.let { play(it, pick = true) }; true }
         }
@@ -1082,12 +1088,13 @@ class MainActivity : Screen() {
         val meta = metas[item.id]
         val year = meta?.year ?: item.facts.firstOrNull { it.firstOrNull()?.isDigit() == true }
         val genre = meta?.genres?.firstOrNull() ?: item.facts.firstOrNull { it.firstOrNull()?.isDigit() == false && !it.startsWith("IMDb") }?.substringBefore(",")
-        val length = if (item.type == "series") meta?.videos?.map { it.season }?.filter { it > 0 }?.distinct()?.size?.takeIf { it > 0 }?.let(::seasons)
+        val length = if (item.type == "series") meta?.videos?.map { it.season }?.filter { it > 0 }?.distinct()?.size?.takeIf { it > 0 }
+            ?.let { plural(R.plurals.seasons, it) }
             else meta?.runtime
         // A show in progress describes its next episode, so the line names that episode rather than the show.
         val code = item.left?.split(DOT)?.firstOrNull { it.startsWith("S") && " E" in it }
         val factsList = mutableListOf<String>()
-        if (item.newEpisode) factsList += "New episode"
+        if (item.newEpisode) factsList += getString(R.string.new_episode)
         if (code != null) factsList += listOfNotNull(code, episode(item)?.title?.takeIf { it.isNotEmpty() })
         else factsList += listOfNotNull(year, genre, length)
         heroFacts.text = factsList.joinToString(DOT)
@@ -1097,7 +1104,7 @@ class MainActivity : Screen() {
         heroScore.text = rating
         // Leads with a dot only when facts or a rating sit before it (a title with no details yet showed "· Added").
         val lead = if (heroFacts.text.isEmpty() && heroRating.visibility == View.GONE) "" else "·  "
-        heroAdded.text = item.addedAt?.let { "${lead}Added ${addedAgo(it)}" } ?: ""
+        heroAdded.text = item.addedAt?.let { lead + getString(R.string.added_when, addedAgo(it)) } ?: ""
         (heroAdded.layoutParams as? android.view.ViewGroup.MarginLayoutParams)?.marginStart = if (lead.isEmpty()) 0 else dp(6)
         heroAdded.visibility = if (page == Page.LIBRARY && heroAdded.text.isNotEmpty()) View.VISIBLE else View.GONE
         heroAbout.maxLines = 2
@@ -1119,11 +1126,12 @@ class MainActivity : Screen() {
     }
 
     private fun showCaption(item: Item) {
-        val remaining = item.left?.split(DOT)?.lastOrNull { it.endsWith("left") }
-        val stop = item.stoppedAt?.takeIf { it > 0 }?.let { "Stopped at ${android.text.format.DateUtils.formatElapsedTime(it / 1000)}" }
+        val remaining = item.timeLeft
+        val stop = item.stoppedAt?.takeIf { it > 0 }?.let { getString(R.string.stopped_at, android.text.format.DateUtils.formatElapsedTime(it / 1000)) }
         val meta = metas[item.id]
         val detail = if (page == Page.HOME) meta?.year ?: item.facts.firstOrNull { it.firstOrNull()?.isDigit() == true }
-            else if (item.type == "series") meta?.videos?.map { it.season }?.filter { it > 0 }?.distinct()?.size?.takeIf { it > 0 }?.let(::seasons)
+            else if (item.type == "series") meta?.videos?.map { it.season }?.filter { it > 0 }?.distinct()?.size?.takeIf { it > 0 }
+                ?.let { plural(R.plurals.seasons, it) }
             else meta?.runtime
         cardCaption.text = listOfNotNull(remaining, stop).takeIf { it.isNotEmpty() }?.joinToString(DOT)
             ?: listOfNotNull(item.name, detail).joinToString(DOT)
@@ -1151,7 +1159,7 @@ class MainActivity : Screen() {
         val parts = item.left?.split(DOT).orEmpty()
         val code = parts.firstOrNull { it.startsWith("S") && " E" in it }
         val about = if (code != null) listOfNotNull(code, episode(item)?.title?.takeIf { it.isNotEmpty() }) else item.facts
-        return (about + listOfNotNull(parts.lastOrNull { it.endsWith("left") })).joinToString(DOT)
+        return (about + listOfNotNull(item.timeLeft)).joinToString(DOT)
     }
 
     /** "Series · 2022 · Crime": the kind, the year and the first genre, nothing that needs reading twice. */
@@ -1232,7 +1240,7 @@ class MainActivity : Screen() {
             forgetIfSessionGone(error)
             if (failedShown || isFinishing || page != p) return
             failedShown = true
-            val view = failed("Couldn't reach Stremio. Check the TV's connection.") { showPage(page) }
+            val view = failed(getString(R.string.home_unreachable)) { showPage(page) }
             content.addView(view, 0, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(PAD) })
             view.post { if (!focusedSomething && !header.hasFocus()) view.getChildAt(2).requestFocus() }
         }
@@ -1271,7 +1279,7 @@ class MainActivity : Screen() {
                 if (p == Page.HOME) {
                     val items = cw.map(::libraryItem)
                     if (items.isNotEmpty()) {
-                        slot.addView(row("Continue", items.take(START), later(items)).view)
+                        slot.addView(row(getString(R.string.row_continue), items.take(START), later(items)).view)
                         android.util.Log.d("Alder", "page ${p.label}: Continue in ${android.os.SystemClock.uptimeMillis() - opened} ms")
                         startCinema(items.take(CINEMA_MAX))
                     }
@@ -1309,10 +1317,14 @@ class MainActivity : Screen() {
             }.sortedBy { it.second.rank }
             val catalogs = shelves.map { it.first }
             if (catalogs.isEmpty()) {
-                val what = when (p) { Page.MOVIES -> "movie"; Page.LIVE -> "live"; else -> "show" }
+                val none = when (p) {
+                    Page.HOME -> R.string.home_no_picks
+                    Page.MOVIES -> R.string.page_no_movie_catalogs
+                    Page.LIVE -> R.string.page_no_live_catalogs
+                    else -> R.string.page_no_show_catalogs
+                }
                 // Home holds only Continue and Watchly's picks, so a new account sees nothing there without a word.
-                content.addView(text(if (p == Page.HOME) "Picks for you show here once Watchly is installed on this profile's Stremio account. Shows and Movies have more to browse."
-                    else "None of your addons has $what catalogs. Add one (AIOMetadata, Cinemeta) in Stremio.", BODY, color = TEXT_3)
+                content.addView(text(none, BODY, color = TEXT_3)
                     .apply { setPadding(dp(PAD), 0, dp(PAD), 0) })
             }
             val genres = catalogGenres(catalogs.flatMap { it.genres })
@@ -1497,13 +1509,15 @@ class MainActivity : Screen() {
             line.addView(control, LinearLayout.LayoutParams(-2, dp(CHIP_H)).apply { if (line.childCount > 0) marginStart = dp(6) })
             return control
         }
-        listOf(ListFilter.ALL to "All", ListFilter.MOVIES to "Movies", ListFilter.SHOWS to "Shows").forEach { (value, label) ->
+        listOf(ListFilter.ALL to getString(R.string.filter_all), ListFilter.MOVIES to getString(R.string.tab_movies),
+            ListFilter.SHOWS to getString(R.string.tab_shows)).forEach { (value, label) ->
             listFilterChips[value] = add(label, value == listFilter) {
                 if (listFilter != value) { listFilter = value; styleListChips(); redrawLibrary() }
             }
         }
-        line.addView(text("Sort", SMALL, color = TEXT_3), LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(20) })
-        listOf(ListSort.RECENT to "Recently added", ListSort.NAME to "A–Z", ListSort.UNWATCHED to "Unwatched first")
+        line.addView(text(R.string.list_sort, SMALL, color = TEXT_3), LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(20) })
+        listOf(ListSort.RECENT to getString(R.string.list_sort_recent), ListSort.NAME to getString(R.string.list_sort_name),
+            ListSort.UNWATCHED to getString(R.string.list_sort_unwatched))
             .forEach { (value, label) ->
                 listSortChips[value] = add(label, value == listSort) {
                     if (listSort != value) { listSort = value; styleListChips(); redrawLibrary() }
@@ -1513,17 +1527,18 @@ class MainActivity : Screen() {
     }
 
     private fun styleListChips() {
-        listFilterChips.forEach { (value, view) -> view.select(when (value) {
-            ListFilter.ALL -> "All"; ListFilter.MOVIES -> "Movies"; ListFilter.SHOWS -> "Shows"
-        }, value == listFilter) }
-        listSortChips.forEach { (value, view) -> view.select(when (value) {
-            ListSort.RECENT -> "Recently added"; ListSort.NAME -> "A–Z"; ListSort.UNWATCHED -> "Unwatched first"
-        }, value == listSort) }
+        listFilterChips.forEach { (value, view) -> view.select(getString(when (value) {
+            ListFilter.ALL -> R.string.filter_all; ListFilter.MOVIES -> R.string.tab_movies; ListFilter.SHOWS -> R.string.tab_shows
+        }), value == listFilter) }
+        listSortChips.forEach { (value, view) -> view.select(getString(when (value) {
+            ListSort.RECENT -> R.string.list_sort_recent; ListSort.NAME -> R.string.list_sort_name
+            ListSort.UNWATCHED -> R.string.list_sort_unwatched
+        }), value == listSort) }
     }
 
     private fun addedAgo(value: String): String {
         val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
-        val whenAdded = runCatching { parser.parse(value)?.time }.getOrNull() ?: return "recently"
+        val whenAdded = runCatching { parser.parse(value)?.time }.getOrNull() ?: return getString(R.string.added_recently)
         return android.text.format.DateUtils.getRelativeTimeSpanString(whenAdded, System.currentTimeMillis(),
             android.text.format.DateUtils.DAY_IN_MILLIS).toString()
     }
@@ -1539,7 +1554,7 @@ class MainActivity : Screen() {
             setPadding(dp(PAD), dp(2), dp(PAD), dp(2))
         }
         (listOf<String?>(null) + names).forEach { value ->
-            val control = chip(value ?: "All", value == null).apply {
+            val control = chip(value ?: getString(R.string.filter_all), value == null).apply {
                 setOnClickListener {
                     val target = if (value == null) firstRow() else rows.firstOrNull { it.title == value && it.view.isAttachedToWindow }
                     // Rows far down the page are still being made: the remote goes there as soon as it's in.
@@ -1556,7 +1571,7 @@ class MainActivity : Screen() {
     private fun markChip(rowTitle: String) {
         val open = rowTitle.takeIf { it in genreChips }
         genre = open // Back and Down from the top bar return to this chip
-        genreChips.forEach { (value, chip) -> chip.select(value ?: "All", value == open) }
+        genreChips.forEach { (value, chip) -> chip.select(value ?: getString(R.string.filter_all), value == open) }
     }
 
     /**
@@ -1630,7 +1645,7 @@ class MainActivity : Screen() {
         val build = ++listBuild
         listTotal = items.size
         listRows = listRowCount(items.size, LIST_COLUMNS)
-        listCount.text = if (items.isEmpty()) "" else "Row 1 of $listRows  ·  ${items.size} titles"
+        listCount.text = if (items.isEmpty()) "" else resources.getQuantityString(R.plurals.list_position, items.size, 1, listRows, items.size)
         listHint.visibility = if (items.isEmpty()) View.GONE else View.VISIBLE
         if (items.isEmpty()) {
             heroItem = null
@@ -1640,8 +1655,12 @@ class MainActivity : Screen() {
             art.tag = null
             art.alpha = 0f
             artBack.setImageDrawable(null)
-            val message = if (all.isEmpty() && listFilter == ListFilter.ALL) "Titles you save with + appear here"
-                else "No ${if (listFilter == ListFilter.MOVIES) "movies" else if (listFilter == ListFilter.SHOWS) "shows" else "unwatched titles"} in My List"
+            val message = when {
+                all.isEmpty() && listFilter == ListFilter.ALL -> R.string.list_empty
+                listFilter == ListFilter.MOVIES -> R.string.list_empty_movies
+                listFilter == ListFilter.SHOWS -> R.string.list_empty_shows
+                else -> R.string.list_empty_unwatched
+            }
             slot.addView(text(message, BODY, color = TEXT_2).apply { setPadding(dp(PAD), dp(30), 0, 0) })
             return
         }
@@ -1662,7 +1681,8 @@ class MainActivity : Screen() {
 
     private fun listMenu(item: Item) {
         val original = library.firstOrNull { it.optString("_id") == item.id } ?: return
-        val options = if (item.finished) listOf("Remove from My List") else listOf("Remove from My List", "Mark as watched")
+        val options = listOf(getString(R.string.action_remove_from_list)) +
+            (if (item.finished) emptyList() else listOf(getString(R.string.action_mark_watched)))
         choose(item.name, options) { selected ->
             val updated = JSONObject(original.toString())
             if (selected == 0) Library.setInList(updated, false)
@@ -1674,7 +1694,7 @@ class MainActivity : Screen() {
                 }) { error ->
                     forgetIfSessionGone(error)
                     if (page == Page.LIBRARY && !isFinishing)
-                        choose("Couldn't update My List", listOf("OK"), "Check the connection and try again.") { }
+                        choose(getString(R.string.list_update_failed), listOf(getString(R.string.action_ok)), getString(R.string.check_connection)) { }
                 }
             }
         }
@@ -1682,7 +1702,7 @@ class MainActivity : Screen() {
 
     /** Hold OK on a Continue Watching title: choose a source yourself, or take the title off the row. */
     private fun continueMenu(item: Item) {
-        choose(item.name, listOf("Choose a source", "Remove from Continue Watching")) { selected ->
+        choose(item.name, listOf(getString(R.string.action_choose_source), getString(R.string.action_remove_from_continue))) { selected ->
             if (selected == 0) return@choose play(item, pick = true)
             val original = library.firstOrNull { it.optString("_id") == item.id } ?: return@choose
             val updated = JSONObject(original.toString())
@@ -1695,7 +1715,7 @@ class MainActivity : Screen() {
                     refreshLibrary?.invoke() // the row (and Google TV's) is drawn again without it
                 }) { error ->
                     forgetIfSessionGone(error)
-                    if (!isFinishing) choose("Couldn't remove it", listOf("OK"), "Check the connection and try again.") { }
+                    if (!isFinishing) choose(getString(R.string.remove_failed), listOf(getString(R.string.action_ok)), getString(R.string.check_connection)) { }
                 }
             }
         }
@@ -1703,8 +1723,8 @@ class MainActivity : Screen() {
 
     /** Hold OK on a catalog card: choose a source yourself, or take the whole row off the page. */
     private fun rowMenu(row: Row, item: Item) {
-        val options = if (row.title.isNotEmpty()) listOf("Choose a source", "Hide row \"${row.title}\"")
-                      else listOf("Choose a source")
+        val options = listOf(getString(R.string.action_choose_source)) +
+            (if (row.title.isNotEmpty()) listOf(getString(R.string.action_hide_row, row.title)) else emptyList())
         choose(item.name, options) { selected ->
             if (selected == 0) play(item, pick = true)
             else {
@@ -1869,7 +1889,7 @@ class MainActivity : Screen() {
             } else light(true)
             if (page.isBrowse) updateNextRow()
             if (page.isCatalog) markChip(title)
-            if (grid) listCount.text = "Row ${rows.indexOf(this) + 1} of $listRows  ·  $listTotal titles"
+            if (grid) listCount.text = resources.getQuantityString(R.plurals.list_position, listTotal, rows.indexOf(this) + 1, listRows, listTotal)
             fill(items[index])
             cards[index].load()
             if (index >= items.size - AHEAD) fetchMore()
@@ -1982,13 +2002,13 @@ class MainActivity : Screen() {
                 }, LayoutParams(-1, dp(cardH * (if (wide) 6 else 4) / 10), Gravity.BOTTOM))
                 if (wide && !item.live) name.visibility = View.VISIBLE
                 // Time left as a quiet label in the corner, where the eye checks before choosing what to resume.
-                val timeLeft = item.left?.split(DOT)?.lastOrNull { it.endsWith("left") }
+                val timeLeft = item.timeLeft
                 if (wide && timeLeft != null) face.addView(text(timeLeft, SMALL, bold = true).apply {
                     background = rounded(0x99000000.toInt(), 8)
                     setPadding(dp(8), dp(3), dp(8), dp(4))
                 }, LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(10), dp(10), 0) })
                 val addBadge = {
-                    face.addView(caps("New episode", TUNGSTEN).apply {
+                    face.addView(caps(R.string.new_episode, TUNGSTEN).apply {
                         tag = "new_badge"
                         background = rounded(0xCC000000.toInt(), 6)
                         setPadding(dp(8), dp(3), dp(8), dp(4))
@@ -2162,7 +2182,8 @@ class MainActivity : Screen() {
         // "S1 E3" for an episode (ids look like tt123:1:3), and how much is left.
         val episode = videoId?.split(":")?.takeIf { it.size == 3 }?.let { "S${it[1]} E${it[2]}" }
         val mins = (duration - offset) / 60_000
-        val left = if (duration > 0 && offset > 1) (if (mins >= 60) "${mins / 60}h ${mins % 60}m left" else "$mins min left") else null
+        val left = if (duration > 0 && offset > 1) (if (mins >= 60) getString(R.string.time_left_hours, (mins / 60).toInt(), (mins % 60).toInt())
+            else getString(R.string.time_left_minutes, mins.toInt())) else null
         val progress = if (duration > 0) (offset.toFloat() / duration).coerceIn(0f, 1f) else 0f
         val id = item.getString("_id")
         val type = item.optString("type")
@@ -2176,7 +2197,7 @@ class MainActivity : Screen() {
         return Item(
             id, type, item.optString("name"), item.text("poster"),
             null, Images.logoFor(id), "", emptyList(), videoId, progress,
-            resume = progress > 0, left = listOfNotNull(episode, left).joinToString(DOT).ifEmpty { null }, stoppedAt = offset,
+            resume = progress > 0, left = listOfNotNull(episode, left).joinToString(DOT).ifEmpty { null }, timeLeft = left, stoppedAt = offset,
             addedAt = item.text("_ctime"), finished = libraryFinished(item),
             newEpisode = newEpisode,
         )
