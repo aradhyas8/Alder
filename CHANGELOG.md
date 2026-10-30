@@ -42,7 +42,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - **Blur episode thumbnails.** Turn on **Settings → Profile → Blur episode thumbnails**. Alder blurs pictures of unwatched episodes to prevent spoilers.
 
 ### Easier to use
-- **House Lights logos.** Alder uses the tungsten mark on the TV banner, app icon, and small transparent logo.
+- **House Lights logos.** Alder uses the tungsten mark on the TV banner, transparent app icon, and small transparent logo.
 - **Compact Up next prompt.** The Up next card uses a smaller width, smaller text, and a single Next episode button.
 - **QWERTY Search keys.** The Search keyboard uses QWERTY letter rows. The microphone icon stays dim until voice search is available.
 - **Audio and subtitle tabs.** Select **Subtitles**, **Audio**, or **Sync & Style**. Active, preferred, and recent tracks appear first. Adjust subtitle sync in the panel.
