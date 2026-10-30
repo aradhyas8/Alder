@@ -514,4 +514,15 @@ class ScreenDesignTest {
         assertEquals("S1 E1", playerPauseFacts("S1 E1", null, isTrailer = false, isLive = false))
         assertEquals("S1 E1  ·  Ends 10:00 PM", playerPauseFacts("S1 E1", "10:00 PM", isTrailer = false, isLive = false))
     }
+
+    @Test fun subtitleColorResolvesCorrectly() {
+        assertEquals(0xFFFFFFFF.toInt(), subtitleColorValue("white"))
+        assertEquals(0xFFFFE600.toInt(), subtitleColorValue("yellow"))
+        assertEquals(0xFF00FFFF.toInt(), subtitleColorValue("cyan"))
+        assertEquals(0xFFFFF5C0.toInt(), subtitleColorValue("cream"))
+        assertEquals(0xFFF3EEE6.toInt(), subtitleColorValue("warm_white"))
+        assertEquals(0xFFF3EEE6.toInt(), subtitleColorValue("warm white"))
+        assertEquals(0xFFFFFFFF.toInt(), subtitleColorValue("unknown"))
+        assertEquals(0xFFFFFFFF.toInt(), subtitleColorValue(""))
+    }
 }
