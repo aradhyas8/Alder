@@ -416,7 +416,11 @@ fun JSONArray?.strings(): List<String> = items().filterIsInstance<String>()
 internal fun audioLanguagesIn(text: String): Set<String> {
     val found = mutableSetOf<String>()
     // Regional indicators: two in a row make a country's flag, read in pairs so 🇺🇸🇪🇸 isn't also "SE".
-    val letters = text.codePoints().toArray().map { it - 0x1F1E6 }
+    // By hand: String.codePoints() needs Android 7.
+    val letters = buildList {
+        var at = 0
+        while (at < text.length) text.codePointAt(at).let { add(it - 0x1F1E6); at += Character.charCount(it) }
+    }
     var i = 0
     while (i < letters.size - 1) {
         if (letters[i] in 0..25 && letters[i + 1] in 0..25) {

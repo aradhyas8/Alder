@@ -23,7 +23,7 @@ class Device private constructor(val hevc: Boolean, val av1: Boolean, val dolbyV
             }
             val display = context.getSystemService(DisplayManager::class.java).getDisplay(Display.DEFAULT_DISPLAY)
             @Suppress("DEPRECATION")
-            val hdr = display.hdrCapabilities?.supportedHdrTypes?.isNotEmpty() == true
+            val hdr = android.os.Build.VERSION.SDK_INT >= 24 && display.hdrCapabilities?.supportedHdrTypes?.isNotEmpty() == true
             // The biggest mode the TV offers, not the one in use: the launcher often runs at 1080p on a 4K panel.
             val height = display.supportedModes.maxOf { minOf(it.physicalWidth, it.physicalHeight) }
             Device("video/hevc" in types, "video/av01" in types, dv5, hdr, height)
