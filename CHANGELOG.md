@@ -18,7 +18,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 ## Unreleased
 
 ### New
-- **Alder website.** The House Lights website shows the app and gives a link to the latest APK.
+- **Alder website.** The House Lights website shows the TV app, setup steps, and a link to the latest APK.
 - Add an Alder website card image with the app screen and product text.
 
 ## 1.3.1
