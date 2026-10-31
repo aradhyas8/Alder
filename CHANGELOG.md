@@ -15,6 +15,12 @@ Write every entry in ASD-STE100 Simplified Technical English (STE):
 
 Put changes that are not released under `## Unreleased`. Before each release, read all of `## Unreleased` again and rewrite each entry that does not obey these rules. Then rename that heading to the version number.
 
+## Unreleased
+
+### New
+- **Alder website.** The House Lights website shows the app and gives a link to the latest APK.
+- Add an Alder website card image with the app screen and product text.
+
 ## 1.3.1
 
 ### Fixes
