@@ -82,7 +82,7 @@ class SearchActivity : Screen() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val key = authKey ?: return finish()
+        val key = account ?: return finish()
         art = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP; alpha = 0f }
         artBack = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
         val width = resources.displayMetrics.widthPixels / resources.displayMetrics.density
@@ -481,13 +481,13 @@ class SearchActivity : Screen() {
         results.addView(ring(), LinearLayout.LayoutParams(dp(28), dp(28)).apply { marginStart = dp(12) })
         if (query.isEmpty()) {
             background({
-                val addons = Stremio.savedAddons(authKey.orEmpty()).orEmpty().ifEmpty { Stremio.addons(authKey.orEmpty()) }
+                val addons = activeProfile?.let { Sources.savedContent(it).orEmpty().ifEmpty { Sources.content(it) } }.orEmpty()
                 val catalogs = addons.flatMap { it.catalogs }
                     .filter { it.type == "movie" || it.type == "series" }
                 // Popular or trending first, then any other; one that fails or comes back empty gives way to the next.
                 catalogs.sortedByDescending { it.name.contains("popular", true) || it.name.contains("trending", true) }
                     .take(4).asSequence()
-                    .map { c -> runCatching { c.addon.savedCatalog(c)?.takeIf { it.isNotEmpty() } ?: c.addon.catalog(c) }.getOrDefault(emptyList())
+                    .map { c -> runCatching { c.source.savedCatalog(c)?.takeIf { it.isNotEmpty() } ?: c.source.catalog(c) }.getOrDefault(emptyList())
                         .filterNot { isAddonMessage(it.name) }.take(PER_TYPE) }
                     .firstOrNull { it.isNotEmpty() }.orEmpty()
             }) { answer ->
@@ -500,7 +500,7 @@ class SearchActivity : Screen() {
             }
             return
         }
-        background({ Stremio.savedAddons(authKey.orEmpty()) ?: Stremio.addons(authKey.orEmpty()) }) { loaded ->
+        background({ activeProfile?.let { Sources.savedContent(it) ?: Sources.content(it) }.orEmpty() }) { loaded ->
             if (token != request) return@background
             val addons = loaded.getOrElse {
                 results.removeAllViews()

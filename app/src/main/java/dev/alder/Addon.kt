@@ -13,44 +13,42 @@ import java.util.concurrent.TimeUnit
  * One installed addon, spoken to with the Stremio addon protocol: plain GETs for catalogs, metadata and streams.
  * [descriptor] is the account's entry for it as Stremio stores it, kept whole so it can be copied to another profile.
  */
-class Addon(val descriptor: JSONObject) {
+class Addon(val descriptor: JSONObject) : ContentSource {
     private val manifest: JSONObject = descriptor.getJSONObject("manifest")
-    val id: String = manifest.optString("id")
-    val name: String = manifest.optString("name")
+    override val id: String = manifest.optString("id")
+    override val name: String = manifest.optString("name")
     val transportUrl: String = descriptor.getString("transportUrl")
+    override val cacheKey: String get() = transportUrl
     /** Stremio's built-ins (Cinemeta, Local Files), which every account already has. */
-    val official = descriptor.optJSONObject("flags")?.optBoolean("official") == true
+    override val official = descriptor.optJSONObject("flags")?.optBoolean("official") == true
     /** Stremio's own that can't be removed (Cinemeta, Local Files); they can still be moved. */
     val locked = descriptor.optJSONObject("flags")?.optBoolean("protected") == true
-    val providesStreams: Boolean = manifest.optJSONArray("resources").items().any {
+    override val providesStreams: Boolean = manifest.optJSONArray("resources").items().any {
         (it as? String ?: (it as? JSONObject)?.optString("name")) == "stream"
     }
     /** Reads one person's history or lists (MyTrakt also declares `stream`): never shared or copied by default. */
     val personal = listOf("watchly", "trakt", "simkl", "syncribullet", "aiolists").any { name.contains(it, ignoreCase = true) }
     /** What a profile lends when it shares its streaming sources: its own stream add-ons, not Stremio's or personal ones. */
-    val shareable get() = !official && providesStreams && !personal
+    override val shareable get() = !official && providesStreams && !personal
     private val base = transportUrl.removeSuffix("/manifest.json")
     /**
      * Its settings page, when it has one (`behaviorHints.configurable`), as a fresh setup: the install's own address
      * carries its settings and often a debrid key, which a code on the screen mustn't show.
      */
-    val configureUrl: String? = base.takeIf { manifest.optJSONObject("behaviorHints")?.optBoolean("configurable") == true }
+    override val configureUrl: String? = base.takeIf { manifest.optJSONObject("behaviorHints")?.optBoolean("configurable") == true }
         ?.let(::freshConfigureUrl)
 
     /**
      * [pages]: the catalog takes Stremio's `skip` extra, so a row can ask for the titles after the first page.
      * [required]: extras it can't be asked without, with the value Stremio would pick (`genre` → "None").
      */
-    class Catalog(val addon: Addon, val type: String, val id: String, val name: String, val pages: Boolean, val genres: List<String>,
-                  val required: Map<String, String> = emptyMap())
-
     /**
      * Catalogs Home can show. One with a required extra is asked with that extra's default or first option, as
      * Stremio's Discover does: AIOMetadata marks the genre of every catalog not shown on Stremio's board as required
      * (its first option "None"), and skipping those left a Shows page with no rows. A required extra with no options
      * (a search query) still leaves the catalog out.
      */
-    val catalogs: List<Catalog> = manifest.optJSONArray("catalogs").objects().mapNotNull { c ->
+    override val catalogs: List<Catalog> = manifest.optJSONArray("catalogs").objects().mapNotNull { c ->
         val extra = c.optJSONArray("extra").objects()
         val extras = c.optJSONArray("extraSupported").strings() + extra.map { it.optString("name") }
         // The genres it can filter by: the protocol's `genre` extra options, or the older `genres` list.
@@ -67,7 +65,7 @@ class Addon(val descriptor: JSONObject) {
     }
 
     /** Whether this addon answers [resource] ("meta", "stream", …) for this type and id. */
-    fun serves(resource: String, type: String, id: String): Boolean {
+    override fun serves(resource: String, type: String, id: String): Boolean {
         val entry = manifest.optJSONArray("resources").items()
             .firstOrNull { (it as? String ?: (it as? JSONObject)?.optString("name")) == resource } ?: return false
         val own = entry as? JSONObject
@@ -78,14 +76,14 @@ class Addon(val descriptor: JSONObject) {
 
     // Catalogs (one [genre] of them with Stremio's `genre` extra) and details are kept on disk as they arrive; the saved*
     // versions read last time's answer, no network.
-    fun catalog(c: Catalog, genre: String? = null, timeoutMs: Int = 20_000): List<Meta> =
+    override fun catalog(c: Catalog, genre: String?, timeoutMs: Int): List<Meta> =
         JSONObject(Http.get(catalogUrl(c, genre), true, timeoutMs)).optJSONArray("metas").objects().map(::Meta)
 
     /** The titles after the first [skip] (Stremio's paging extra); not kept on disk. */
-    fun catalog(c: Catalog, skip: Int): List<Meta> =
+    override fun catalog(c: Catalog, skip: Int): List<Meta> =
         JSONObject(Http.get(catalogUrl(c, null, skip))).optJSONArray("metas").objects().map(::Meta)
 
-    fun savedCatalog(c: Catalog, genre: String? = null): List<Meta>? =
+    override fun savedCatalog(c: Catalog, genre: String?): List<Meta>? =
         Http.savedAnswer(catalogUrl(c, genre))?.let { runCatching { JSONObject(it) }.getOrNull() }?.optJSONArray("metas")?.objects()?.map(::Meta)
 
     /** /catalog/type/id/genre=Drama&skip=20.json: the catalog's required extras, the [genre] picked, and the page. */
@@ -97,7 +95,7 @@ class Addon(val descriptor: JSONObject) {
     }
 
     /** Every search catalog the addon advertises, as Stremio's catalog protocol specifies. */
-    fun search(query: String): List<Meta> {
+    override fun search(query: String): List<Meta> {
         require(query.isNotBlank())
         val catalogs = manifest.optJSONArray("catalogs").objects()
             .filter { c ->
@@ -131,15 +129,15 @@ class Addon(val descriptor: JSONObject) {
         return answers.sortedBy { it.first }.flatMap { it.second }
     }
 
-    fun meta(type: String, id: String): Meta? = get(true, "meta", type, id).optJSONObject("meta")?.let { meta(it, id) }
+    override fun meta(type: String, id: String): Meta? = get(true, "meta", type, id).optJSONObject("meta")?.let { meta(it, id) }
 
-    fun savedMeta(type: String, id: String): Meta? = saved("meta", type, id)?.optJSONObject("meta")?.let { meta(it, id) }
+    override fun savedMeta(type: String, id: String): Meta? = saved("meta", type, id)?.optJSONObject("meta")?.let { meta(it, id) }
 
     /** Some add-ons leave the title's own id out of its details: it's the one asked for. */
     private fun meta(json: JSONObject, id: String) = Meta(if (json.text("id") == null) json.put("id", id) else json)
 
     /** A title-specific catalog, when an installed addon advertises the protocol's required `similar` extra. */
-    fun similar(type: String, id: String): List<Meta>? {
+    override fun similar(type: String, id: String): List<Meta>? {
         val catalog = manifest.optJSONArray("catalogs").objects().firstOrNull { c ->
             c.optString("type") == type && c.optJSONArray("extra").objects().any {
                 it.optString("name") == "similar" && it.optBoolean("isRequired")
@@ -154,13 +152,13 @@ class Addon(val descriptor: JSONObject) {
      * Playable streams only: torrent-only results (no url) need a streaming server, which this app doesn't have. An error
      * answer throws [HttpError], so a refused key reads as that rather than as no sources; a 404 is just none.
      */
-    fun streams(type: String, videoId: String): Streams {
+    override fun streams(type: String, videoId: String): SourceStreams {
         val all = try {
             get(false, "stream", type, videoId, strict = true).optJSONArray("streams").objects()
         } catch (e: HttpError) {
             if (e.code == 404) emptyList<JSONObject>() else throw e
         }
-        return Streams(all.mapNotNull { Stream.from(it) },
+        return SourceStreams(all.mapNotNull { Stream.from(it) },
             all.count { it.text("url") == null && it.text("infoHash") != null },
             all.count { it.text("url") == null && it.text("infoHash") == null && (it.text("externalUrl") ?: it.text("ytId")) != null })
     }
@@ -169,10 +167,8 @@ class Addon(val descriptor: JSONObject) {
      * What Alder can't play, counted to say why: [torrents], a torrent with no debrid link (an infoHash, no url), and
      * [links], a page for a browser or a YouTube video (externalUrl, ytId).
      */
-    class Streams(val playable: List<Stream>, val torrents: Int, val links: Int)
-
     /** Subtitle files for one video (OpenSubtitles and co. through Stremio's `subtitles` resource). */
-    fun subtitles(type: String, videoId: String): List<Subtitle> =
+    override fun subtitles(type: String, videoId: String): List<Subtitle> =
         get(false, "subtitles", type, videoId).optJSONArray("subtitles").objects().mapNotNull { s ->
             Subtitle(s.text("url") ?: return@mapNotNull null, s.text("lang") ?: "und", name)
         }
@@ -194,9 +190,9 @@ class Addon(val descriptor: JSONObject) {
  * that waits on the answer: a dead add-on then costs no more than its own wait. Otherwise one at a time, so Home's
  * cards don't ask every add-on for every title.
  */
-fun List<Addon>.meta(type: String, id: String, together: Boolean = false): Meta? {
+fun List<ContentSource>.meta(type: String, id: String, together: Boolean = false): Meta? {
     val serving = filter { it.serves("meta", type, id) }
-    fun ask(a: Addon) = runCatching { a.meta(type, id) }
+    fun ask(a: ContentSource) = runCatching { a.meta(type, id) }
         .onFailure { android.util.Log.w("Alder", "details from ${a.name} failed", it) }.getOrNull()
         .also { if (it == null) android.util.Log.i("Alder", "no details for $type $id from ${a.name}") }
     if (!together || serving.size < 2) return serving.firstNotNullOfOrNull(::ask)
@@ -204,7 +200,7 @@ fun List<Addon>.meta(type: String, id: String, together: Boolean = false): Meta?
 }
 
 /** Last time's details from disk, from the first add-on in the account's order that kept some; no network. */
-fun List<Addon>.savedMeta(type: String, id: String): Meta? =
+fun List<ContentSource>.savedMeta(type: String, id: String): Meta? =
     filter { it.serves("meta", type, id) }.firstNotNullOfOrNull { runCatching { it.savedMeta(type, id) }.getOrNull() }
 
 private val metaPool = java.util.concurrent.Executors.newCachedThreadPool()

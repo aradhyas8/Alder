@@ -31,7 +31,7 @@ class AddonsActivity : Screen() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (authKey == null) return finish()
+        if (account?.provider != Accounts.STREMIO) return finish()
         val metrics = resources.displayMetrics
         val width = (metrics.widthPixels / metrics.density).toInt()
         val height = (metrics.heightPixels / metrics.density).toInt()
@@ -81,8 +81,8 @@ class AddonsActivity : Screen() {
     }
 
     private fun load() {
-        val key = authKey ?: return
-        background({ Stremio.addons(key, refresh = true) }) { result ->
+        val key = account ?: return
+        background({ Sources.addons(key, refresh = true) }) { result ->
             result.onSuccess { addons = it; show() }
                 .onFailure { show(message = getString(R.string.addons_unreachable), retry = ::load) }
         }
@@ -262,8 +262,8 @@ class AddonsActivity : Screen() {
     }
 
     private fun save(next: List<Addon>, focus: String?) {
-        val key = authKey ?: return
-        background({ Stremio.setAddons(key, next) }) { result ->
+        val key = account ?: return
+        background({ Sources.setAddons(key, next) }) { result ->
             result.onSuccess { addons = next; show(focus) }
                 .onFailure { show(focus, getString(R.string.addons_save_failed), retry = { save(next, focus) }) }
         }

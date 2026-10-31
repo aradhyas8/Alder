@@ -23,6 +23,10 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 
 ### Easier to use
 - **Alder website.** The site shows the app screens and makes the download and setup steps easy to find.
+- **Profiles.** Alder keeps your Stremio profile, My List, and watch progress after this update.
+
+### Fixes
+- **Source order.** Automatic play and the source list use the same order for shared stream add-ons.
 
 ## 1.3.1
 

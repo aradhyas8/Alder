@@ -254,6 +254,7 @@ internal class OffsettableTextRenderer(
 // at the same second, and when the list runs out the sources page opens. Network blips are retried first, twice
 // after 1.5 s (NuvioTV's rule), so a dropped connection doesn't cost the source.
 class PlayerActivity : Screen() {
+    private lateinit var profile: Profile
     private lateinit var player: ExoPlayer
     private lateinit var view: PlayerView
     private val type by lazy { intent.getStringExtra("type") ?: "movie" }
@@ -337,7 +338,8 @@ class PlayerActivity : Screen() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val key = authKey ?: return finish()
+        profile = activeProfile ?: return finish()
+        val key = profile.account
         val sourcesJson = intent.getStringExtra("sources")
         if (!sourcesJson.isNullOrBlank()) {
             sources = JSONArray(sourcesJson).objects().map(Stream::read)
@@ -438,7 +440,7 @@ class PlayerActivity : Screen() {
         }
         setContentView(screen)
         background({
-            Stremio.addons(key).let { it.savedMeta(type, metaId) ?: it.meta(type, metaId) }
+            Sources.content(profile).let { it.savedMeta(type, metaId) ?: it.meta(type, metaId) }
         }) { r ->
             meta = r.getOrNull()
             val m = meta ?: return@background
@@ -639,7 +641,7 @@ class PlayerActivity : Screen() {
                 type = type,
                 videoId = videoId,
                 metaId = metaId,
-                authKey = key,
+                profile = profile,
                 onReady = { best ->
                     resolvingStreams = null
                     if (isFinishing || isDestroyed) return@resolve
@@ -663,7 +665,7 @@ class PlayerActivity : Screen() {
         background({
             // Every language: the profile's subtitle language and English first, three files each in the addon's order,
             // then one file for each other language by name, so the list stays short enough for a remote.
-            val all = Stremio.addons(key).filter { it.serves("subtitles", type, videoId) }
+            val all = Sources.content(profile).filter { it.serves("subtitles", type, videoId) }
                 .flatMap { a -> runCatching { a.subtitles(type, videoId) }
                     .onFailure { android.util.Log.w("Alder", "subtitles from ${a.name} failed", it) }.getOrDefault(emptyList()) }
             all.groupBy { Languages.code(it.lang) ?: it.lang }.entries
@@ -695,10 +697,10 @@ class PlayerActivity : Screen() {
         // The stream starts at once from what's known here (the intent, or the library saved on the TV) instead of
         // waiting a round trip to Stremio for the resume point; Stremio's answer corrects it if it moved elsewhere.
         if (known != null) begin(known)
-        else background({ Stremio.savedLibrary(key)?.firstOrNull { it.optString("_id") == metaId } }) { r ->
+        else background({ Accounts.savedLibrary(key)?.firstOrNull { it.optString("_id") == metaId } }) { r ->
             r.getOrNull()?.let { begin(Library.resumeAt(it, videoId)) }
         }
-        background({ Stremio.library(key, listOf(metaId)).firstOrNull() }) { result ->
+        background({ Accounts.library(key, listOf(metaId)).firstOrNull() }) { result ->
             item = result.fold(
                 { it ?: Library.newItem(metaId, type, intent.getStringExtra("name") ?: "", intent.getStringExtra("poster")) },
                 { null },
@@ -1177,9 +1179,9 @@ class PlayerActivity : Screen() {
 
     private fun push() {
         if (isTrailer || !watched || player.isCurrentMediaItemLive || isLiveType(type)) return
-        val key = authKey ?: return
+        val key = account ?: return
         val snapshot = item?.let { JSONObject(it.toString()) } ?: return
-        background({ Stremio.saveLibrary(key, listOf(snapshot)) }) {}
+        background({ Accounts.saveLibrary(key, listOf(snapshot)) }) {}
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {

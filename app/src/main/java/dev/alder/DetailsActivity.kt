@@ -89,7 +89,8 @@ class DetailsActivity : Screen() {
     private val poster by lazy { intent.getStringExtra("poster") }
     private val initialArt by lazy { intent.getStringExtra("background") }
 
-    private lateinit var key: String
+    private lateinit var key: AccountRef
+    private lateinit var profile: Profile
     override val backdrop get() = heroArt
     private lateinit var root: FrameLayout
     private lateinit var hero: FrameLayout
@@ -135,7 +136,8 @@ class DetailsActivity : Screen() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        key = authKey ?: return finish()
+        profile = activeProfile ?: return finish()
+        key = profile.account
         val artWidth = resources.displayMetrics.widthPixels
         heroArt = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP; alpha = 0f }
         hero = FrameLayout(this).apply { clipChildren = false }
@@ -196,19 +198,19 @@ class DetailsActivity : Screen() {
             }
         }
         background({
-            (Stremio.savedAddons(key) ?: Stremio.addons(key)).savedMeta(type, metaId) to Stremio.savedLibrary(key)?.firstOrNull { it.optString("_id") == metaId }
+            (Sources.savedContent(profile) ?: Sources.content(profile)).savedMeta(type, metaId) to Accounts.savedLibrary(key)?.firstOrNull { it.optString("_id") == metaId }
         }) { result ->
             result.getOrNull()?.let { (saved, libraryItem) ->
                 if (!itemChangedHere && item == null) item = libraryItem
                 if (meta == null) saved?.let(::show)
             }
         }
-        background({ Stremio.addons(key).meta(type, metaId, together = true) }) { result ->
+        background({ Sources.content(profile).meta(type, metaId, together = true) }) { result ->
             val fresh = result.getOrNull()
             if (fresh != null) show(fresh)
             else if (meta == null) showHero(null)
         }
-        background({ Stremio.library(key, listOf(metaId)).firstOrNull() }) { result ->
+        background({ Accounts.library(key, listOf(metaId)).firstOrNull() }) { result ->
             if (!itemChangedHere) {
                 item = result.getOrNull() ?: item
                 if (meta != null) showHero(meta)
@@ -520,7 +522,7 @@ class DetailsActivity : Screen() {
         listButton.text = if (Library.inList(entry)) "✓" else "+"
         listButton.contentDescription = getString(if (Library.inList(entry)) R.string.action_remove_from_list else R.string.action_add_to_list)
         val snapshot = JSONObject(entry.toString())
-        background({ Stremio.saveLibrary(key, listOf(snapshot)) }) {}
+        background({ Accounts.saveLibrary(key, listOf(snapshot)) }) {}
     }
 
     // ---------- glass and episode guide ----------
@@ -745,7 +747,7 @@ class DetailsActivity : Screen() {
     private fun saveAndRefresh(focusEpisodeId: String? = null, focusSeason: Int? = null) {
         val entry = item ?: return
         val snapshot = JSONObject(entry.toString())
-        background({ Stremio.saveLibrary(key, listOf(snapshot)) }) {}
+        background({ Accounts.saveLibrary(key, listOf(snapshot)) }) {}
         fillGuide()
         meta?.let(::showHero)
         if (focusEpisodeId != null) {
@@ -1077,7 +1079,7 @@ class DetailsActivity : Screen() {
 
     private fun loadSimilar() {
         background({
-            Stremio.addons(key).firstNotNullOfOrNull { addon ->
+            Sources.content(profile).firstNotNullOfOrNull { addon ->
                 runCatching { addon.similar(type, metaId) }.getOrNull()?.takeIf { it.isNotEmpty() }
             }.orEmpty()
         }) { result ->
@@ -1315,7 +1317,7 @@ class DetailsActivity : Screen() {
                 Tmdb.personCredits(actor.tmdbId, actor.name, actor.isDirector)
             }.getOrDefault(emptySet())
 
-            val allMetas = Stremio.addons(key).flatMap { addon ->
+            val allMetas = Sources.content(profile).flatMap { addon ->
                 runCatching { addon.search(actor.name) }.getOrNull().orEmpty()
             }.distinctBy { it.id }.filter { it.id != metaId }
 
@@ -1565,7 +1567,7 @@ class DetailsActivity : Screen() {
     // Back from the player: progress, the resume point and My List may have changed.
     override fun onRestart() {
         super.onRestart()
-        background({ runCatching { Stremio.library(key, listOf(metaId)).firstOrNull() }.getOrNull() }) { result ->
+        background({ runCatching { Accounts.library(key, listOf(metaId)).firstOrNull() }.getOrNull() }) { result ->
             item = result.getOrNull() ?: item
             val wasGuide = guideOpen
             if (infoOpen) { root.removeView(infoOverlay); infoOpen = false }

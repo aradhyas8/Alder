@@ -456,7 +456,7 @@ class MainActivity : Screen() {
      * A page's rows: catalogs with the same purpose share a row, and Shows and Movies end with a row per main genre (the
      * first catalog that filters by it) unless a row of that name is already there; the chips jump to these rows.
      */
-    private fun sections(p: Page, shelves: List<Pair<Addon.Catalog, Shelf>>, featuredHome: Boolean = false): List<Triple<String, List<Pair<Addon.Catalog, Shelf>>, String?>> {
+    private fun sections(p: Page, shelves: List<Pair<Catalog, Shelf>>, featuredHome: Boolean = false): List<Triple<String, List<Pair<Catalog, Shelf>>, String?>> {
         if (featuredHome) {
             val homeShelves = shelves.filter { it.second.page == Page.HOME }
             val movieShelves = shelves.filter { it.second.page == Page.MOVIES }
@@ -469,7 +469,7 @@ class MainActivity : Screen() {
             val showMerged = showShelves.groupBy { shortRowName(it.second.title, genres) }
                 .map { (name, list) -> Triple(homeSectionTitle(name, isMovie = false), list, null as String?) }
                 .take(3)
-            val combined = mutableListOf<Triple<String, List<Pair<Addon.Catalog, Shelf>>, String?>>()
+            val combined = mutableListOf<Triple<String, List<Pair<Catalog, Shelf>>, String?>>()
             val maxCount = maxOf(movieMerged.size, showMerged.size)
             for (i in 0 until maxCount) {
                 if (i < movieMerged.size) combined += movieMerged[i]
@@ -490,19 +490,19 @@ class MainActivity : Screen() {
      * List's first three rows of posters fetched, so its grid doesn't open dark on the left while they download.
      */
     private fun warmPages() = background({
-        Stremio.savedLibrary(profile.authKey).orEmpty()
+        Accounts.savedLibrary(profile.account).orEmpty()
             .filter { !it.optBoolean("removed") && it.optString("type") in listOf("movie", "series") }
             .sortedByDescending { it.optString("_ctime") }.take(LIST_COLUMNS * 3)
             .forEach { libraryItem(it).poster?.let { url -> Images.prefetch(url, (dp(LIST_W) * CARD_GROW).toInt()) } }
-        val catalogs = Stremio.savedAddons(profile.authKey).orEmpty().flatMap { it.catalogs }
+        val catalogs = Sources.savedContent(profile).orEmpty().flatMap { it.catalogs }
         for (p in listOf(Page.SHOWS, Page.MOVIES)) {
             val shelves = catalogs.mapNotNull { c -> shelf(c)?.takeIf { it.page == p }?.let { c to it } }.sortedBy { it.second.rank }
             sections(p, shelves).forEachIndexed { i, (title, sources, picked) ->
                 val key = catalogAnswerKey(p.label, title, picked, sources.map { (c, _) ->
-                    "${c.addon.transportUrl}/${c.type}/${c.id}"
+                    "${c.source.cacheKey}/${c.type}/${c.id}"
                 })
                 if (answers.containsKey(key)) return@forEachIndexed
-                val kept = sources.map { (c, _) -> (c.addon.savedCatalog(c, picked) ?: return@forEachIndexed) to true }
+                val kept = sources.map { (c, _) -> (c.source.savedCatalog(c, picked) ?: return@forEachIndexed) to true }
                 answers.putIfAbsent(key, kept)
                 if (i < 2) kept.flatMap { it.first }.take(FIRST).forEach { Images.prefetch(it.poster ?: it.background, (dp(CARD_W) * CARD_GROW).toInt()) }
                 // The first title's full-screen art too, so the page opens on its own picture, not the last page's.
@@ -784,10 +784,10 @@ class MainActivity : Screen() {
         return header
     }
 
-    private var lastAddons: List<Addon> = emptyList()
+    private var lastAddons: List<ContentSource> = emptyList()
 
     /** Live in the top bar only for a profile whose add-ons list channels, sport or events, and if allowed in Settings. */
-    private fun showLiveTab(addons: List<Addon>) {
+    private fun showLiveTab(addons: List<ContentSource>) {
         lastAddons = addons
         val live = addons.any { a -> a.catalogs.any { shelf(it)?.page == Page.LIVE } }
         navItems[Page.LIVE]?.visibility = if ((live && Settings.showLive(this)) || page == Page.LIVE) View.VISIBLE else View.GONE
@@ -1232,7 +1232,7 @@ class MainActivity : Screen() {
         scroller.alpha = 1f
         stage.isFocusable = false
         chrome()
-        val key = profile.authKey
+        val key = profile.account
 
         // Nothing at all came back (no network, Stremio down): say so once, with a retry, instead of a blank page.
         var failedShown = false
@@ -1257,7 +1257,7 @@ class MainActivity : Screen() {
                     val vid = s.text("video_id") ?: return@filterNot false
                     val id = raw.optString("_id")
                     val type = raw.optString("type")
-                    val m = metas[id] ?: runCatching { Stremio.savedAddons(key)?.savedMeta(type, id) ?: Stremio.addons(key).savedMeta(type, id) }.getOrNull()
+                    val m = metas[id] ?: runCatching { Sources.savedContent(profile)?.savedMeta(type, id) ?: Sources.content(profile).savedMeta(type, id) }.getOrNull()
                     if (m != null) metas[id] = m
                     val v = m?.videos?.firstOrNull { it.id == vid }
                     v != null && !isEpisodeAired(v.released)
@@ -1273,7 +1273,7 @@ class MainActivity : Screen() {
                 // The remote was on one of these titles: it stays on that title wherever it moved (watched: to the front).
                 val was = (currentFocus?.takeIf { isInside(it, slot) })?.tag
                 library = list
-                if (p == Page.HOME) Profiles.active(this)?.let { me -> background({ WatchNext.sync(applicationContext, me.authKey, cw, me.pin != null) }) {} }
+                if (p == Page.HOME) Profiles.active(this)?.let { me -> background({ WatchNext.sync(applicationContext, me, cw, me.pin != null) }) {} }
                 rows.filter { isInside(it.view, slot) }.forEach { r -> r.cards.forEach { it.unload() }; rows.remove(r) }
                 slot.removeAllViews()
                 if (p == Page.HOME) {
@@ -1292,8 +1292,8 @@ class MainActivity : Screen() {
                     rows.firstOrNull { isInside(it.view, slot) }?.focusFirst()
             }
             if (quick && library.isNotEmpty()) show(library) // the library already in memory: no wait on a revisit
-            if (quick) background({ Stremio.savedLibrary(key) }) { r -> if (g == generation && !fresh) r.getOrNull()?.let { show(it) } }
-            fun ask() = background({ Stremio.library(key) }) { result ->
+            if (quick) background({ Accounts.savedLibrary(key) }) { r -> if (g == generation && !fresh) r.getOrNull()?.let { show(it) } }
+            fun ask() = background({ Accounts.library(key) }) { result ->
                 if (g != generation) return@background
                 fresh = true
                 result.fold({ show(it, force = true) }) { if (shown == null) failedToLoad(it) }
@@ -1305,7 +1305,7 @@ class MainActivity : Screen() {
 
         var built = false
         var builtFrom: List<String>? = null // the add-ons the rows came from, to tell when Stremio's fresh list differs
-        fun build(addons: List<Addon>) {
+        fun build(addons: List<ContentSource>) {
             if (g == generation) showLiveTab(addons)
             if (built || g != generation) return
             built = true
@@ -1346,7 +1346,7 @@ class MainActivity : Screen() {
                 val rowCatalogs = sources.map { it.first }
                 val slot = slot()
                 val key = catalogAnswerKey(p.label, title, picked, rowCatalogs.map { c ->
-                    "${c.addon.transportUrl}/${c.type}/${c.id}"
+                    "${c.source.cacheKey}/${c.type}/${c.id}"
                 })
                 val sourceAnswers = arrayOfNulls<Pair<List<Meta>, Boolean>>(rowCatalogs.size)
                 var completed = 0
@@ -1382,7 +1382,7 @@ class MainActivity : Screen() {
                         val catalog = rowCatalogs[0]
                         if (catalog.pages && picked == null) { from ->
                             if (from < items.size) items.drop(from).take(PAGE)
-                            else catalog.addon.catalog(catalog, from).filterNot { isAddonMessage(it.name) }.map(::metaItem)
+                            else catalog.source.catalog(catalog, from).filterNot { isAddonMessage(it.name) }.map(::metaItem)
                         } else later(items)
                     } else {
                         val all = items.toMutableList()
@@ -1392,7 +1392,7 @@ class MainActivity : Screen() {
                             if (from >= all.size && picked == null) for (j in rowCatalogs.indices) {
                                 val catalog = rowCatalogs[j]
                                 if (!catalog.pages || exhausted[j]) continue
-                                val next = catalog.addon.catalog(catalog, counts[j])
+                                val next = catalog.source.catalog(catalog, counts[j])
                                 counts[j] += next.size
                                 exhausted[j] = next.isEmpty()
                                 val known = all.map { it.id }.toSet()
@@ -1431,7 +1431,7 @@ class MainActivity : Screen() {
                 }
                 fun refresh(index: Int) {
                     val catalog = rowCatalogs[index]
-                    background({ catalog.addon.catalog(catalog, picked, CATALOG_WAIT) }) { fresh ->
+                    background({ catalog.source.catalog(catalog, picked, CATALOG_WAIT) }) { fresh ->
                         if (g != generation) return@background
                         fresh.getOrNull()?.takeIf { it.isNotEmpty() }?.let {
                             sourceAnswers[index] = it to false
@@ -1448,8 +1448,8 @@ class MainActivity : Screen() {
                 } else rowCatalogs.forEachIndexed { index, catalog ->
                     background({
                         runCatching {
-                            (if (quick) catalog.addon.savedCatalog(catalog, picked) else null)?.let { it to true }
-                                ?: (catalog.addon.catalog(catalog, picked, CATALOG_WAIT) to false)
+                            (if (quick) catalog.source.savedCatalog(catalog, picked) else null)?.let { it to true }
+                                ?: (catalog.source.catalog(catalog, picked, CATALOG_WAIT) to false)
                         }.getOrElse { e ->
                             android.util.Log.w("Alder", "row $title (${catalog.id}, genre $picked) failed: $e")
                             emptyList<Meta>() to false
@@ -1478,10 +1478,10 @@ class MainActivity : Screen() {
                 }
             }
         }
-        if (quick) background({ Stremio.savedAddons(key) }) { r -> r.getOrNull()?.let(::build) }
+        if (quick) background({ Sources.savedContent(profile) }) { r -> r.getOrNull()?.let(::build) }
         // Every page asks Stremio for the add-on list once as it opens (and again when Alder comes back to the front), and
         // redraws only when the list differs from the one its rows came from: add-ons added or removed elsewhere.
-        fun checkAddons(drawn: (List<Addon>) -> Unit) = background({ Stremio.addons(key, refresh = true) }) { r -> r.fold({ fresh ->
+        fun checkAddons(drawn: (List<ContentSource>) -> Unit) = background({ Sources.content(profile, refresh = true) }) { r -> r.fold({ fresh ->
             if (g == generation) showLiveTab(fresh)
             if (built && g == generation && builtFrom != fresh.map { it.id }) showPage(p, quick = false) else drawn(fresh)
         }) { if (!built && g == generation) failedToLoad(it) } }
@@ -1580,7 +1580,7 @@ class MainActivity : Screen() {
      * suffix. Personal picks come first (rank 0–1), then what's popular (2), then themed lists (3). TV channels, sport
      * and events go to Live, one row per catalog under its own name; other types (anime, video channels) are left out.
      */
-    private fun shelf(c: Addon.Catalog): Shelf? {
+    private fun shelf(c: Catalog): Shelf? {
         val typePage = when {
             c.type == "movie" -> Page.MOVIES
             c.type == "series" -> Page.SHOWS
@@ -1596,11 +1596,11 @@ class MainActivity : Screen() {
         )
         val lowerId = c.id.lowercase()
         return when {
-            c.addon.id.contains("watchly") && c.id.startsWith("watchly.item") -> Shelf(Page.HOME, homeRowName(c.name), 0)
-            c.addon.id.contains("watchly") && c.id == "watchly.rec" -> Shelf(typePage, "Top Picks for You", 0)
-            c.addon.id.startsWith("trakt.addon") && c.id.startsWith("recommendations") -> Shelf(typePage, "Recommended for You", 1)
-            c.addon.id.startsWith("trakt.addon") && c.id.startsWith("trending") -> Shelf(typePage, "Trending Now", 2)
-            c.addon.id == "in.rdata.indiastreams" -> Shelf(typePage, india[c.id] ?: c.name, 2)
+            c.source.id.contains("watchly") && c.id.startsWith("watchly.item") -> Shelf(Page.HOME, homeRowName(c.name), 0)
+            c.source.id.contains("watchly") && c.id == "watchly.rec" -> Shelf(typePage, "Top Picks for You", 0)
+            c.source.id.startsWith("trakt.addon") && c.id.startsWith("recommendations") -> Shelf(typePage, "Recommended for You", 1)
+            c.source.id.startsWith("trakt.addon") && c.id.startsWith("trending") -> Shelf(typePage, "Trending Now", 2)
+            c.source.id == "in.rdata.indiastreams" -> Shelf(typePage, india[c.id] ?: c.name, 2)
             lowerId in setOf("top", "popular", "trending") || c.name.equals("Top", true) || c.name.equals("Popular", true) || c.name.equals("Trending", true) -> Shelf(typePage, tidy(c.name), 2)
             else -> Shelf(typePage, tidy(c.name), 3)
         }
@@ -1687,7 +1687,7 @@ class MainActivity : Screen() {
             val updated = JSONObject(original.toString())
             if (selected == 0) Library.setInList(updated, false)
             else Library.markTitleWatched(updated, metas[item.id]?.videos.orEmpty())
-            background({ Stremio.saveLibrary(profile.authKey, listOf(updated)) }) { result ->
+            background({ Accounts.saveLibrary(profile.account, listOf(updated)) }) { result ->
                 result.fold({
                     library = library.map { if (it.optString("_id") == item.id) updated else it }
                     if (page == Page.LIBRARY) redrawLibrary()
@@ -1707,7 +1707,7 @@ class MainActivity : Screen() {
             val original = library.firstOrNull { it.optString("_id") == item.id } ?: return@choose
             val updated = JSONObject(original.toString())
             val offset = Library.hideFromContinueWatching(updated)
-            background({ Stremio.saveLibrary(profile.authKey, listOf(updated)) }) { result ->
+            background({ Accounts.saveLibrary(profile.account, listOf(updated)) }) { result ->
                 result.fold({
                     Settings.setHidden(this, Settings.hidden(this)
                         .put(item.id, JSONObject().put("name", item.name).put("timeOffset", offset)))
@@ -2124,11 +2124,10 @@ class MainActivity : Screen() {
         if (item.filled) return
         item.filled = true
         metas[item.id]?.let { applyMeta(item, it); return }
-        val key = profile.authKey
         metaPool.execute {
             // Last time's details from disk when there are some; the network only for titles never seen here.
             val m = runCatching {
-                Stremio.addons(key).let { it.savedMeta(item.type, item.id) ?: it.meta(item.type, item.id) }
+                Sources.content(profile).let { it.savedMeta(item.type, item.id) ?: it.meta(item.type, item.id) }
             }.getOrNull()
             main.post {
                 if (isDestroyed) return@post
@@ -2188,8 +2187,7 @@ class MainActivity : Screen() {
         val id = item.getString("_id")
         val type = item.optString("type")
         val newEpisode = if (offset == 1L && videoId != null) {
-            val key = profile.authKey
-            val m = metas[id] ?: runCatching { Stremio.savedAddons(key)?.savedMeta(type, id) ?: Stremio.addons(key).savedMeta(type, id) }.getOrNull()
+            val m = metas[id] ?: runCatching { Sources.savedContent(profile)?.savedMeta(type, id) ?: Sources.content(profile).savedMeta(type, id) }.getOrNull()
             if (m != null) metas[id] = m
             val v = m?.videos?.firstOrNull { it.id == videoId }
             v != null && isRecentlyAired(v.released)
@@ -2304,7 +2302,7 @@ class MainActivity : Screen() {
 
     // Signed out elsewhere (or the session expired): the profile stays, with its settings, and signs in again.
     private fun forgetIfSessionGone(error: Throwable) {
-        if ((error as? Stremio.ApiException)?.code != Stremio.NO_SESSION || isFinishing) return
+        if (!Accounts.isExpired(profile.account, error) || isFinishing) return
         Profiles.markSignedOut(this, profile.id)
         startActivity(Intent(this, ProfilesActivity::class.java).putExtra("signIn", profile.id)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))

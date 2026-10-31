@@ -5,11 +5,11 @@ import android.content.SharedPreferences
 import org.json.JSONArray
 import org.json.JSONObject
 
-class Profile(val id: String, val name: String, val color: Int, val authKey: String, val pin: String? = null)
+class Profile(val id: String, val name: String, val color: Int, val account: AccountRef, val pin: String? = null,
+              val sourceAccounts: List<AccountRef> = listOf(account))
 
 /**
- * The profiles on this TV, kept in app storage. Each one is its own Stremio account, so history, Continue Watching,
- * addons and recommendations (Watchly) all stay per person without anything of our own in the cloud.
+ * The profiles on this TV, kept in app storage. Each account owns its library and watch progress.
  */
 object Profiles {
     const val MAX = 5
@@ -19,8 +19,7 @@ object Profiles {
         val prefs = prefs(context)
         migrate(prefs)
         return JSONArray(prefs.getString("profiles", "[]")).objects()
-            .map { Profile(it.getString("id"), it.getString("name"), it.getInt("color").takeIf { c -> c in COLORS } ?: COLORS[0],
-                it.getString("authKey"), it.optString("pin").ifEmpty { null }) }
+            .map(::profileFromJson)
     }
 
     /** The profile in use: the one picked last, or the only one there is. */
@@ -31,10 +30,10 @@ object Profiles {
 
     fun setActive(context: Context, id: String) = prefs(context).edit().putString("active", id).apply()
 
-    fun add(context: Context, name: String, authKey: String, color: Int = COLORS[0]): Profile {
+    fun add(context: Context, name: String, account: AccountRef, color: Int = COLORS[0]): Profile {
         val list = all(context)
         val number = (1..MAX).first { n -> list.none { it.id == "$n" } }
-        val profile = Profile("$number", name, color, authKey)
+        val profile = Profile("$number", name, color, account)
         save(prefs(context), list + profile)
         setActive(context, profile.id)
         return profile
@@ -57,9 +56,11 @@ object Profiles {
 
     fun markSignedOut(context: Context, id: String) = prefs(context).edit().putBoolean("signedOut:$id", true).apply()
 
-    /** A fresh sign-in for an existing profile: its new auth key, everything else kept. */
-    fun signIn(context: Context, id: String, authKey: String) {
-        save(prefs(context), all(context).map { if (it.id != id) it else Profile(it.id, it.name, it.color, authKey, it.pin) })
+    /** A fresh sign-in for an existing profile: its new account, everything else kept. */
+    fun signIn(context: Context, id: String, account: AccountRef) {
+        save(prefs(context), all(context).map {
+            if (it.id != id) it else it.withAccount(account)
+        })
         prefs(context).edit().remove("signedOut:$id").apply()
     }
 
@@ -78,14 +79,13 @@ object Profiles {
     fun update(context: Context, id: String, name: String? = null, pin: String? = null, clearPin: Boolean = false, color: Int? = null) {
         save(prefs(context), all(context).map {
             if (it.id != id) it
-            else Profile(it.id, name ?: it.name, color ?: it.color, it.authKey, if (clearPin) null else pin ?: it.pin)
+            else Profile(it.id, name ?: it.name, color ?: it.color, it.account, if (clearPin) null else pin ?: it.pin,
+                it.sourceAccounts)
         })
     }
 
     private fun save(prefs: SharedPreferences, list: List<Profile>) {
-        val json = JSONArray(list.map {
-            JSONObject().put("id", it.id).put("name", it.name).put("color", it.color).put("authKey", it.authKey).put("pin", it.pin ?: "")
-        })
+        val json = JSONArray(list.map(::profileToJson))
         prefs.edit().putString("profiles", json.toString()).apply()
     }
 
@@ -101,9 +101,30 @@ object Profiles {
             edit.apply()
         }
         val key = prefs.getString("authKey", null) ?: return
-        if (!prefs.contains("profiles")) save(prefs, listOf(Profile("1", "Me", COLORS[0], key)))
+        if (!prefs.contains("profiles")) save(prefs, listOf(Profile("1", "Me", COLORS[0], AccountRef(Accounts.STREMIO, key))))
         prefs.edit().remove("authKey").putString("active", "1").apply()
     }
 
     private fun prefs(context: Context) = context.getSharedPreferences("account", Context.MODE_PRIVATE)
 }
+
+internal fun profileFromJson(json: JSONObject): Profile {
+    val account = AccountRef(json.optString("provider", Accounts.STREMIO),
+        json.optString("credential").ifEmpty { json.getString("authKey") })
+    val sources = json.optJSONArray("sources")?.objects()?.map {
+        AccountRef(it.getString("provider"), it.getString("credential"))
+    } ?: listOf(account)
+    return Profile(json.getString("id"), json.getString("name"),
+        json.getInt("color").takeIf { it in Profiles.COLORS } ?: Profiles.COLORS[0],
+        account, json.optString("pin").ifEmpty { null }, sources)
+}
+
+internal fun profileToJson(profile: Profile) = JSONObject().put("id", profile.id).put("name", profile.name)
+    .put("color", profile.color).put("provider", profile.account.provider)
+    .put("credential", profile.account.credential).put("pin", profile.pin ?: "")
+    .put("sources", JSONArray(profile.sourceAccounts.map {
+        JSONObject().put("provider", it.provider).put("credential", it.credential)
+    }))
+
+internal fun Profile.withAccount(next: AccountRef) = Profile(id, name, color, next, pin,
+    sourceAccounts.map { if (it == account && next.provider == account.provider) next else it })

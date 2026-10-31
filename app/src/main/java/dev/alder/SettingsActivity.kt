@@ -373,8 +373,8 @@ class SettingsActivity : Screen() {
             avatar.text = name?.take(1)?.uppercase() ?: "A"
             refresh.forEach { it() }
         }
-        val key = authKey ?: return
-        background({ Stremio.addons(key).size }) { result ->
+        val key = account ?: return
+        background({ Sources.addons(key).size }) { result ->
             addonValue?.text = installed(result.getOrNull(), R.string.addons_unavailable)
         }
     }
@@ -474,7 +474,7 @@ class SettingsActivity : Screen() {
                 Profiles.streamLenders(this).forEach { lender ->
                     val value = actionRow(getString(R.string.shared_by, lender.name), "…",
                         getString(R.string.shared_by_hint, lender.name)) {}
-                    background({ (Stremio.savedAddons(lender.authKey) ?: Stremio.addons(lender.authKey)).filter { it.shareable } }) { result ->
+                    background({ (Sources.savedAddons(lender.account) ?: Sources.addons(lender.account)).filter { it.shareable } }) { result ->
                         value.text = result.getOrNull()?.map { addonShortName(it.name) }?.ifEmpty { null }?.joinToString(", ")
                             ?: getString(if (result.isSuccess) R.string.no_stream_addons else R.string.load_failed)
                     }
@@ -495,17 +495,17 @@ class SettingsActivity : Screen() {
             }
             Group.ADDONS -> {
                 actionRow(getString(R.string.my_addons), "…", getString(R.string.my_addons_hint)) {
-                    if (authKey != null) startActivity(Intent(this, AddonsActivity::class.java))
+                    if (account != null) startActivity(Intent(this, AddonsActivity::class.java))
                 }.also { addonValue = it }
                 actionRow(getString(R.string.reload_addons), "", getString(R.string.reload_addons_hint)) {
-                    val key = authKey ?: return@actionRow
+                    val key = account ?: return@actionRow
                     addonValue?.text = getString(R.string.reloading)
-                    background({ Stremio.addons(key, refresh = true).size }) { result ->
+                    background({ Sources.addons(key, refresh = true).size }) { result ->
                         addonValue?.text = installed(result.getOrNull(), R.string.reload_failed)
                     }
                 }
-                val key = authKey
-                if (key != null) background({ Stremio.addons(key).size }) { result ->
+                val key = account
+                if (key != null) background({ Sources.addons(key).size }) { result ->
                     addonValue?.text = installed(result.getOrNull(), R.string.addons_unavailable)
                 }
             }
@@ -607,13 +607,13 @@ class SettingsActivity : Screen() {
         val all = Settings.hidden(this)
         val ids = all.keys().asSequence().toList()
         if (ids.isEmpty()) return choose(getString(R.string.nothing_hidden), listOf(getString(R.string.action_ok)), getString(R.string.nothing_hidden_desc)) {}
-        val key = authKey ?: return
+        val key = account ?: return
         choose(getString(R.string.hidden_continue), ids.map { all.getJSONObject(it).optString("name", it) }, getString(R.string.unhide_title_hint)) { i ->
             val id = ids[i]
             background({
-                val item = Stremio.library(key, listOf(id)).firstOrNull() ?: error("not in the library")
+                val item = Accounts.library(key, listOf(id)).firstOrNull() ?: error("not in the library")
                 Library.unhide(item, all.getJSONObject(id).optLong("timeOffset"))
-                Stremio.saveLibrary(key, listOf(item))
+                Accounts.saveLibrary(key, listOf(item))
             }) { result ->
                 result.fold({
                     all.remove(id)
