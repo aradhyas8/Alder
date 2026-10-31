@@ -127,9 +127,10 @@ object StreamsResolver {
                 executor.execute {
                     if (canceled) return@execute
                     val streamsResult = runCatching { addon.streams(type, videoId) }
+                    val playable = streamsResult.getOrNull()?.let { StreamResolution.playable(it.candidates) }.orEmpty()
                     mainHandler.post {
                         if (canceled) return@post
-                        answers[i] = streamsResult.getOrNull()?.playable.orEmpty()
+                        answers[i] = playable
                         if (answers.all { it != null }) {
                             tryStart(allowGaps = true)
                         } else {

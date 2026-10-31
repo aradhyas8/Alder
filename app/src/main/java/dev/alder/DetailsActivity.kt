@@ -19,7 +19,6 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextClock
 import android.widget.TextView
-import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -88,6 +87,8 @@ class DetailsActivity : Screen() {
     private val name by lazy { intent.getStringExtra("name") ?: "" }
     private val poster by lazy { intent.getStringExtra("poster") }
     private val initialArt by lazy { intent.getStringExtra("background") }
+    private val sourceProvider by lazy { intent.getStringExtra("sourceProvider") }
+    private val sourceId by lazy { intent.getStringExtra("sourceId") }
 
     private lateinit var key: AccountRef
     private lateinit var profile: Profile
@@ -126,13 +127,22 @@ class DetailsActivity : Screen() {
     private var selectedSeason = 1
     private var episodeRows = emptyList<View>()
     private var meta: Meta? = null
-    private var item: JSONObject? = null // the title's library item: progress and whether it's in My List
+    private var item: LibraryItem? = null // the title's library item: progress and whether it's in My List
     private var itemChangedHere = false
     private var similarRequested = false
     private var imdbTrailers: List<Stream> = emptyList()
     private var trailerRequested = false
     private var certificate: String? = null
     private var certificateRequested = false
+
+    private fun watchedEpisodes(videos: List<Video>) = item?.let { Accounts.watchedEpisodes(key, it, videos) }.orEmpty()
+
+    private fun preferredSources(sources: List<ContentSource>): List<ContentSource> {
+        val provider = sourceProvider ?: return sources
+        val id = sourceId ?: return sources
+        val preferred = sources.filter { it.identity.first == provider && it.identity.second == id }
+        return preferred + sources.filterNot { it in preferred }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -198,19 +208,20 @@ class DetailsActivity : Screen() {
             }
         }
         background({
-            (Sources.savedContent(profile) ?: Sources.content(profile)).savedMeta(type, metaId) to Accounts.savedLibrary(key)?.firstOrNull { it.optString("_id") == metaId }
+            preferredSources(Sources.savedContent(profile) ?: Sources.content(profile)).savedMeta(type, metaId) to
+                Accounts.savedLibraryItems(key)?.firstOrNull { it.id == metaId }
         }) { result ->
             result.getOrNull()?.let { (saved, libraryItem) ->
                 if (!itemChangedHere && item == null) item = libraryItem
                 if (meta == null) saved?.let(::show)
             }
         }
-        background({ Sources.content(profile).meta(type, metaId, together = true) }) { result ->
+        background({ preferredSources(Sources.content(profile)).meta(type, metaId, together = true) }) { result ->
             val fresh = result.getOrNull()
             if (fresh != null) show(fresh)
             else if (meta == null) showHero(null)
         }
-        background({ Accounts.library(key, listOf(metaId)).firstOrNull() }) { result ->
+        background({ Accounts.libraryItems(key, listOf(metaId)).firstOrNull() }) { result ->
             if (!itemChangedHere) {
                 item = result.getOrNull() ?: item
                 if (meta != null) showHero(meta)
@@ -324,9 +335,9 @@ class DetailsActivity : Screen() {
         // Under a minute in is not started: a title opened and closed at 0:00 offers Play, not Resume.
         val resumeAt = (item?.let { Library.resumeAt(it, target?.first ?: metaId) } ?: 0L).takeIf { it >= STARTED } ?: 0L
         val videos = m.videos
-        val watched = Library.watched(item, videos)
+        val watched = watchedEpisodes(videos)
         val airedVideos = videos.filter { it.season > 0 && isEpisodeAired(it.released) }
-        val currentVideoId = item?.optJSONObject("state")?.text("video_id")
+        val currentVideoId = item?.progress?.videoId
         val currentVideo = videos.firstOrNull { it.id == currentVideoId }
         val unairedNext = when {
             // Unfinished playback always resumes
@@ -370,7 +381,7 @@ class DetailsActivity : Screen() {
             playButton.post { if (!guideOpen && !infoOpen && !similarOpen) playButton.requestFocus() }
             return
         }
-        val duration = item?.optJSONObject("state")?.optLong("duration") ?: 0L
+        val duration = item?.progress?.duration ?: 0L
         val remaining = if (resumeAt > 0 && duration > resumeAt) getString(R.string.time_left, runtime("${(duration - resumeAt) / 60_000} min")) else null
         val where = listOfNotNull(episode?.let { "S${it.season} E${it.episode}" }, episode?.title?.takeIf { it.isNotBlank() }, remaining).joinToString(DOT)
         if (where.isNotEmpty() && resumeAt > 0) stack.addView(text(where, SMALL, bold = true).onArt().apply {
@@ -509,20 +520,19 @@ class DetailsActivity : Screen() {
     private fun playTarget(m: Meta?): Pair<String, Video?>? {
         val videos = m?.videos.orEmpty()
         if (videos.isEmpty()) return metaId to null
-        val current = item?.optJSONObject("state")?.text("video_id")
+        val current = item?.progress?.videoId
         val video = videos.firstOrNull { it.id == current } ?: videos.firstOrNull { it.season > 0 } ?: videos.first()
         return video.id to video
     }
 
     private fun toggleList() {
         itemChangedHere = true
-        val entry = item ?: Library.newItem(metaId, type, meta?.name ?: name, meta?.poster ?: poster)
-        Library.setInList(entry, !Library.inList(item))
-        item = entry
-        listButton.text = if (Library.inList(entry)) "✓" else "+"
-        listButton.contentDescription = getString(if (Library.inList(entry)) R.string.action_remove_from_list else R.string.action_add_to_list)
-        val snapshot = JSONObject(entry.toString())
-        background({ Accounts.saveLibrary(key, listOf(snapshot)) }) {}
+        val entry = item ?: Library.newLibraryItem(metaId, type, meta?.name ?: name, meta?.poster ?: poster)
+        item = Library.setInList(entry, !Library.inList(item))
+        listButton.text = if (Library.inList(item)) "✓" else "+"
+        listButton.contentDescription = getString(if (Library.inList(item)) R.string.action_remove_from_list else R.string.action_add_to_list)
+        val snapshot = item ?: return
+        background({ Accounts.saveLibraryItems(key, listOf(snapshot), mapOf(metaId to meta?.videos.orEmpty())) }) {}
     }
 
     // ---------- glass and episode guide ----------
@@ -643,7 +653,7 @@ class DetailsActivity : Screen() {
             }
         }
         guideRows.removeAllViews()
-        val watched = Library.watched(item, videos)
+        val watched = watchedEpisodes(videos)
         val currentId = playTarget(meta)?.first
         episodeRows = videos.filter { it.season == selectedSeason }.map { video ->
             val row = FrameLayout(this).apply { tag = video.id }
@@ -652,8 +662,7 @@ class DetailsActivity : Screen() {
                 leftMargin = dp(12)
             })
             val resumeAt = item?.let { Library.resumeAt(it, video.id) } ?: 0L
-            val duration = item?.optJSONObject("state")?.takeIf { it.text("video_id") == video.id }
-                ?.optLong("duration") ?: 0L
+            val duration = item?.progress?.takeIf { it.videoId == video.id }?.duration ?: 0L
             val aired = isEpisodeAired(video.released)
             val status = when {
                 !aired -> airDay(video.released)?.let { getString(R.string.airs_on, it) }.orEmpty()
@@ -694,7 +703,7 @@ class DetailsActivity : Screen() {
     }
 
     private fun updatePreview(video: Video) {
-        val blur = Settings.blurThumbnails(this) && video.id !in Library.watched(item, meta?.videos.orEmpty())
+        val blur = Settings.blurThumbnails(this) && video.id !in watchedEpisodes(meta?.videos.orEmpty())
         Images.load(video.thumbnail, previewImage, dp(870), orElse = meta?.background, look = if (blur) Images.blurred else null)
         previewTitle.text = video.title.ifBlank { getString(R.string.episode_number, video.episode) }
         previewFacts.text = listOfNotNull("S${video.season} E${video.episode}", meta?.runtime,
@@ -702,9 +711,9 @@ class DetailsActivity : Screen() {
         previewAbout.text = video.overview.orEmpty()
         previewAbout.visibility = if (video.overview.isNullOrBlank()) View.GONE else View.VISIBLE
         previewProgress.removeAllViews()
-        val state = item?.optJSONObject("state")?.takeIf { it.text("video_id") == video.id }
+        val state = item?.progress?.takeIf { it.videoId == video.id }
         val resumeAt = item?.let { Library.resumeAt(it, video.id) } ?: 0L
-        val duration = state?.optLong("duration") ?: 0L
+        val duration = state?.duration ?: 0L
         if (resumeAt > 0 && duration > resumeAt) {
             previewProgress.addView(progressBar(resumeAt.toFloat() / duration),
                 FrameLayout.LayoutParams(-1, -1))
@@ -737,17 +746,16 @@ class DetailsActivity : Screen() {
         }.start()
     }
 
-    private fun ensureLibraryItem(): JSONObject {
+    private fun ensureLibraryItem(): LibraryItem {
         itemChangedHere = true
-        val entry = item ?: Library.newItem(metaId, type, meta?.name ?: name, meta?.poster ?: poster)
+        val entry = item ?: Library.newLibraryItem(metaId, type, meta?.name ?: name, meta?.poster ?: poster)
         item = entry
         return entry
     }
 
     private fun saveAndRefresh(focusEpisodeId: String? = null, focusSeason: Int? = null) {
         val entry = item ?: return
-        val snapshot = JSONObject(entry.toString())
-        background({ Accounts.saveLibrary(key, listOf(snapshot)) }) {}
+        background({ Accounts.saveLibraryItems(key, listOf(entry), mapOf(metaId to meta?.videos.orEmpty())) }) {}
         fillGuide()
         meta?.let(::showHero)
         if (focusEpisodeId != null) {
@@ -762,7 +770,7 @@ class DetailsActivity : Screen() {
 
     private fun episodeMenu(video: Video) {
         val videos = meta?.videos.orEmpty()
-        val watched = Library.watched(item, videos)
+        val watched = watchedEpisodes(videos)
         val isWatched = video.id in watched
         val prior = Library.priorEpisodes(videos, video)
 
@@ -790,42 +798,35 @@ class DetailsActivity : Screen() {
     }
 
     private fun markEpisodeWatched(video: Video, watched: Boolean) {
-        val entry = ensureLibraryItem()
+        var entry = ensureLibraryItem()
         val videos = meta?.videos.orEmpty()
-        val s = entry.state
+        entry = Accounts.withWatchedEpisodes(key, entry, videos)
+        var progress = entry.progress
         if (watched) {
-            Library.markWatched(entry, videos, video.id)
-            s.put("timesWatched", maxOf(1, s.optInt("timesWatched")))
+            entry = Library.markWatched(entry, videos, video.id)
+            progress = entry.progress.copy(timesWatched = maxOf(1, entry.progress.timesWatched))
             val nextEp = Library.nextEpisode(videos, video)
             if (nextEp != null) {
-                s.put("video_id", nextEp.id)
-                s.put("timeOffset", 0L)
-                s.put("flaggedWatched", 0)
+                progress = progress.copy(videoId = nextEp.id, timeOffset = 0, flaggedWatched = 0)
             } else {
-                s.put("video_id", video.id)
-                s.put("timeOffset", 0L)
-                s.put("flaggedWatched", 1)
+                progress = progress.copy(videoId = video.id, timeOffset = 0, flaggedWatched = 1)
             }
         } else {
-            Library.markUnwatched(entry, videos, video.id)
-            s.put("video_id", video.id)
-            s.put("timeOffset", 0L)
-            s.put("flaggedWatched", 0)
+            entry = Library.markUnwatched(entry, videos, video.id)
+            progress = entry.progress.copy(videoId = video.id, timeOffset = 0, flaggedWatched = 0)
         }
-        entry.put("_mtime", Library.now())
+        item = entry.copy(modifiedAt = Library.now(), progress = progress)
         saveAndRefresh(focusEpisodeId = video.id)
     }
 
     private fun markPreviousEpisodesWatched(video: Video, prior: List<Video>) {
-        val entry = ensureLibraryItem()
+        var entry = ensureLibraryItem()
         val videos = meta?.videos.orEmpty()
-        val s = entry.state
-        Library.markEpisodesWatched(entry, videos, prior.map { it.id })
-        s.put("timesWatched", maxOf(1, s.optInt("timesWatched")))
-        s.put("video_id", video.id)
-        s.put("timeOffset", 0L)
-        s.put("flaggedWatched", 0)
-        entry.put("_mtime", Library.now())
+        entry = Accounts.withWatchedEpisodes(key, entry, videos)
+        entry = Library.markEpisodesWatched(entry, videos, prior.map { it.id })
+        item = entry.copy(modifiedAt = Library.now(), progress = entry.progress.copy(
+            timesWatched = maxOf(1, entry.progress.timesWatched), videoId = video.id, timeOffset = 0, flaggedWatched = 0
+        ))
         saveAndRefresh(focusEpisodeId = video.id)
     }
 
@@ -833,7 +834,7 @@ class DetailsActivity : Screen() {
         val videos = meta?.videos.orEmpty()
         val seasonVideos = videos.filter { it.season == season }
         if (seasonVideos.isEmpty()) return
-        val watched = Library.watched(item, videos)
+        val watched = watchedEpisodes(videos)
         val allWatched = seasonVideos.all { it.id in watched }
         val title = seasonName(season)
         val option = getString(if (allWatched) R.string.mark_season_unwatched else R.string.mark_season_watched, title)
@@ -845,34 +846,30 @@ class DetailsActivity : Screen() {
     }
 
     private fun markSeasonWatched(season: Int, watched: Boolean) {
-        val entry = ensureLibraryItem()
+        var entry = ensureLibraryItem()
         val videos = meta?.videos.orEmpty()
+        entry = Accounts.withWatchedEpisodes(key, entry, videos)
         val seasonVideos = videos.filter { it.season == season }
         val seasonIds = seasonVideos.map { it.id }.toSet()
-        val s = entry.state
+        var progress = entry.progress
 
         if (watched) {
-            Library.markEpisodesWatched(entry, videos, seasonIds)
-            s.put("timesWatched", maxOf(1, s.optInt("timesWatched")))
+            entry = Library.markEpisodesWatched(entry, videos, seasonIds)
+            progress = entry.progress.copy(timesWatched = maxOf(1, entry.progress.timesWatched))
             val nextEp = Library.nextEpisodeAfterSeason(videos, season)
             if (nextEp != null) {
-                s.put("video_id", nextEp.id)
-                s.put("timeOffset", 0L)
-                s.put("flaggedWatched", 0)
+                progress = progress.copy(videoId = nextEp.id, timeOffset = 0, flaggedWatched = 0)
             } else {
-                seasonVideos.lastOrNull()?.let { s.put("video_id", it.id) }
-                s.put("timeOffset", 0L)
-                s.put("flaggedWatched", 1)
+                progress = progress.copy(videoId = seasonVideos.lastOrNull()?.id ?: progress.videoId, timeOffset = 0, flaggedWatched = 1)
             }
         } else {
-            Library.unmarkEpisodesWatched(entry, videos, seasonIds)
+            entry = Library.unmarkEpisodesWatched(entry, videos, seasonIds)
+            progress = entry.progress
             seasonVideos.firstOrNull()?.let { firstEp ->
-                s.put("video_id", firstEp.id)
-                s.put("timeOffset", 0L)
-                s.put("flaggedWatched", 0)
+                progress = progress.copy(videoId = firstEp.id, timeOffset = 0, flaggedWatched = 0)
             }
         }
-        entry.put("_mtime", Library.now())
+        item = entry.copy(modifiedAt = Library.now(), progress = progress)
         saveAndRefresh(focusSeason = season)
     }
 
@@ -1079,13 +1076,13 @@ class DetailsActivity : Screen() {
 
     private fun loadSimilar() {
         background({
-            Sources.content(profile).firstNotNullOfOrNull { addon ->
+            preferredSources(Sources.content(profile)).firstNotNullOfOrNull { addon ->
                 runCatching { addon.similar(type, metaId) }.getOrNull()?.takeIf { it.isNotEmpty() }
             }.orEmpty()
         }) { result ->
             result.getOrNull()?.let { titles ->
-                titles.asSequence().filter { it.id != metaId && it.type == type }
-                    .distinctBy { it.id }.take(12).toList().takeIf { it.isNotEmpty() }
+                titles.asSequence().filter { it.identity != meta?.identity && it.type == type }
+                    .distinctBy { it.identity }.take(12).toList().takeIf { it.isNotEmpty() }
                     ?.let { showSimilar(getString(R.string.details_more_like_this), it) }
             }
         }
@@ -1142,7 +1139,8 @@ class DetailsActivity : Screen() {
                 setOnClickListener {
                     startActivity(Intent(this@DetailsActivity, DetailsActivity::class.java)
                         .putExtra("type", title.type).putExtra("id", title.id).putExtra("name", title.name)
-                        .putExtra("poster", title.poster).putExtra("background", title.background))
+                        .putExtra("poster", title.poster).putExtra("background", title.background)
+                        .putExtra("sourceProvider", title.sourceProvider).putExtra("sourceId", title.sourceId))
                 }
                 Images.load(title.poster ?: title.background, image, dp(POSTER_W), failed = {
                     fallback.visibility = View.VISIBLE
@@ -1410,7 +1408,8 @@ class DetailsActivity : Screen() {
                 setOnClickListener {
                     startActivity(Intent(this@DetailsActivity, DetailsActivity::class.java)
                         .putExtra("type", title.type).putExtra("id", title.id).putExtra("name", title.name)
-                        .putExtra("poster", title.poster).putExtra("background", title.background))
+                        .putExtra("poster", title.poster).putExtra("background", title.background)
+                        .putExtra("sourceProvider", title.sourceProvider).putExtra("sourceId", title.sourceId))
                 }
                 Images.load(title.poster ?: title.background, image, dp(POSTER_W), failed = {
                     fallback.visibility = View.VISIBLE
@@ -1517,6 +1516,8 @@ class DetailsActivity : Screen() {
             .putExtra("name", m.name.ifBlank { name })
             .putExtra("poster", m.poster ?: poster)
             .putExtra("background", m.background)
+            .putExtra("sourceProvider", m.sourceProvider)
+            .putExtra("sourceId", m.sourceId)
             .putExtra("logo", m.logo)
             .putExtra("isTrailer", true)
             .putExtra("trailerYtId", m.trailerYtId)
@@ -1540,14 +1541,18 @@ class DetailsActivity : Screen() {
         val video = m?.videos?.firstOrNull { it.id == videoId }
         val short = label ?: video?.let { "S${it.season} E${it.episode}" }
         val resumeAt = if (startOver) 0L else item?.let { Library.resumeAt(it, videoId) } ?: 0L
+        val selectedProvider = video?.sourceProvider ?: m?.sourceProvider ?: sourceProvider
+        val selectedSourceId = video?.sourceId ?: m?.sourceId ?: sourceId
         val intent = Intent(this, StreamsActivity::class.java)
             .putExtra("type", type).putExtra("id", metaId).putExtra("name", m?.name ?: name).putExtra("poster", m?.poster ?: poster)
             .putExtra("videoId", videoId).putExtra("nextVideoId", nextId).putExtra("startOver", startOver).putExtra("pick", pick)
             .putExtra("background", m?.background)
+            .putExtra("sourceProvider", selectedProvider)
+            .putExtra("sourceId", selectedSourceId)
             .putExtra("label", listOfNotNull(m?.name ?: name, short).joinToString("  ·  "))
             // For the sources page: the title's logo, the episode's still and "S1 E3 · OutKast".
             .putExtra("logo", m?.logo).putExtra("still", video?.thumbnail).putExtra("runtime", m?.runtime)
-            .putExtra("blurStill", Settings.blurThumbnails(this) && video != null && video.id !in Library.watched(item, m?.videos.orEmpty()))
+            .putExtra("blurStill", Settings.blurThumbnails(this) && video != null && video.id !in watchedEpisodes(m?.videos.orEmpty()))
             .putExtra("episode", video?.let { v -> listOfNotNull("S${v.season} E${v.episode}", v.title.takeIf { it.isNotBlank() }).joinToString("  ·  ") })
             .putExtra("resumeAt", resumeAt)
 
@@ -1567,7 +1572,7 @@ class DetailsActivity : Screen() {
     // Back from the player: progress, the resume point and My List may have changed.
     override fun onRestart() {
         super.onRestart()
-        background({ runCatching { Accounts.library(key, listOf(metaId)).firstOrNull() }.getOrNull() }) { result ->
+        background({ runCatching { Accounts.libraryItems(key, listOf(metaId)).firstOrNull() }.getOrNull() }) { result ->
             item = result.getOrNull() ?: item
             val wasGuide = guideOpen
             if (infoOpen) { root.removeView(infoOverlay); infoOpen = false }

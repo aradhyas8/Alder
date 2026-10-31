@@ -17,16 +17,16 @@ TV screens
 
 ## Current state
 
-The branch has `Accounts`, `Sources`, `AccountBackend`, `SourceBackend`, and `ContentSource`. Most screens now call those services. `Profiles.kt` can read old Stremio profile records. `Sources.forVideo` gives automatic play and the source list the same source order.
+The branch has separate `AccountRef` and `SourceRef` values. `ProfileStore` reads old profile records. Screens use typed `LibraryItem` data through `Accounts`; Stremio keeps its wire JSON and watched bitfield. `Meta` and `Video` have source-scoped identities, and screens carry the selected source through title and player navigation. `SourceStreams` returns candidates; a registered resolver can make a hash playable before Media3 sees it. New saved HTTP answers have account or profile/source owners. Profile removal clears only those owners. Fake account, source, cache, and resolver tests cover these boundaries.
 
-The work is not complete. `Profile.sourceAccounts` uses `AccountRef` for content connections. `AccountBackend` and `Library.kt` pass Stremio-shaped `JSONObject` items to screens. `Meta`, `Video`, settings, intents, and watch progress use plain IDs without a source scope. `Stream` requires a URL; `Addon.streams` counts hash-only answers but cannot play them. `AddonsActivity` and sign-in in `ProfilesActivity` are specific to Stremio. `Http.forget()` clears all saved answers when one profile leaves.
+The remaining work is a real second provider and its setup UI, source-scoped keys for every saved choice and account progress record, and a TV check of sign-in, My List, Details, Search, playback, and progress. Old flat cache files have no owner marker, so the app leaves them for normal cache trim. The current add-on editor is for Stremio; another protocol needs its own editor or a proven shared management model.
 
 ## Architecture rules
 
 1. One account owns a profile's My List and watch progress. Do not merge two accounts' watch data by default.
 2. A profile has ordered source connections. A source connection has its own provider ID, credential, and settings. It can be linked without changing the account that owns watch data.
 3. Keep title and video IDs with their source. Use a verified common ID only when two sources refer to the same title. Do not merge titles by name.
-4. Each adapter converts its wire data at its boundary. Screens use app models. Stremio JSON stays in the Stremio adapter.
+4. Each adapter converts its wire data at its boundary. Screens use app models. Stremio library JSON stays in the Stremio adapter.
 5. A source can return a URL, a hash, or another candidate. A resolver produces a playable URL. The player never receives an unresolved hash.
 6. Source order, partial failure, cache scope, and account expiry have one rule in app services. A failed source does not hide a healthy source.
 7. Audio modes and decoder checks stay in playback. Lossless audio is a player capability, not a content plugin.
@@ -61,7 +61,7 @@ Define only the fields the app uses for My List, resume, watched episodes, and t
 
 ### 4. Give content stable identity and source management
 
-Add a source-scoped title and video key to the app models and to screen intents, saved choices, and watch progress. Map Stremio IDs without changing current links. Keep a common IMDb or other verified ID as an optional match key. Move add-on list, install, remove, and order operations behind a source-management capability. Keep the current Stremio add-on page as its first UI. Do not make every source implement management if it has no add-ons.
+Add a source-scoped title and video key to the app models and to screen intents, saved choices, and watch progress. Map Stremio IDs without changing current links. Keep a common IMDb or other verified ID as an optional match key. Keep Stremio add-on list, install, remove, and order operations behind its management capability. Add a provider-neutral editor only when a second protocol proves a shared model useful. Do not make every source implement management if it has no add-ons.
 
 **Files:** `ContentSource.kt`, `Addon.kt`, `Sources.kt`, `AddonsActivity.kt`, `MainActivity.kt`, `DetailsActivity.kt`, `SearchActivity.kt`, `SettingsActivity.kt`, `WatchNext.kt`, and intent helpers.
 
@@ -91,4 +91,16 @@ Add test adapters for a second account and a second content protocol. Keep them 
 
 ## Delivery
 
-Use small PRs in the order above. Each PR includes a changelog entry and its tests. Keep the old Stremio path working at every step. The current provider PR is the starting point; it does not satisfy the final checks above yet.
+This branch implements the adapter boundaries and preserves the current Stremio path. It does not meet every final check above: some saved data and account progress still use raw IDs; a real second provider and TV verification remain. Keep those checks open before claiming that every future provider can be added without more app work.
+
+## Review against the branch
+
+| Package | Status | Evidence or remaining check |
+| --- | --- | --- |
+| 1. Protect current path | Partial | Unit tests and debug build pass. TV sign-in, playback, and progress still need a device check. |
+| 2. Separate connections | Done for data and services | `SourceRef`, profile link/remove/order operations, old record migration, and source order tests exist. A second real provider needs setup UI. |
+| 3. Model library data | Done for the current screens | Screens use `LibraryItem`; Stremio converts JSON and keeps unknown fields. Typed round-trip and fake account tests pass. |
+| 4. Scope identity and management | Partial | `Meta` and `Video` carry source identity; Search and navigation use it; title audio and subtitle choices use scoped keys. Account progress and hidden-title keys still use raw IDs. The add-on editor remains Stremio-specific. |
+| 5. Resolve streams | Done as a seam | Direct links and headers pass through; fake hash resolver tests pass. No torrent engine or production hash resolver exists. |
+| 6. Scope storage and cache | Partial | `ProfileStore` wraps `SharedPreferences`; new answers have owner scopes and targeted deletion tests. Old flat cache files remain until trim. |
+| 7. Prove extension points | Partial | Fake account, content source, and resolver tests pass. A real second protocol and TV check remain. |

@@ -167,7 +167,7 @@ class MainActivity : Screen() {
     /** One row of cards under the focused title's art: every page but My List's grid. */
     private val Page.isBrowse get() = this == Page.HOME || isCatalog || this == Page.LIVE
     private var mode = Mode.BROWSE
-    private var library: List<JSONObject> = emptyList()
+    private var library: List<LibraryItem> = emptyList()
     // ponytail: row answers this session, including their catalogs; unbounded, but a few hundred titles per page.
     private val answers = java.util.concurrent.ConcurrentHashMap<String, List<Pair<List<Meta>, Boolean>>>()
     private var genre: String? = null
@@ -184,7 +184,10 @@ class MainActivity : Screen() {
     private var search: ImageView? = null
     private val rows = mutableListOf<Row>()
     private var focusedSomething = false
-    private val metas = mutableMapOf<String, Meta>() // full details, fetched once per title
+    private val metas = mutableMapOf<ContentIdentity, Meta>() // full details, fetched once per content identity
+
+    private fun cachedMeta(item: Item): Meta? = item.identity?.let(metas::get) ?: metas.values.firstOrNull { it.id == item.id }
+    private fun cachedMeta(id: String): Meta? = metas.values.firstOrNull { it.id == id }
 
     // The art, at full strength and full bleed, over the previous title's art while it crossfades in.
     private lateinit var art: ImageView
@@ -299,6 +302,9 @@ class MainActivity : Screen() {
         val addedAt: String? = null,
         val finished: Boolean = false,
         var newEpisode: Boolean = false,
+        var identity: ContentIdentity? = null,
+        var sourceProvider: String? = null,
+        var sourceId: String? = null,
     ) {
         val live get() = isLiveType(type) // a channel or event: plays from its card, no title page
         var filled = false
@@ -490,9 +496,9 @@ class MainActivity : Screen() {
      * List's first three rows of posters fetched, so its grid doesn't open dark on the left while they download.
      */
     private fun warmPages() = background({
-        Accounts.savedLibrary(profile.account).orEmpty()
-            .filter { !it.optBoolean("removed") && it.optString("type") in listOf("movie", "series") }
-            .sortedByDescending { it.optString("_ctime") }.take(LIST_COLUMNS * 3)
+        Accounts.savedLibraryItems(profile.account).orEmpty()
+            .filter { !it.removed && it.type in listOf("movie", "series") }
+            .sortedByDescending { it.createdAt }.take(LIST_COLUMNS * 3)
             .forEach { libraryItem(it).poster?.let { url -> Images.prefetch(url, (dp(LIST_W) * CARD_GROW).toInt()) } }
         val catalogs = Sources.savedContent(profile).orEmpty().flatMap { it.catalogs }
         for (p in listOf(Page.SHOWS, Page.MOVIES)) {
@@ -1085,7 +1091,7 @@ class MainActivity : Screen() {
         Images.load(item.logo, heroLogo, dp(LOGO_W), failed = { if (heroItem === item) heroName.visibility = View.VISIBLE }) {
             if (heroItem === item) { heroLogo.visibility = View.VISIBLE; heroName.visibility = View.INVISIBLE }
         }
-        val meta = metas[item.id]
+        val meta = cachedMeta(item)
         val year = meta?.year ?: item.facts.firstOrNull { it.firstOrNull()?.isDigit() == true }
         val genre = meta?.genres?.firstOrNull() ?: item.facts.firstOrNull { it.firstOrNull()?.isDigit() == false && !it.startsWith("IMDb") }?.substringBefore(",")
         val length = if (item.type == "series") meta?.videos?.map { it.season }?.filter { it > 0 }?.distinct()?.size?.takeIf { it > 0 }
@@ -1128,7 +1134,7 @@ class MainActivity : Screen() {
     private fun showCaption(item: Item) {
         val remaining = item.timeLeft
         val stop = item.stoppedAt?.takeIf { it > 0 }?.let { getString(R.string.stopped_at, android.text.format.DateUtils.formatElapsedTime(it / 1000)) }
-        val meta = metas[item.id]
+        val meta = cachedMeta(item)
         val detail = if (page == Page.HOME) meta?.year ?: item.facts.firstOrNull { it.firstOrNull()?.isDigit() == true }
             else if (item.type == "series") meta?.videos?.map { it.season }?.filter { it > 0 }?.distinct()?.size?.takeIf { it > 0 }
                 ?.let { plural(R.plurals.seasons, it) }
@@ -1170,7 +1176,7 @@ class MainActivity : Screen() {
     }
 
     /** The episode Continue Watching points at, once the title's details are in. */
-    private fun episode(item: Item) = item.videoId?.let { v -> metas[item.id]?.videos?.firstOrNull { it.id == v } }
+    private fun episode(item: Item) = item.videoId?.let { v -> cachedMeta(item)?.videos?.firstOrNull { it.id == v } }
 
     // ---------- pages ----------
 
@@ -1250,20 +1256,19 @@ class MainActivity : Screen() {
             if (grid) librarySlot = slot
             var shown: String? = null // what's on screen, to tell whether the fresh library changed anything
             var fresh = false
-            fun show(list: List<JSONObject>, force: Boolean = false) {
-                val cw = Library.continueWatching(list).filterNot { raw ->
-                    val s = raw.optJSONObject("state") ?: return@filterNot false
-                    if (s.optLong("timeOffset") != 1L) return@filterNot false
-                    val vid = s.text("video_id") ?: return@filterNot false
-                    val id = raw.optString("_id")
-                    val type = raw.optString("type")
-                    val m = metas[id] ?: runCatching { Sources.savedContent(profile)?.savedMeta(type, id) ?: Sources.content(profile).savedMeta(type, id) }.getOrNull()
-                    if (m != null) metas[id] = m
+            fun show(list: List<LibraryItem>, force: Boolean = false) {
+                val cw = Library.continueWatchingItems(list).filterNot { item ->
+                    if (item.progress.timeOffset != 1L) return@filterNot false
+                    val vid = item.progress.videoId ?: return@filterNot false
+                    val id = item.id
+                    val type = item.type
+                    val m = cachedMeta(id) ?: runCatching { Sources.savedContent(profile)?.savedMeta(type, id) ?: Sources.content(profile).savedMeta(type, id) }.getOrNull()
+                    if (m != null) metas[m.identity] = m
                     val v = m?.videos?.firstOrNull { it.id == vid }
                     v != null && !isEpisodeAired(v.released)
                 }
                 val what = (if (p == Page.HOME) cw else list).joinToString {
-                    it.optString("_id") + it.optString("_mtime") + it.optBoolean("removed") + it.optJSONObject("state")?.optLong("timeOffset")
+                    it.id + it.modifiedAt + it.removed + it.progress.timeOffset
                 }
                 // Saved copies wait once the remote is in use; Stremio's own answer always goes in (focus stays on
                 // its title below), or a stale disk copy could hide a show for the whole visit.
@@ -1292,8 +1297,8 @@ class MainActivity : Screen() {
                     rows.firstOrNull { isInside(it.view, slot) }?.focusFirst()
             }
             if (quick && library.isNotEmpty()) show(library) // the library already in memory: no wait on a revisit
-            if (quick) background({ Accounts.savedLibrary(key) }) { r -> if (g == generation && !fresh) r.getOrNull()?.let { show(it) } }
-            fun ask() = background({ Accounts.library(key) }) { result ->
+            if (quick) background({ Accounts.savedLibraryItems(key) }) { r -> if (g == generation && !fresh) r.getOrNull()?.let { show(it) } }
+            fun ask() = background({ Accounts.libraryItems(key) }) { result ->
                 if (g != generation) return@background
                 fresh = true
                 result.fold({ show(it, force = true) }) { if (shown == null) failedToLoad(it) }
@@ -1634,12 +1639,12 @@ class MainActivity : Screen() {
     }
 
     private fun showLibrary(slot: FrameLayout) {
-        val all = library.filter { !it.optBoolean("removed") && it.optString("type") in listOf("movie", "series") }
-            .filter { listFilter == ListFilter.ALL || it.optString("type") == if (listFilter == ListFilter.MOVIES) "movie" else "series" }
+        val all = library.filter { !it.removed && it.type in listOf("movie", "series") }
+            .filter { listFilter == ListFilter.ALL || it.type == if (listFilter == ListFilter.MOVIES) "movie" else "series" }
         val ordered = when (listSort) {
-            ListSort.RECENT -> all.sortedByDescending { it.optString("_ctime") }
-            ListSort.NAME -> all.sortedBy { it.optString("name").lowercase() }
-            ListSort.UNWATCHED -> all.sortedWith(compareBy<JSONObject> { libraryFinished(it) }.thenByDescending { it.optString("_ctime") })
+            ListSort.RECENT -> all.sortedByDescending { it.createdAt }
+            ListSort.NAME -> all.sortedBy { it.name.lowercase() }
+            ListSort.UNWATCHED -> all.sortedWith(compareBy<LibraryItem> { libraryFinished(it) }.thenByDescending { it.createdAt })
         }
         val items = ordered.map(::libraryItem)
         val build = ++listBuild
@@ -1674,22 +1679,19 @@ class MainActivity : Screen() {
         slot.addView(column)
     }
 
-    private fun libraryFinished(item: JSONObject): Boolean {
-        val state = item.optJSONObject("state") ?: return false
-        return state.optInt("timesWatched") > 0 && state.optLong("timeOffset") == 0L
-    }
+    private fun libraryFinished(item: LibraryItem) = item.progress.timesWatched > 0 && item.progress.timeOffset == 0L
 
     private fun listMenu(item: Item) {
-        val original = library.firstOrNull { it.optString("_id") == item.id } ?: return
+        val original = library.firstOrNull { it.id == item.id } ?: return
         val options = listOf(getString(R.string.action_remove_from_list)) +
             (if (item.finished) emptyList() else listOf(getString(R.string.action_mark_watched)))
         choose(item.name, options) { selected ->
-            val updated = JSONObject(original.toString())
-            if (selected == 0) Library.setInList(updated, false)
-            else Library.markTitleWatched(updated, metas[item.id]?.videos.orEmpty())
-            background({ Accounts.saveLibrary(profile.account, listOf(updated)) }) { result ->
+            val videos = cachedMeta(item)?.videos.orEmpty()
+            val updated = if (selected == 0) Library.setInList(original, false)
+            else Library.markTitleWatched(if (videos.isEmpty()) original else Accounts.withWatchedEpisodes(profile.account, original, videos), videos)
+            background({ Accounts.saveLibraryItems(profile.account, listOf(updated), mapOf(item.id to videos)) }) { result ->
                 result.fold({
-                    library = library.map { if (it.optString("_id") == item.id) updated else it }
+                    library = library.map { if (it.id == item.id) updated else it }
                     if (page == Page.LIBRARY) redrawLibrary()
                 }) { error ->
                     forgetIfSessionGone(error)
@@ -1704,14 +1706,13 @@ class MainActivity : Screen() {
     private fun continueMenu(item: Item) {
         choose(item.name, listOf(getString(R.string.action_choose_source), getString(R.string.action_remove_from_continue))) { selected ->
             if (selected == 0) return@choose play(item, pick = true)
-            val original = library.firstOrNull { it.optString("_id") == item.id } ?: return@choose
-            val updated = JSONObject(original.toString())
-            val offset = Library.hideFromContinueWatching(updated)
-            background({ Accounts.saveLibrary(profile.account, listOf(updated)) }) { result ->
+            val original = library.firstOrNull { it.id == item.id } ?: return@choose
+            val (updated, offset) = Library.hideFromContinueWatching(original)
+            background({ Accounts.saveLibraryItems(profile.account, listOf(updated), mapOf(item.id to cachedMeta(item)?.videos.orEmpty())) }) { result ->
                 result.fold({
                     Settings.setHidden(this, Settings.hidden(this)
                         .put(item.id, JSONObject().put("name", item.name).put("timeOffset", offset)))
-                    library = library.map { if (it.optString("_id") == item.id) updated else it }
+                    library = library.map { if (it.id == item.id) updated else it }
                     refreshLibrary?.invoke() // the row (and Google TV's) is drawn again without it
                 }) { error ->
                     forgetIfSessionGone(error)
@@ -2123,22 +2124,31 @@ class MainActivity : Screen() {
     private fun fill(item: Item) {
         if (item.filled) return
         item.filled = true
-        metas[item.id]?.let { applyMeta(item, it); return }
+        cachedMeta(item)?.let { applyMeta(item, it); return }
         metaPool.execute {
             // Last time's details from disk when there are some; the network only for titles never seen here.
             val m = runCatching {
-                Sources.content(profile).let { it.savedMeta(item.type, item.id) ?: it.meta(item.type, item.id) }
+                val sources = Sources.content(profile)
+                val preferred = item.sourceProvider?.let { provider ->
+                    sources.filter { it.identity.first == provider && it.identity.second == item.sourceId }
+                }.orEmpty()
+                val ordered = preferred + sources.filterNot { it in preferred }
+                ordered.let { it.savedMeta(item.type, item.id) ?: it.meta(item.type, item.id) }
             }.getOrNull()
             main.post {
                 if (isDestroyed) return@post
                 if (m == null) return@post settle(item)
-                metas[item.id] = m
+                metas[m.identity] = m
                 applyMeta(item, m)
             }
         }
     }
 
     private fun applyMeta(item: Item, m: Meta) {
+        item.identity = m.identity
+        item.sourceProvider = m.sourceProvider
+        item.sourceId = m.sourceId
+        metas[m.identity] = m
         if (item.art == null) item.art = m.background
         if (item.logo == null) item.logo = m.logo
         if (item.about.isEmpty()) item.about = m.description ?: ""
@@ -2170,34 +2180,35 @@ class MainActivity : Screen() {
         m.id, m.type, m.name, m.poster, m.background,
         m.logo ?: Images.logoFor(m.id) ?: m.poster?.takeIf { isLiveType(m.type) && m.posterShape in listOf("square", "landscape") },
         m.description ?: "", facts(m),
-        null, 0f, resume = false, left = null,
+        null, 0f, resume = false, left = null, identity = m.identity, sourceProvider = m.sourceProvider, sourceId = m.sourceId,
     )
 
-    private fun libraryItem(item: JSONObject): Item {
-        val s = item.optJSONObject("state") ?: JSONObject()
-        val videoId = s.text("video_id")
-        val duration = s.optLong("duration")
-        val offset = s.optLong("timeOffset")
+    private fun libraryItem(item: LibraryItem): Item {
+        val videoId = item.progress.videoId
+        val duration = item.progress.duration
+        val offset = item.progress.timeOffset
         // "S1 E3" for an episode (ids look like tt123:1:3), and how much is left.
         val episode = videoId?.split(":")?.takeIf { it.size == 3 }?.let { "S${it[1]} E${it[2]}" }
         val mins = (duration - offset) / 60_000
         val left = if (duration > 0 && offset > 1) (if (mins >= 60) getString(R.string.time_left_hours, (mins / 60).toInt(), (mins % 60).toInt())
             else getString(R.string.time_left_minutes, mins.toInt())) else null
         val progress = if (duration > 0) (offset.toFloat() / duration).coerceIn(0f, 1f) else 0f
-        val id = item.getString("_id")
-        val type = item.optString("type")
+        val id = item.id
+        val type = item.type
+        val knownMeta = cachedMeta(id)
         val newEpisode = if (offset == 1L && videoId != null) {
-            val m = metas[id] ?: runCatching { Sources.savedContent(profile)?.savedMeta(type, id) ?: Sources.content(profile).savedMeta(type, id) }.getOrNull()
-            if (m != null) metas[id] = m
+            val m = knownMeta ?: runCatching { Sources.savedContent(profile)?.savedMeta(type, id) ?: Sources.content(profile).savedMeta(type, id) }.getOrNull()
+            if (m != null) metas[m.identity] = m
             val v = m?.videos?.firstOrNull { it.id == videoId }
             v != null && isRecentlyAired(v.released)
         } else false
         return Item(
-            id, type, item.optString("name"), item.text("poster"),
+            id, type, item.name, item.poster,
             null, Images.logoFor(id), "", emptyList(), videoId, progress,
             resume = progress > 0, left = listOfNotNull(episode, left).joinToString(DOT).ifEmpty { null }, timeLeft = left, stoppedAt = offset,
-            addedAt = item.text("_ctime"), finished = libraryFinished(item),
+            addedAt = item.createdAt, finished = libraryFinished(item),
             newEpisode = newEpisode,
+            identity = knownMeta?.identity, sourceProvider = knownMeta?.sourceProvider, sourceId = knownMeta?.sourceId,
         )
     }
 
@@ -2205,19 +2216,22 @@ class MainActivity : Screen() {
     private fun play(item: Item, pick: Boolean = false) {
         if (resolvingStreams != null) return
         val videoId = item.videoId ?: item.id
-        val videos = metas[item.id]?.videos.orEmpty()
+        val knownMeta = cachedMeta(item)
+        val videos = knownMeta?.videos.orEmpty()
         val next = videos.getOrNull(videos.indexOfFirst { it.id == videoId } + 1)?.takeIf { videos.any { it.id == videoId } }
         val episode = item.left?.substringBefore(" · ")?.takeIf { item.type == "series" && it.startsWith("S") }
         val intent = Intent(this, StreamsActivity::class.java)
             .putExtra("type", item.type).putExtra("id", item.id).putExtra("name", item.name).putExtra("poster", item.poster)
             .putExtra("videoId", videoId).putExtra("nextVideoId", next?.id).putExtra("pick", pick)
-            .putExtra("background", metas[item.id]?.background ?: item.art)
-            .putExtra("logo", metas[item.id]?.logo ?: item.logo)
+            .putExtra("background", knownMeta?.background ?: item.art)
+            .putExtra("logo", knownMeta?.logo ?: item.logo)
             .putExtra("still", videos.firstOrNull { it.id == videoId }?.thumbnail)
-            .putExtra("runtime", metas[item.id]?.runtime)
+            .putExtra("runtime", knownMeta?.runtime)
             .putExtra("episode", videos.firstOrNull { it.id == videoId }?.let { "S${it.season} E${it.episode}  ·  ${it.title}" })
             .putExtra("label", listOfNotNull(item.name, episode).joinToString("  ·  "))
             .putExtra("resumeAt", item.stoppedAt)
+            .putExtra("sourceProvider", item.sourceProvider)
+            .putExtra("sourceId", item.sourceId)
 
         if (pick || Settings.alwaysList(this)) {
             startActivity(intent)
@@ -2230,7 +2244,8 @@ class MainActivity : Screen() {
     private fun openDetails(item: Item) {
         startActivity(Intent(this, DetailsActivity::class.java)
             .putExtra("type", item.type).putExtra("id", item.id).putExtra("name", item.name)
-            .putExtra("poster", item.poster).putExtra("background", item.art).putExtra("videoId", item.videoId))
+            .putExtra("poster", item.poster).putExtra("background", item.art).putExtra("videoId", item.videoId)
+            .putExtra("sourceProvider", item.sourceProvider).putExtra("sourceId", item.sourceId))
     }
 
     // ---------- vertical movement ----------

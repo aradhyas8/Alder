@@ -99,9 +99,9 @@ class ProfilesActivity : Screen() {
             gravity = Gravity.CENTER_HORIZONTAL or Gravity.TOP; clipChildren = false; clipToPadding = false
             setPadding(0, dp(LIFT_ROOM), 0, 0)
         }
-        fun showArt(p: Profile, item: org.json.JSONObject?) {
+        fun showArt(p: Profile, item: LibraryItem?) {
             if (generation != pickerGeneration || selected.id != p.id) return
-            val url = item?.optString("_id")?.let(Images::backgroundFor) ?: return
+            val url = item?.id?.let(Images::backgroundFor) ?: return
             Images.load(url, art, resources.displayMetrics.widthPixels, urgent = true) {
                 val bitmap = (art.drawable as? BitmapDrawable)?.bitmap ?: return@load
                 background({ Images.frost(bitmap, 160) }) { result ->
@@ -110,7 +110,7 @@ class ProfilesActivity : Screen() {
                 }
             }
         }
-        val recent = mutableMapOf<String, org.json.JSONObject?>()
+        val recent = mutableMapOf<String, LibraryItem?>()
         fun focus(p: Profile) {
             selected = p
             if (p.id !in recent) { art.tag = null; art.setImageResource(R.drawable.onboarding_scene); art.alpha = 0.42f }
@@ -124,10 +124,10 @@ class ProfilesActivity : Screen() {
                 setOnLongClickListener { showMenu(p); true }
             }, LinearLayout.LayoutParams(dp(124), -2).apply { marginStart = dp(10); marginEnd = dp(10) })
             background({
-                val items = Accounts.savedLibrary(p.account) ?: Accounts.library(p.account)
-                Library.continueWatching(items).firstOrNull()
-                    ?: items.filter { !it.optJSONObject("state")?.optString("lastWatched").isNullOrBlank() }
-                        .maxByOrNull { it.optJSONObject("state")?.optString("lastWatched").orEmpty() }
+                val items = Accounts.savedLibraryItems(p.account) ?: Accounts.libraryItems(p.account)
+                Library.continueWatchingItems(items).firstOrNull()
+                    ?: items.filter { !it.progress.lastWatched.isNullOrBlank() }
+                        .maxByOrNull { it.progress.lastWatched.orEmpty() }
             }) { result ->
                 if (generation != pickerGeneration) return@background
                 val item = result.getOrNull()
@@ -342,9 +342,8 @@ class ProfilesActivity : Screen() {
             getString(R.string.profiles_remove_desc, p.name)) { i ->
             if (i == 0) return@choose
             Profiles.remove(this, p.id)
-            background({ Http.forget() }) {}
             // Best effort; the TV forgets the profile either way. A sign-in another profile still uses stays signed in.
-            if (Profiles.all(this).none { it.account == p.account || p.account in it.sourceAccounts })
+            if (Profiles.all(this).none { it.account == p.account || SourceRef(p.account.provider, p.account.credential) in it.sources })
                 background({ Accounts.logout(p.account) }) {}
             if (Profiles.all(this).isEmpty()) showName() else showPicker()
         }
@@ -589,7 +588,7 @@ class ProfilesActivity : Screen() {
         // background, so a see-through backdrop would show the last frame instead of darkening.
         if (useLastFilm) setColorFilter(android.graphics.Color.argb(166, 14, 12, 10), android.graphics.PorterDuff.Mode.SRC_ATOP)
         if (useLastFilm) Profiles.active(this@ProfilesActivity)?.let { profile ->
-            background({ Accounts.savedLibrary(profile.account)?.let(Library::continueWatching)?.firstOrNull()?.optString("_id") }) { result ->
+            background({ Accounts.savedLibraryItems(profile.account)?.let(Library::continueWatchingItems)?.firstOrNull()?.id }) { result ->
                 result.getOrNull()?.let(Images::backgroundFor)?.let { url -> Images.load(url, this, resources.displayMetrics.widthPixels) }
             }
         }
@@ -690,7 +689,8 @@ class ProfilesActivity : Screen() {
         // Each profile brings its own add-ons (stream add-ons are shared in Settings, never copied);
         // the others' lists only tell where Watchly lives, so the new profile can set up its own.
         if (others.isEmpty()) openHome(profile)
-        else background({ others.flatMap { runCatching { Sources.addons(it.account) }.getOrDefault(emptyList()) } }) {
+        else background({ others.flatMap { other -> other.sources.filter { it.provider == Accounts.STREMIO }
+            .flatMap { source -> runCatching { Sources.addons(source, owner = Sources.cacheOwner(other.id, source)) }.getOrDefault(emptyList()) } } }) {
             showWatchly(profile, it.getOrDefault(emptyList()))
         }
     }

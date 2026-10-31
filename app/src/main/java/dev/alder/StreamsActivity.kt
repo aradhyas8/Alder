@@ -221,14 +221,17 @@ class StreamsActivity : Screen() {
             }
 
             addons.forEachIndexed { i, addon ->
-                background({ addon.streams(type, videoId) }) { streams ->
-                    streams.exceptionOrNull()?.let { e ->
+                background({
+                    addon.streams(type, videoId).let { it to StreamResolution.playable(it.candidates) }
+                }) { result ->
+                    result.exceptionOrNull()?.let { e ->
                         failures[i] = e
                         android.util.Log.w("Alder", "streams from ${addon.name} failed", e)
                     }
-                    torrents[i] = streams.getOrNull()?.torrents ?: 0
-                    links[i] = streams.getOrNull()?.links ?: 0
-                    answers[i] = streams.getOrNull()?.playable.orEmpty()
+                    val streams = result.getOrNull()
+                    torrents[i] = streams?.first?.torrents ?: 0
+                    links[i] = streams?.first?.links ?: 0
+                    answers[i] = streams?.second.orEmpty()
                     if (answers.all { it != null }) {
                         if (pick || listed) showList() else tryStart()
                     } else if (!pick) {

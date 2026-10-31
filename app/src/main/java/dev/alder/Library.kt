@@ -1,143 +1,127 @@
 package dev.alder
 
-import android.util.Base64
-import org.json.JSONObject
 import java.text.SimpleDateFormat
-import java.util.zip.InflaterInputStream
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
+/** Fields that the app needs from an account's My List and watch history. */
+data class LibraryItem(
+    val id: String,
+    val name: String = "",
+    val type: String = "",
+    val poster: String? = null,
+    val background: String? = null,
+    val removed: Boolean = false,
+    val temporary: Boolean = false,
+    val createdAt: String? = null,
+    val modifiedAt: String? = null,
+    val progress: LibraryProgress = LibraryProgress(),
+    internal val adapterData: Any? = null,
+    internal val locallyCreated: Boolean = false
+)
+
+/** Playback state shared by account providers. A null watched set means the episode list was not available. */
+data class LibraryProgress(
+    val lastWatched: String? = null,
+    val videoId: String? = null,
+    val timeWatched: Long = 0,
+    val timeOffset: Long = 0,
+    val overallTimeWatched: Long = 0,
+    val duration: Long = 0,
+    val timesWatched: Int = 0,
+    val flaggedWatched: Int = 0,
+    val watchedEpisodes: Set<String>? = null
+)
+
 /**
- * Stremio library items (each title's watch history), following stremio-core's player rules so progress made
- * here shows up in Stremio on other devices. Items stay raw JSON so fields this app doesn't use survive the trip.
+ * Provider-neutral My List and playback rules. Account adapters own wire formats and episode watch encodings.
  */
 object Library {
     private const val WATCHED = 0.7 // stremio-core WATCHED_THRESHOLD_COEF: watched this much, it counts as seen
     private const val CREDITS = 0.9 // CREDITS_THRESHOLD_COEF: stopped past this, it's finished
 
-    fun continueWatching(items: List<JSONObject>): List<JSONObject> = items
-        .filter { it.optString("type") != "other" && (!it.optBoolean("removed") || it.optBoolean("temp")) && it.state.optLong("timeOffset") > 0 }
-        .sortedByDescending { it.state.text("lastWatched") }
+    fun continueWatchingItems(items: List<LibraryItem>): List<LibraryItem> = items
+        .filter { it.type != "other" && (!it.removed || it.temporary) && it.progress.timeOffset > 0 }
+        .sortedByDescending { it.progress.lastWatched }
 
-    /** A title that isn't in the library yet: Stremio keeps those as temporary, hidden items. */
-    fun newItem(id: String, type: String, name: String, poster: String?): JSONObject {
+    fun newLibraryItem(id: String, type: String, name: String, poster: String?): LibraryItem {
         val now = now()
-        return JSONObject().put("_id", id).put("name", name).put("type", type).put("poster", poster ?: "")
-            .put("posterShape", "poster").put("removed", true).put("temp", true).put("_ctime", now).put("_mtime", now)
-            .put("behaviorHints", JSONObject())
-            .put("state", JSONObject().put("lastWatched", now).put("timeWatched", 0).put("timeOffset", 0)
-                .put("overallTimeWatched", 0).put("timesWatched", 0).put("flaggedWatched", 0).put("duration", 0)
-                .put("video_id", JSONObject.NULL).put("watched", JSONObject.NULL).put("noNotif", false))
+        return LibraryItem(
+            id = id,
+            name = name,
+            type = type,
+            poster = poster ?: "",
+            removed = true,
+            temporary = true,
+            createdAt = now,
+            modifiedAt = now,
+            progress = LibraryProgress(lastWatched = now),
+            locallyCreated = true
+        )
     }
 
     /** In the library ("My List") rather than only remembered for Continue Watching. */
-    fun inList(item: JSONObject?) = item != null && !item.optBoolean("removed")
+    fun inList(item: LibraryItem?) = item != null && !item.removed
 
     /** Adds the title to the library or takes it out; its watch history stays either way. */
-    fun setInList(item: JSONObject, on: Boolean) {
-        item.put("removed", !on).put("temp", false).put("_mtime", now())
-    }
+    fun setInList(item: LibraryItem, on: Boolean) = item.copy(removed = !on, temporary = false, modifiedAt = now())
 
     /** Marks the current title complete without discarding its watch history. */
-    fun markTitleWatched(item: JSONObject, videos: List<Video> = emptyList()) {
-        val s = item.state
-        s.text("video_id")?.let { id -> if (videos.any { it.id == id }) markWatched(item, videos, id) }
-        s.put("timesWatched", maxOf(1, s.optInt("timesWatched")))
-        s.put("flaggedWatched", 1).put("timeOffset", 0)
-        item.put("_mtime", now())
+    fun markTitleWatched(item: LibraryItem, videos: List<Video> = emptyList()): LibraryItem {
+        var progress = item.progress
+        progress.videoId?.let { id -> if (videos.any { it.id == id })
+            progress = progress.copy(watchedEpisodes = watchedSet(item) + id)
+        }
+        return item.copy(
+            modifiedAt = now(),
+            progress = progress.copy(
+                timesWatched = maxOf(1, progress.timesWatched),
+                flaggedWatched = 1,
+                timeOffset = 0
+            )
+        )
     }
 
-    /**
-     * Off Continue Watching, as Stremio's own dismiss does (stremio-core's RewindLibraryItem): the resume point goes;
-     * watch history, the episode reached and My List stay, and watching it again brings it back. It syncs, so the
-     * phone and the web hide it too. Returns the resume point it had, so [unhide] can put it back.
-     */
-    fun hideFromContinueWatching(item: JSONObject): Long {
-        val offset = item.state.optLong("timeOffset")
-        item.state.put("timeOffset", 0)
-        item.put("_mtime", now())
-        return offset
+    /** Remove the resume point while keeping watch history and My List; return the old offset for [unhide]. */
+    fun hideFromContinueWatching(item: LibraryItem): Pair<LibraryItem, Long> {
+        val offset = item.progress.timeOffset
+        return item.copy(modifiedAt = now(), progress = item.progress.copy(timeOffset = 0)) to offset
     }
 
     /** Back on Continue Watching at [offset]; left alone when it was watched again since (it's back already). */
-    fun unhide(item: JSONObject, offset: Long) {
-        if (item.state.optLong("timeOffset") > 0) return
-        item.state.put("timeOffset", offset)
-        item.put("_mtime", now())
-    }
+    fun unhide(item: LibraryItem, offset: Long): LibraryItem = if (item.progress.timeOffset > 0) item else
+        item.copy(modifiedAt = now(), progress = item.progress.copy(timeOffset = offset))
 
     /** Where to resume [videoId] in milliseconds, 0 to start from the beginning. */
-    fun resumeAt(item: JSONObject, videoId: String): Long {
-        val s = item.state
-        val offset = s.optLong("timeOffset")
-        val duration = s.optLong("duration")
-        val unfinished = duration == 0L || offset < duration * CREDITS
-        return if (s.text("video_id") == videoId && offset > 0 && unfinished) offset else 0
+    fun resumeAt(item: LibraryItem, videoId: String): Long {
+        val progress = item.progress
+        val unfinished = progress.duration == 0L || progress.timeOffset < progress.duration * CREDITS
+        return if (progress.videoId == videoId && progress.timeOffset > 0 && unfinished) progress.timeOffset else 0
     }
 
-    /**
-     * The episodes Stremio has ticked as watched, read from stremio-core's watched bitfield (`state.watched`):
-     * `{anchor video id}:{anchor length}:{base64 zlib bits}`, one bit per episode in season-then-episode order, shifted
-     * so the anchor (the last one watched) lines up even after new episodes come out.
-     */
-    fun watched(item: JSONObject?, videos: List<Video>): Set<String> {
-        val field = item?.optJSONObject("state")?.text("watched") ?: return emptySet()
-        val parts = field.split(":")
-        if (parts.size < 3) return emptySet()
-        return runCatching {
-            val bits = InflaterInputStream(Base64.decode(parts.last(), Base64.DEFAULT).inputStream()).readBytes()
-            val anchorLength = parts[parts.size - 2].toInt()
-            val anchor = parts.dropLast(2).joinToString(":") // ids may hold ':' themselves
-            val ids = videos.sortedWith(compareBy({ it.season }, { it.episode })).map { it.id }
-            val anchorAt = ids.indexOf(anchor)
-            if (anchorAt < 0) return emptySet() // stremio-core: anchor gone, nothing counts as watched
-            val offset = anchorLength - anchorAt - 1
-            ids.filterIndexed { i, _ ->
-                val bit = i + offset
-                bit >= 0 && bit < ids.size && bit / 8 < bits.size && (bits[bit / 8].toInt() shr (bit % 8)) and 1 == 1
-            }.toSet()
-        }.getOrDefault(emptySet())
+    fun setWatched(item: LibraryItem, videos: List<Video>, seen: Set<String>): LibraryItem = item.copy(
+        modifiedAt = now(),
+        progress = item.progress.copy(watchedEpisodes = seen.filter { id -> videos.any { it.id == id } }.toSet())
+    )
+
+    /** Adds a watched episode while preserving the other ticks already hydrated by the account backend. */
+    fun markWatched(item: LibraryItem, videos: List<Video>, videoId: String) =
+        setWatched(item, videos, watchedSet(item) + videoId)
+
+    /** Removes [videoId] while preserving other watched episodes. */
+    fun markUnwatched(item: LibraryItem, videos: List<Video>, videoId: String) =
+        setWatched(item, videos, watchedSet(item) - videoId)
+
+    fun markEpisodesWatched(item: LibraryItem, videos: List<Video>, videoIds: Collection<String>) =
+        setWatched(item, videos, watchedSet(item) + videoIds)
+
+    fun unmarkEpisodesWatched(item: LibraryItem, videos: List<Video>, videoIds: Collection<String>) =
+        setWatched(item, videos, watchedSet(item) - videoIds.toSet())
+
+    private fun watchedSet(item: LibraryItem): Set<String> = requireNotNull(item.progress.watchedEpisodes) {
+        "Watched episodes must be loaded by the account backend before they can be changed"
     }
-
-    /** Sets the watched episodes in stremio-core's bitfield, removing it if [seen] is empty. */
-    fun setWatched(item: JSONObject, videos: List<Video>, seen: Set<String>) {
-        val ids = videos.sortedWith(compareBy({ it.season }, { it.episode })).map { it.id }
-        val active = seen.filter { it in ids }.toSet()
-        if (active.isEmpty()) {
-            item.state.remove("watched")
-            item.put("_mtime", now())
-            return
-        }
-        val bits = ByteArray((ids.size + 7) / 8)
-        ids.forEachIndexed { i, id -> if (id in active) bits[i / 8] = (bits[i / 8].toInt() or (1 shl (i % 8))).toByte() }
-        val last = ids.indexOfLast { it in active }.takeIf { it >= 0 } ?: run {
-            item.state.remove("watched")
-            item.put("_mtime", now())
-            return
-        }
-        val zipped = java.io.ByteArrayOutputStream().also { out ->
-            java.util.zip.DeflaterOutputStream(out, java.util.zip.Deflater(6)).use { it.write(bits) }
-        }.toByteArray()
-        item.state.put("watched", "${ids[last]}:${last + 1}:${Base64.encodeToString(zipped, Base64.NO_WRAP)}")
-        item.put("_mtime", now())
-    }
-
-    /** Ticks [videoId] as watched in that bitfield, as stremio-core's `set_video` does, so other devices show the ✓. */
-    fun markWatched(item: JSONObject, videos: List<Video>, videoId: String) =
-        setWatched(item, videos, watched(item, videos) + videoId)
-
-    /** Removes [videoId] from that bitfield. */
-    fun markUnwatched(item: JSONObject, videos: List<Video>, videoId: String) =
-        setWatched(item, videos, watched(item, videos) - videoId)
-
-    /** Ticks multiple episodes as watched in that bitfield. */
-    fun markEpisodesWatched(item: JSONObject, videos: List<Video>, videoIds: Collection<String>) =
-        setWatched(item, videos, watched(item, videos) + videoIds)
-
-    /** Removes multiple episodes from that bitfield. */
-    fun unmarkEpisodesWatched(item: JSONObject, videos: List<Video>, videoIds: Collection<String>) =
-        setWatched(item, videos, watched(item, videos) - videoIds.toSet())
 
     /** Episodes strictly prior to [target] in series order (specials excluded unless target is a special). */
     fun priorEpisodes(videos: List<Video>, target: Video): List<Video> {
@@ -162,47 +146,52 @@ object Library {
     }
 
     /** Playback progress, called every few seconds. [playedMs] is time actually watched since the last call. */
-    fun record(item: JSONObject, videoId: String, positionMs: Long, durationMs: Long, playedMs: Long) {
-        val s = item.state
+    fun record(item: LibraryItem, videoId: String, positionMs: Long, durationMs: Long, playedMs: Long): LibraryItem {
         val now = now()
-        s.put("lastWatched", now)
-        if (s.text("video_id") != videoId) {
-            s.put("video_id", videoId)
-            s.put("overallTimeWatched", s.optLong("overallTimeWatched") + s.optLong("timeWatched"))
-            s.put("timeWatched", 0).put("flaggedWatched", 0)
+        var progress = item.progress.copy(lastWatched = now)
+        if (progress.videoId != videoId) {
+            progress = progress.copy(
+                videoId = videoId,
+                overallTimeWatched = progress.overallTimeWatched + progress.timeWatched,
+                timeWatched = 0,
+                flaggedWatched = 0
+            )
         }
-        s.put("timeWatched", s.optLong("timeWatched") + playedMs)
-        s.put("overallTimeWatched", s.optLong("overallTimeWatched") + playedMs)
-        s.put("timeOffset", positionMs)
-        if (durationMs > 0) s.put("duration", durationMs)
-        val duration = s.optLong("duration")
-        if (s.optInt("flaggedWatched") == 0 && duration > 0 && s.optLong("timeWatched") > duration * WATCHED) {
-            s.put("flaggedWatched", 1)
-            s.put("timesWatched", s.optInt("timesWatched") + 1)
-            // ponytail: the per-episode "watched" ticks (stremio-core's watched bitfield) aren't written yet,
-            // so episodes finished here don't get Stremio's checkmark. Port WatchedBitField when that matters.
+        progress = progress.copy(
+            timeWatched = progress.timeWatched + playedMs,
+            overallTimeWatched = progress.overallTimeWatched + playedMs,
+            timeOffset = positionMs,
+            duration = if (durationMs > 0) durationMs else progress.duration
+        )
+        if (progress.flaggedWatched == 0 && progress.duration > 0 && progress.timeWatched > progress.duration * WATCHED) {
+            progress = progress.copy(flaggedWatched = 1, timesWatched = progress.timesWatched + 1)
         }
-        if (item.optBoolean("temp") && s.optInt("timesWatched") == 0) item.put("removed", true)
-        if (item.optBoolean("removed")) item.put("temp", true)
-        item.put("_mtime", now)
+        val removed = if (item.temporary && progress.timesWatched == 0) true else item.removed
+        return item.copy(
+            removed = removed,
+            temporary = if (removed) true else item.temporary,
+            modifiedAt = now,
+            progress = progress
+        )
     }
 
     /** When playback stops: past the credits it's finished, and a series moves on to [nextVideoId]. */
-    fun stopped(item: JSONObject, nextVideoId: String?) {
-        val s = item.state
-        if (s.optLong("duration") == 0L || s.optLong("timeOffset") <= s.optLong("duration") * CREDITS) return
-        s.put("timeOffset", 0)
+    fun stopped(item: LibraryItem, nextVideoId: String?): LibraryItem {
+        var progress = item.progress
+        if (progress.duration == 0L || progress.timeOffset <= progress.duration * CREDITS) return item
+        progress = progress.copy(timeOffset = 0)
         if (nextVideoId != null) {
-            s.put("video_id", nextVideoId)
-            s.put("overallTimeWatched", s.optLong("overallTimeWatched") + s.optLong("timeWatched"))
-            s.put("timeWatched", 0).put("flaggedWatched", 0)
-            s.put("timeOffset", 1) // stremio-core's marker for "start the next episode", which keeps it in Continue Watching
+            progress = progress.copy(
+                videoId = nextVideoId,
+                overallTimeWatched = progress.overallTimeWatched + progress.timeWatched,
+                timeWatched = 0,
+                flaggedWatched = 0,
+                timeOffset = 1
+            )
         }
-        item.put("_mtime", now())
+        return item.copy(modifiedAt = now(), progress = progress)
     }
 
     fun now(): String = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
         .apply { timeZone = TimeZone.getTimeZone("UTC") }.format(Date())
 }
-
-val JSONObject.state: JSONObject get() = optJSONObject("state") ?: JSONObject().also { put("state", it) }

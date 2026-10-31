@@ -516,7 +516,7 @@ class SearchActivity : Screen() {
                 val found = searchAnswersInAddonOrder(answers)
                     .filter { it.type == "movie" || it.type == "series" }
                     .filterNot { isAddonMessage(it.name) }
-                    .distinctBy { it.type to it.id }
+                    .distinctBy { it.type to it.identity }
                 val ranked = rankSearchTitles(found, query) { it.name }
                 val sections = linkedMapOf(getString(R.string.tab_movies) to ranked.filter { it.type == "movie" }.take(PER_TYPE),
                     getString(R.string.tab_shows) to ranked.filter { it.type == "series" }.take(PER_TYPE)).filterValues { it.isNotEmpty() }
@@ -656,7 +656,8 @@ class SearchActivity : Screen() {
                 if (query.isNotEmpty()) remember(query)
                 startActivity(Intent(this@SearchActivity, DetailsActivity::class.java)
                     .putExtra("type", meta.type).putExtra("id", meta.id).putExtra("name", meta.name)
-                    .putExtra("poster", meta.poster).putExtra("background", meta.background))
+                    .putExtra("poster", meta.poster).putExtra("background", meta.background)
+                    .putExtra("sourceProvider", meta.sourceProvider).putExtra("sourceId", meta.sourceId))
             }
             if (firstInRow) setOnKeyListener { _, code, event ->
                 if (event.action == KeyEvent.ACTION_DOWN && code == KeyEvent.KEYCODE_DPAD_LEFT)
@@ -671,7 +672,7 @@ class SearchActivity : Screen() {
     }
 
     private fun show(meta: Meta) {
-        if (focused?.type == meta.type && focused?.id == meta.id) return
+        if (focused?.type == meta.type && focused?.identity == meta.identity) return
         focused = meta
         hero.visibility = View.VISIBLE
         val url = meta.background ?: meta.poster
