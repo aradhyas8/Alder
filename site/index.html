@@ -4,132 +4,94 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0e0c0a">
-  <meta name="description" content="Alder brings your Stremio library to the living room. Choose a film or show, press Play, and settle in.">
-  <meta property="og:title" content="Alder — Stremio for the living room">
-  <meta property="og:description" content="Your stories feel at home. Press Play and it plays.">
+  <meta name="description" content="Alder brings your Stremio library to Android TV, Google TV, and Fire TV. Find something good and settle in.">
+  <meta property="og:title" content="Alder — make room for movie night">
+  <meta property="og:description" content="Your Stremio library, at home on the big screen.">
   <meta property="og:image" content="assets/alder-card.webp">
-  <title>Alder — Stremio for the living room</title>
+  <title>Alder — make room for movie night</title>
   <link rel="icon" type="image/svg+xml" href="assets/alder-mark.svg">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
-  <header class="site-header">
-    <div class="shell header-content">
-      <a class="brand" href="#top" aria-label="Alder home">
-        <img src="assets/alder-mark.svg" alt="" width="34" height="34">
-        <span>Alder</span>
-      </a>
-      <nav class="site-nav" aria-label="Main navigation">
-        <a href="#experience">The experience</a>
-        <a href="#profiles">For everyone</a>
-        <a href="#get-alder">How to install</a>
-      </nav>
-      <a class="header-action" href="https://github.com/aradhyas8/Alder/releases/latest">Get Alder <span aria-hidden="true">↗</span></a>
+  <header class="site-header" id="top">
+    <div class="shell header-inner">
+      <a class="brand" href="#top" aria-label="Alder home"><img src="assets/alder-mark.svg" alt="" width="28" height="28"><span>Alder</span></a>
+      <nav aria-label="Main navigation"><a href="#experience">Explore</a><a href="#profiles">Profiles</a><a href="#get-alder">Install</a></nav>
+      <a class="header-cta" href="https://github.com/aradhyas8/Alder/releases/latest">Get Alder <span aria-hidden="true">↗</span></a>
     </div>
   </header>
 
   <main id="main">
-    <section class="hero" id="top" aria-labelledby="hero-title">
-      <div class="shell hero-inner">
-        <div class="hero-copy">
-          <h1 id="hero-title">Your stories<br><em>feel at home.</em></h1>
-          <p>Alder brings your Stremio library to the big screen. Choose a film or show, press Play, and settle in.</p>
-          <div class="hero-actions">
-            <a class="button button-cream" href="https://github.com/aradhyas8/Alder/releases/latest">Download Alder</a>
-            <a class="quiet-link" href="#experience">Take a look around <span aria-hidden="true">↓</span></a>
-          </div>
-          <div class="hero-note"><span class="light-dot" aria-hidden="true"></span> Android TV · Google TV · Fire TV</div>
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="shell hero-topline"><span>THE HOUSE LIGHTS ARE DIMMING</span><span>YOUR TV, REIMAGINED</span></div>
+      <div class="shell hero-copy">
+        <h1 id="hero-title">Make room for<br><span>movie night.</span></h1>
+        <div class="hero-aside">
+          <p>All the stories you love, right where you want them. Alder brings your Stremio library to the big screen.</p>
+          <a class="button" href="https://github.com/aradhyas8/Alder/releases/latest">Download for TV <span aria-hidden="true">↗</span></a>
+          <span class="platforms">Android TV · Google TV · Fire TV</span>
         </div>
-        <figure class="hero-screen screen-frame">
-          <img src="assets/home.png" alt="Alder home screen with a featured film and Continue Watching row" width="1920" height="1080" fetchpriority="high">
-          <figcaption>The view from your sofa.</figcaption>
-        </figure>
+      </div>
+      <figure class="hero-image">
+        <img src="assets/home.png" alt="Alder home screen showing a featured film and a Continue Watching row" width="1920" height="1080" fetchpriority="high">
+        <figcaption class="shell"><span>A better view from the sofa.</span><span>01 / THE HOME SCREEN</span></figcaption>
+      </figure>
+    </section>
+
+    <section class="intro" id="experience" aria-labelledby="intro-title">
+      <div class="shell intro-inner">
+        <div><p class="section-label">PRESS PLAY</p><h2 id="intro-title">The good part starts<br>sooner.</h2></div>
+        <p class="intro-copy">Pick a film. Alder finds a source your TV can play and starts it directly. If a link fails, it tries another from the same moment.</p>
+      </div>
+      <div class="shell image-note">
+        <figure><img src="assets/title.png" alt="Alder title page with a prominent Play button" width="1920" height="1080" loading="lazy"><figcaption>One clear next step: Play.</figcaption></figure>
       </div>
     </section>
 
-    <section class="welcome" id="experience" aria-labelledby="welcome-title">
-      <div class="shell welcome-heading">
-        <h2 id="welcome-title">A little less setup.<br><em>A lot more showtime.</em></h2>
-        <p>Your Stremio account, add-ons, library, and watch progress stay together. Alder gives them a calmer place on your TV.</p>
+    <section class="control" aria-labelledby="control-title">
+      <div class="shell control-head">
+        <div><p class="section-label">WHEN YOU WANT THE DETAILS</p><h2 id="control-title">Your show stays<br>in the spotlight.</h2></div>
+        <p>Hold OK to choose a source. Change audio or subtitles without losing your place. When you are done, the controls step back.</p>
       </div>
-      <div class="shell feature-stage">
-        <figure class="feature-screen screen-frame">
-          <img src="assets/title.png" alt="Alder title page with one clear Play button" width="1920" height="1080" loading="lazy">
-          <figcaption>A title page with one clear next step.</figcaption>
-        </figure>
-        <div class="feature-narrative">
-          <div class="feature-item">
-            <h3>Press Play. It plays.</h3>
-            <p>Alder picks the best source for your TV and starts it directly. There is no stream list to decode before the film begins.</p>
-          </div>
-          <div class="feature-item">
-            <h3>When a link fails, the story goes on.</h3>
-            <p>Alder tries another source from the same moment, so you can stay with what you are watching.</p>
-          </div>
-          <div class="feature-item">
-            <h3>Made for your TV.</h3>
-            <p>Alder leaves out files your TV cannot play before you ever have to choose one.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="details" aria-labelledby="details-title">
-      <div class="shell details-heading">
-        <h2 id="details-title">The choices are there<br><em>when you want them.</em></h2>
-        <p>Hold OK to see every source. Change audio or subtitles without losing your place. The rest of the time, the controls step back.</p>
-      </div>
-      <div class="shell detail-gallery">
-        <figure>
-          <img src="assets/sources.jpg" alt="Alder source list with quality, release, size, and best match" width="1920" height="1080" loading="lazy">
-          <figcaption><strong>Pick a source</strong><span>Clear choices, with the best match marked.</span></figcaption>
-        </figure>
-        <figure>
-          <img src="assets/tracks.jpg" alt="Alder audio and subtitles panel" width="1920" height="1080" loading="lazy">
-          <figcaption><strong>Make it yours</strong><span>Audio and subtitles in one place.</span></figcaption>
-        </figure>
+      <div class="shell control-gallery">
+        <figure><img src="assets/sources.jpg" alt="Alder source choices with quality and file details" width="1920" height="1080" loading="lazy"><figcaption><strong>Choose your source</strong><span>See the best match and every other option.</span></figcaption></figure>
+        <figure><img src="assets/tracks.jpg" alt="Alder audio and subtitles panel" width="1920" height="1080" loading="lazy"><figcaption><strong>Make it yours</strong><span>Audio and subtitles, close at hand.</span></figcaption></figure>
       </div>
     </section>
 
     <section class="profiles" id="profiles" aria-labelledby="profiles-title">
-      <div class="shell profiles-layout">
-        <figure class="profiles-screen screen-frame">
-          <img src="assets/profiles.jpg" alt="Alder profile picker with separate profiles for each viewer" width="1920" height="1080" loading="lazy">
-          <figcaption>Everyone has a place on the sofa.</figcaption>
-        </figure>
+      <div class="shell profiles-inner">
         <div class="profiles-copy">
-          <h2 id="profiles-title">A little space<br><em>for everyone.</em></h2>
-          <p>Give each person their own profile, Stremio account, watch history, and recommendations. Add a PIN when a profile needs one.</p>
-          <p class="profiles-small">Up to five profiles. Your library and progress stay in sync with Stremio on your phone and computer.</p>
+          <p class="section-label">A SEAT FOR EVERYONE</p>
+          <h2 id="profiles-title">The whole house<br>feels at home.</h2>
+          <p>Give each person a profile with their own Stremio account, watch history, and recommendations. Add a PIN when a profile needs one.</p>
+          <p class="small-note">Up to five profiles. Your library and progress stay in sync with Stremio.</p>
         </div>
+        <figure><img src="assets/profiles.jpg" alt="Alder profile picker with separate viewers" width="1920" height="1080" loading="lazy"><figcaption>Who’s here tonight?</figcaption></figure>
       </div>
     </section>
 
-    <section class="get-alder" id="get-alder" aria-labelledby="get-title">
-      <div class="shell get-layout">
-        <div class="get-copy">
-          <h2 id="get-title">Ready to settle in?</h2>
-          <p>Alder is free software for Android TV, Google TV, and Fire TV. Keep your Stremio setup on your phone or computer; Alder takes it from there on the TV.</p>
-          <a class="button button-cream" href="https://github.com/aradhyas8/Alder/releases/latest">Get the latest APK</a>
-          <a class="setup-link" href="https://github.com/aradhyas8/Alder#install">Read the full setup guide <span aria-hidden="true">↗</span></a>
+    <section class="install" id="get-alder" aria-labelledby="install-title">
+      <div class="shell install-inner">
+        <div class="install-lead">
+          <p class="section-label">YOUR NEXT MOVIE NIGHT</p>
+          <h2 id="install-title">Bring Alder<br>home.</h2>
+          <p>Free software for Android TV, Google TV, and Fire TV.</p>
+          <a class="button" href="https://github.com/aradhyas8/Alder/releases/latest">Get the latest APK <span aria-hidden="true">↗</span></a>
         </div>
-        <ol class="install-steps">
-          <li><span>1</span><div><h3>Set up Stremio</h3><p>Sign in on your phone or computer and install your debrid stream add-ons.</p></div></li>
-          <li><span>2</span><div><h3>Install Alder</h3><p>Download Alder.apk from the latest release and install it on your TV.</p></div></li>
-          <li><span>3</span><div><h3>Sign in on your TV</h3><p>Open Alder and enter the code on screen in Stremio.</p></div></li>
+        <ol class="steps">
+          <li><span>01</span><div><h3>Set up Stremio</h3><p>Sign in on your phone or computer and install your debrid stream add-ons.</p></div></li>
+          <li><span>02</span><div><h3>Install Alder</h3><p>Download Alder.apk from the latest release and install it on your TV.</p></div></li>
+          <li><span>03</span><div><h3>Sign in on your TV</h3><p>Open Alder and enter the code on screen in Stremio.</p></div></li>
         </ol>
       </div>
-      <p class="shell requirement">Requires Android 6.0 or newer, a Stremio account with debrid stream add-ons, and a way to install an APK.</p>
+      <div class="shell install-foot"><p>Requires Android 6.0 or newer, a Stremio account with debrid stream add-ons, and a way to install an APK.</p><a href="https://github.com/aradhyas8/Alder#install">Read the setup guide ↗</a></div>
     </section>
   </main>
 
   <footer class="site-footer">
-    <div class="shell footer-content">
-      <div><a class="brand" href="#top"><img src="assets/alder-mark.svg" alt="" width="30" height="30"><span>Alder</span></a><p>Stremio for the living room.</p></div>
-      <nav aria-label="Footer navigation"><a href="https://github.com/aradhyas8/Alder">Source code</a><a href="https://github.com/aradhyas8/Alder/releases/latest">Latest release</a></nav>
-      <p class="footer-legal">Free software · GPL-3.0<br>Alder is not affiliated with Stremio.</p>
-    </div>
+    <div class="shell footer-inner"><div><a class="brand" href="#top"><img src="assets/alder-mark.svg" alt="" width="28" height="28"><span>Alder</span></a><p>Settle in. Stay a while.</p></div><nav aria-label="Footer navigation"><a href="https://github.com/aradhyas8/Alder">Source code</a><a href="https://github.com/aradhyas8/Alder/releases/latest">Latest release</a></nav><p>Free software · GPL-3.0<br>Alder is not affiliated with Stremio.</p></div>
   </footer>
 </body>
 </html>

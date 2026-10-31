@@ -21,6 +21,9 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - **Alder website.** The House Lights website shows the TV app, setup steps, and a link to the latest APK.
 - Add an Alder website card image with the app screen and product text.
 
+### Easier to use
+- **Alder website.** The site shows the app screens and makes the download and setup steps easy to find.
+
 ## 1.3.1
 
 ### Fixes
