@@ -13,6 +13,7 @@ await mkdir(assets, { recursive: true });
 const files = [
   ['site/index.html', 'index.html'],
   ['site/styles.css', 'styles.css'],
+  ['site/media/living-room.webp', 'assets/living-room.webp'],
   ['branding/house-lights/alder_mark.svg', 'assets/alder-mark.svg'],
   ['branding/house-lights/alder_portfolio_card_product.webp', 'assets/alder-card.webp'],
   ['docs/home-dune.png', 'assets/home.png'],
