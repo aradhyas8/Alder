@@ -82,7 +82,7 @@ class SearchActivity : Screen() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val key = authKey ?: return finish()
+        val key = account ?: return finish()
         art = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP; alpha = 0f }
         artBack = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
         val width = resources.displayMetrics.widthPixels / resources.displayMetrics.density
@@ -481,13 +481,13 @@ class SearchActivity : Screen() {
         results.addView(ring(), LinearLayout.LayoutParams(dp(28), dp(28)).apply { marginStart = dp(12) })
         if (query.isEmpty()) {
             background({
-                val addons = Stremio.savedAddons(authKey.orEmpty()).orEmpty().ifEmpty { Stremio.addons(authKey.orEmpty()) }
+                val addons = activeProfile?.let { Sources.savedContent(it).orEmpty().ifEmpty { Sources.content(it) } }.orEmpty()
                 val catalogs = addons.flatMap { it.catalogs }
                     .filter { it.type == "movie" || it.type == "series" }
                 // Popular or trending first, then any other; one that fails or comes back empty gives way to the next.
                 catalogs.sortedByDescending { it.name.contains("popular", true) || it.name.contains("trending", true) }
                     .take(4).asSequence()
-                    .map { c -> runCatching { c.addon.savedCatalog(c)?.takeIf { it.isNotEmpty() } ?: c.addon.catalog(c) }.getOrDefault(emptyList())
+                    .map { c -> runCatching { c.source.savedCatalog(c)?.takeIf { it.isNotEmpty() } ?: c.source.catalog(c) }.getOrDefault(emptyList())
                         .filterNot { isAddonMessage(it.name) }.take(PER_TYPE) }
                     .firstOrNull { it.isNotEmpty() }.orEmpty()
             }) { answer ->
@@ -500,7 +500,7 @@ class SearchActivity : Screen() {
             }
             return
         }
-        background({ Stremio.savedAddons(authKey.orEmpty()) ?: Stremio.addons(authKey.orEmpty()) }) { loaded ->
+        background({ activeProfile?.let { Sources.savedContent(it) ?: Sources.content(it) }.orEmpty() }) { loaded ->
             if (token != request) return@background
             val addons = loaded.getOrElse {
                 results.removeAllViews()
@@ -516,7 +516,7 @@ class SearchActivity : Screen() {
                 val found = searchAnswersInAddonOrder(answers)
                     .filter { it.type == "movie" || it.type == "series" }
                     .filterNot { isAddonMessage(it.name) }
-                    .distinctBy { it.type to it.id }
+                    .distinctBy { it.type to it.identity }
                 val ranked = rankSearchTitles(found, query) { it.name }
                 val sections = linkedMapOf(getString(R.string.tab_movies) to ranked.filter { it.type == "movie" }.take(PER_TYPE),
                     getString(R.string.tab_shows) to ranked.filter { it.type == "series" }.take(PER_TYPE)).filterValues { it.isNotEmpty() }
@@ -656,7 +656,8 @@ class SearchActivity : Screen() {
                 if (query.isNotEmpty()) remember(query)
                 startActivity(Intent(this@SearchActivity, DetailsActivity::class.java)
                     .putExtra("type", meta.type).putExtra("id", meta.id).putExtra("name", meta.name)
-                    .putExtra("poster", meta.poster).putExtra("background", meta.background))
+                    .putExtra("poster", meta.poster).putExtra("background", meta.background)
+                    .putExtra("sourceProvider", meta.sourceProvider).putExtra("sourceId", meta.sourceId))
             }
             if (firstInRow) setOnKeyListener { _, code, event ->
                 if (event.action == KeyEvent.ACTION_DOWN && code == KeyEvent.KEYCODE_DPAD_LEFT)
@@ -671,7 +672,7 @@ class SearchActivity : Screen() {
     }
 
     private fun show(meta: Meta) {
-        if (focused?.type == meta.type && focused?.id == meta.id) return
+        if (focused?.type == meta.type && focused?.identity == meta.identity) return
         focused = meta
         hero.visibility = View.VISIBLE
         val url = meta.background ?: meta.poster

@@ -95,8 +95,9 @@ internal fun brightLeft(pixels: IntArray, width: Int): Boolean {
 /** What every screen shares: the signed-in account, background work, and the few view helpers the plain UI uses. */
 abstract class Screen : Activity() {
     protected val main = Handler(Looper.getMainLooper())
-    /** The Stremio account of the profile in use. */
-    protected val authKey: String? get() = Profiles.active(this)?.authKey
+    /** The account of the profile in use. */
+    protected val activeProfile: Profile? get() = Profiles.active(this)
+    protected val account: AccountRef? get() = activeProfile?.account
 
     /** Settings › Language › App language, for TVs without Android 13's per-app language page (it applies it itself). */
     override fun attachBaseContext(newBase: Context) {

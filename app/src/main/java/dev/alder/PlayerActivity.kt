@@ -254,18 +254,28 @@ internal class OffsettableTextRenderer(
 // at the same second, and when the list runs out the sources page opens. Network blips are retried first, twice
 // after 1.5 s (NuvioTV's rule), so a dropped connection doesn't cost the source.
 class PlayerActivity : Screen() {
+    private lateinit var profile: Profile
     private lateinit var player: ExoPlayer
     private lateinit var view: PlayerView
     private val type by lazy { intent.getStringExtra("type") ?: "movie" }
     private val metaId by lazy { intent.getStringExtra("id")!! }
     private val videoId by lazy { intent.getStringExtra("videoId")!! }
+    private val sourceProvider by lazy { intent.getStringExtra("sourceProvider") }
+    private val sourceId by lazy { intent.getStringExtra("sourceId") }
     private val isTrailer by lazy { intent.getBooleanExtra("isTrailer", false) }
 
     // The title's library item. Null when it couldn't be loaded: then nothing is saved, rather than
     // overwriting real history with a blank item.
-    private var item: JSONObject? = null
+    private var item: LibraryItem? = null
     private var lastPosition = 0L
     private var ticks = 0
+
+    private fun preferredSources(sources: List<ContentSource>): List<ContentSource> {
+        val provider = sourceProvider ?: return sources
+        val id = sourceId ?: return sources
+        val preferred = sources.filter { it.identity.first == provider && it.identity.second == id }
+        return preferred + sources.filterNot { it in preferred }
+    }
 
     private var sources: List<Stream> = emptyList()
     private var resolvingStreams: Cancellable? = null
@@ -337,7 +347,8 @@ class PlayerActivity : Screen() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val key = authKey ?: return finish()
+        profile = activeProfile ?: return finish()
+        val key = profile.account
         val sourcesJson = intent.getStringExtra("sources")
         if (!sourcesJson.isNullOrBlank()) {
             sources = JSONArray(sourcesJson).objects().map(Stream::read)
@@ -375,7 +386,7 @@ class PlayerActivity : Screen() {
             }
         }.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON) // ffmpeg after the TV's own decoders
         player = ExoPlayer.Builder(this, renderers).build()
-        val remembered = Settings.titleChoice(this, metaId)
+        val remembered = Settings.titleChoice(this, metaId, sourceProvider, sourceId)
         wantAudio = remembered?.audio ?: Settings.audioLanguage(this)
         subPref = Settings.subPref(this)
         rememberedSubtitles = remembered?.subtitles
@@ -438,7 +449,7 @@ class PlayerActivity : Screen() {
         }
         setContentView(screen)
         background({
-            Stremio.addons(key).let { it.savedMeta(type, metaId) ?: it.meta(type, metaId) }
+            preferredSources(Sources.content(profile)).let { it.savedMeta(type, metaId) ?: it.meta(type, metaId) }
         }) { r ->
             meta = r.getOrNull()
             val m = meta ?: return@background
@@ -639,7 +650,7 @@ class PlayerActivity : Screen() {
                 type = type,
                 videoId = videoId,
                 metaId = metaId,
-                authKey = key,
+                profile = profile,
                 onReady = { best ->
                     resolvingStreams = null
                     if (isFinishing || isDestroyed) return@resolve
@@ -663,7 +674,7 @@ class PlayerActivity : Screen() {
         background({
             // Every language: the profile's subtitle language and English first, three files each in the addon's order,
             // then one file for each other language by name, so the list stays short enough for a remote.
-            val all = Stremio.addons(key).filter { it.serves("subtitles", type, videoId) }
+            val all = Sources.content(profile).filter { it.serves("subtitles", type, videoId) }
                 .flatMap { a -> runCatching { a.subtitles(type, videoId) }
                     .onFailure { android.util.Log.w("Alder", "subtitles from ${a.name} failed", it) }.getOrDefault(emptyList()) }
             all.groupBy { Languages.code(it.lang) ?: it.lang }.entries
@@ -695,12 +706,12 @@ class PlayerActivity : Screen() {
         // The stream starts at once from what's known here (the intent, or the library saved on the TV) instead of
         // waiting a round trip to Stremio for the resume point; Stremio's answer corrects it if it moved elsewhere.
         if (known != null) begin(known)
-        else background({ Stremio.savedLibrary(key)?.firstOrNull { it.optString("_id") == metaId } }) { r ->
+        else background({ Accounts.savedLibraryItems(key)?.firstOrNull { it.id == metaId } }) { r ->
             r.getOrNull()?.let { begin(Library.resumeAt(it, videoId)) }
         }
-        background({ Stremio.library(key, listOf(metaId)).firstOrNull() }) { result ->
+        background({ Accounts.libraryItems(key, listOf(metaId)).firstOrNull() }) { result ->
             item = result.fold(
-                { it ?: Library.newItem(metaId, type, intent.getStringExtra("name") ?: "", intent.getStringExtra("poster")) },
+                { it ?: Library.newLibraryItem(metaId, type, intent.getStringExtra("name") ?: "", intent.getStringExtra("poster")) },
                 { null },
             )
             val resume = known ?: item?.let { Library.resumeAt(it, videoId) } ?: 0L
@@ -794,7 +805,8 @@ class PlayerActivity : Screen() {
         val code = if (language == "") "" else Languages.code(language)
         rememberedSubtitles = code
         if (!code.isNullOrEmpty()) wantSub = code
-        Settings.pickedInPlayer(this, metaId, subtitles = code, video = videoId, subtitle = pick)
+        Settings.pickedInPlayer(this, metaId, subtitles = code, video = videoId, subtitle = pick,
+            sourceProvider = sourceProvider, sourceId = sourceId)
     }
 
     /** Plays the current source from [position], with its own request headers (debrid proxies need them). */
@@ -942,18 +954,20 @@ class PlayerActivity : Screen() {
         // Live TV has no progress to keep, nor does a channel or event whose stream doesn't say it's live.
         if (isTrailer || !started || player.isCurrentMediaItemLive || isLiveType(type)) return
         if (type == "series" && !plausibleEpisode(player.duration)) return
-        val item = item ?: return
+        var current = item ?: return
         val position = player.currentPosition
         val duration = player.duration.takeIf { it > 0 } ?: return
         // Only real viewing counts as watched time: a seek moves the position by more than a tick allows.
         val played = (position - lastPosition).takeIf { it in 1..TICK * 2 } ?: 0
         lastPosition = position
-        Library.record(item, videoId, position, duration, played)
+        current = Library.record(current, videoId, position, duration, played)
         val videos = meta?.videos
-        if (!tickedWatched && videos != null && item.optJSONObject("state")?.optInt("flaggedWatched") == 1) {
+        if (!tickedWatched && videos != null && current.progress.flaggedWatched == 1) {
             tickedWatched = true
-            Library.markWatched(item, videos, videoId)
+            current = Accounts.withWatchedEpisodes(profile.account, current, videos)
+            current = Library.markWatched(current, videos, videoId)
         }
+        item = current
         // Keep the current episode full screen; offer the next one only near its actual end.
         // If credits timing (outroAt) is known, wait until outroAt before showing Up next.
         val shouldShowUpNext = if (outroAt > 0) position >= outroAt else duration - position < upNextWindow(duration)
@@ -1081,6 +1095,7 @@ class PlayerActivity : Screen() {
             .putExtra("type", type).putExtra("id", metaId).putExtra("name", name)
             .putExtra("poster", intent.getStringExtra("poster")).putExtra("background", intent.getStringExtra("background"))
             .putExtra("videoId", next.id).putExtra("nextVideoId", after?.id)
+            .putExtra("sourceProvider", next.sourceProvider).putExtra("sourceId", next.sourceId)
             .putExtra("label", "$name  ·  S${next.season} E${next.episode}")
             .putExtra("logo", meta?.logo).putExtra("still", next.thumbnail).putExtra("runtime", meta?.runtime)
             .putExtra("episode", "S${next.season} E${next.episode}  ·  ${next.title}")
@@ -1177,9 +1192,9 @@ class PlayerActivity : Screen() {
 
     private fun push() {
         if (isTrailer || !watched || player.isCurrentMediaItemLive || isLiveType(type)) return
-        val key = authKey ?: return
-        val snapshot = item?.let { JSONObject(it.toString()) } ?: return
-        background({ Stremio.saveLibrary(key, listOf(snapshot)) }) {}
+        val key = account ?: return
+        val snapshot = item ?: return
+        background({ Accounts.saveLibraryItems(key, listOf(snapshot), mapOf(snapshot.id to meta?.videos.orEmpty())) }) {}
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
@@ -2552,7 +2567,8 @@ class PlayerActivity : Screen() {
                     .setOverrideForType(TrackSelectionOverride(audio[i].mediaTrackGroup, (0 until audio[i].length).toList())).build()
                 track.langCode?.let {
                     wantAudio = it
-                    Settings.pickedInPlayer(this@PlayerActivity, metaId, audio = it)
+                    Settings.pickedInPlayer(this@PlayerActivity, metaId, audio = it,
+                        sourceProvider = sourceProvider, sourceId = sourceId)
                     Settings.addRecentAudio(this@PlayerActivity, it)
                 }
                 chosenAudioIndex = i
@@ -2903,7 +2919,7 @@ class PlayerActivity : Screen() {
         record()
         // The player's own episode list first: Home's Resume passes no next episode when the title's details weren't in
         // yet, and a finished episode with no next one drops the title out of Continue Watching.
-        item?.let { Library.stopped(it, nextVideo(onlyAired = false)?.id ?: intent.getStringExtra("nextVideoId")) }
+        item = item?.let { Library.stopped(it, nextVideo(onlyAired = false)?.id ?: intent.getStringExtra("nextVideoId")) }
         push()
     }
 

@@ -17,6 +17,7 @@ import org.json.JSONObject
 
 // The account's add-on order decides which add-on answers first; changes save to Stremio at once.
 class AddonsActivity : Screen() {
+    private val stremioSource get() = activeProfile?.sources?.firstOrNull { it.provider == Accounts.STREMIO }
     private lateinit var list: LinearLayout
     private lateinit var help: LinearLayout
     private lateinit var helpName: TextView
@@ -31,7 +32,7 @@ class AddonsActivity : Screen() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (authKey == null) return finish()
+        if (stremioSource == null) return finish()
         val metrics = resources.displayMetrics
         val width = (metrics.widthPixels / metrics.density).toInt()
         val height = (metrics.heightPixels / metrics.density).toInt()
@@ -81,8 +82,10 @@ class AddonsActivity : Screen() {
     }
 
     private fun load() {
-        val key = authKey ?: return
-        background({ Stremio.addons(key, refresh = true) }) { result ->
+        val key = stremioSource ?: return
+        val manager = Sources.stremioAddons(key) ?: return
+        val owner = activeProfile?.let { Sources.cacheOwner(it.id, key) } ?: return
+        background({ manager.addons(key, refresh = true, owner = owner) }) { result ->
             result.onSuccess { addons = it; show() }
                 .onFailure { show(message = getString(R.string.addons_unreachable), retry = ::load) }
         }
@@ -262,9 +265,11 @@ class AddonsActivity : Screen() {
     }
 
     private fun save(next: List<Addon>, focus: String?) {
-        val key = authKey ?: return
-        background({ Stremio.setAddons(key, next) }) { result ->
-            result.onSuccess { addons = next; show(focus) }
+        val key = stremioSource ?: return
+        val manager = Sources.stremioAddons(key) ?: return
+        val owner = activeProfile?.let { Sources.cacheOwner(it.id, key) } ?: return
+        background({ manager.setAddons(key, next, owner) }) { result ->
+            result.onSuccess { addons = next.map { it.withCacheOwner(owner) }; show(focus) }
                 .onFailure { show(focus, getString(R.string.addons_save_failed), retry = { save(next, focus) }) }
         }
     }
