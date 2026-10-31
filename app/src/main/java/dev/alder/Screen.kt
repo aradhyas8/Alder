@@ -71,13 +71,21 @@ internal fun filmGlow(pixels: IntArray): Int {
     return (0x8C shl 24) or ((red * scale).toInt() shl 16) or ((green * scale).toInt() shl 8) or (blue * scale).toInt()
 }
 
+// Hardware (GPU) bitmaps came in Android 8. Before it Bitmap.Config.HARDWARE does not exist, and touching it crashed
+// Alder on Android 6 and 7, so older TVs keep pictures in ordinary memory.
+internal val GPU_BITMAP: Bitmap.Config = if (android.os.Build.VERSION.SDK_INT >= 26) Bitmap.Config.HARDWARE else Bitmap.Config.ARGB_8888
+internal fun Bitmap.onGpu() = android.os.Build.VERSION.SDK_INT >= 26 && config == Bitmap.Config.HARDWARE
+/** This picture moved to GPU memory (Android 8+), the original recycled; older Android keeps it as it is. */
+internal fun Bitmap.toGpu(): Bitmap =
+    if (android.os.Build.VERSION.SDK_INT >= 26) copy(Bitmap.Config.HARDWARE, false).also { recycle() } else this
+
 /**
  * A [w] x [h] copy of [src]'s pixels, or null. Decoded art is often a hardware bitmap, which can't be read: scaling
  * keeps it hardware, so the small copy is moved to software before reading. Every pixel sample goes through here.
  */
 internal fun samplePixels(src: Bitmap, w: Int, h: Int): IntArray? = runCatching {
     val small = Bitmap.createScaledBitmap(src, w, h, true)
-    val soft = if (small.config == Bitmap.Config.HARDWARE) small.copy(Bitmap.Config.ARGB_8888, false) else small
+    val soft = if (small.onGpu()) small.copy(Bitmap.Config.ARGB_8888, false) else small
     IntArray(w * h).also { soft.getPixels(it, 0, w, 0, 0, w, h) }
         .also { if (small !== src) small.recycle(); if (soft !== small) soft.recycle() }
 }.getOrNull()
@@ -897,9 +905,15 @@ abstract class Screen : Activity() {
     }
 
     // House Lights' shared values. Screens keep their layout and content; the helpers above own component styling.
+    // Inter is a variable font. Android 6 and 7 have no Typeface.Builder to pick its weight (calling it crashed Alder at
+    // launch there), so they get Inter's default weight and a synthetic bold for semi-bold.
     private class Fonts(assets: android.content.res.AssetManager) {
-        val medium: Typeface = Typeface.Builder(assets, "fonts/inter.ttf").setFontVariationSettings("'wght' 500").setWeight(500).build()
-        val semiBold: Typeface = Typeface.Builder(assets, "fonts/inter.ttf").setFontVariationSettings("'wght' 600").setWeight(600).build()
+        val medium: Typeface = if (android.os.Build.VERSION.SDK_INT >= 26)
+            Typeface.Builder(assets, "fonts/inter.ttf").setFontVariationSettings("'wght' 500").setWeight(500).build()
+        else Typeface.createFromAsset(assets, "fonts/inter.ttf")
+        val semiBold: Typeface = if (android.os.Build.VERSION.SDK_INT >= 26)
+            Typeface.Builder(assets, "fonts/inter.ttf").setFontVariationSettings("'wght' 600").setWeight(600).build()
+        else Typeface.create(medium, Typeface.BOLD)
         val serif: Typeface = Typeface.createFromAsset(assets, "fonts/instrument_serif.ttf")
     }
 
