@@ -33,7 +33,7 @@ class StreamsActivity : Screen() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val key = authKey ?: return finish()
+        val profile = activeProfile ?: return finish()
         val type = intent.getStringExtra("type") ?: "movie"
         val videoId = intent.getStringExtra("videoId")!!
         val name = intent.getStringExtra("name") ?: ""
@@ -140,7 +140,6 @@ class StreamsActivity : Screen() {
         })
         val tv = Device.of(this)
 
-        val lenders = Profiles.streamLenders(this)
         // Asks every add-on again (a fixed connection, or an add-on set up again on the phone); a source found plays.
         fun tryAgain(focus: Boolean = true) {
             val again = pill(R.string.action_try_again).apply { setOnClickListener { recreate() } }
@@ -148,17 +147,7 @@ class StreamsActivity : Screen() {
             if (focus) again.requestFocus()
         }
         background({
-            val own = Stremio.addons(key).filter { it.providesStreams }
-            val lent = lenders.flatMap { lender ->
-                runCatching {
-                    (Stremio.savedAddons(lender.authKey) ?: Stremio.addons(lender.authKey)).filter { it.shareable }
-                }.getOrDefault(emptyList())
-            }
-            val household = lent.filter { it.serves("stream", type, videoId) }.distinctBy { it.id }
-            // Whether any stream add-on is installed besides Stremio's own (Local Files has a stream resource): if so, none
-            // of them knows this kind of title.
-            (household + own.filter { it.serves("stream", type, videoId) }.filterNot { mine -> household.any { it.id == mine.id } }) to
-                (own.any { !it.official } || lent.isNotEmpty())
+            Sources.forVideo(this, profile, type, videoId).let { it.sources to it.hasSources }
         }) { result ->
             val (addons, anyStreams) = result.getOrElse {
                 status.text = getString(R.string.streams_load_failed)
@@ -232,14 +221,17 @@ class StreamsActivity : Screen() {
             }
 
             addons.forEachIndexed { i, addon ->
-                background({ addon.streams(type, videoId) }) { streams ->
-                    streams.exceptionOrNull()?.let { e ->
+                background({
+                    addon.streams(type, videoId).let { it to StreamResolution.playable(it.candidates) }
+                }) { result ->
+                    result.exceptionOrNull()?.let { e ->
                         failures[i] = e
                         android.util.Log.w("Alder", "streams from ${addon.name} failed", e)
                     }
-                    torrents[i] = streams.getOrNull()?.torrents ?: 0
-                    links[i] = streams.getOrNull()?.links ?: 0
-                    answers[i] = streams.getOrNull()?.playable.orEmpty()
+                    val streams = result.getOrNull()
+                    torrents[i] = streams?.first?.torrents ?: 0
+                    links[i] = streams?.first?.links ?: 0
+                    answers[i] = streams?.second.orEmpty()
                     if (answers.all { it != null }) {
                         if (pick || listed) showList() else tryStart()
                     } else if (!pick) {
@@ -300,7 +292,7 @@ class StreamsActivity : Screen() {
      * key when it refused this one. It opens a fresh setup (see [Addon.configureUrl]); null if the address is too long
      * for a code.
      */
-    private fun setupCode(addon: Addon, torrentsOnly: Boolean): View? {
+    private fun setupCode(addon: ContentSource, torrentsOnly: Boolean): View? {
         val page = addon.configureUrl ?: return null
         val code = runCatching { qrBitmap(page, dp(112)) }.getOrNull() ?: return null
         return LinearLayout(this).apply {

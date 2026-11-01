@@ -83,15 +83,27 @@ object Settings {
      */
     class TitleChoice(val audio: String?, val subtitles: String?, val subtitleVideo: String? = null, val subtitle: String? = null)
 
-    fun titleChoice(c: Context, metaId: String): TitleChoice? = prefs(c).getString(profileKey(c, "title:$metaId"), null)
+    internal fun titleChoiceKey(metaId: String, sourceProvider: String?, sourceId: String?): String =
+        if (sourceProvider == null || sourceId == null) "title:$metaId" else {
+            val identity = contentIdentity(sourceProvider, sourceId, metaId, sourceProvider == Accounts.STREMIO)
+            "title:${org.json.JSONArray().put(identity.provider).put(identity.sourceId).put(identity.id)}"
+        }
+
+    fun titleChoice(c: Context, metaId: String, sourceProvider: String? = null, sourceId: String? = null): TitleChoice? =
+        (prefs(c).getString(profileKey(c, titleChoiceKey(metaId, sourceProvider, sourceId)), null)
+            ?: prefs(c).getString(profileKey(c, "title:$metaId"), null)
+                ?.takeIf { sourceProvider == null || sourceProvider == Accounts.STREMIO })
         ?.let { runCatching { org.json.JSONObject(it) }.getOrNull() }
         ?.let { TitleChoice(it.text("audio"), if (it.has("subtitles")) it.optString("subtitles") else null,
             it.text("subtitleVideo"), it.text("subtitle")) }
 
     fun pickedInPlayer(c: Context, metaId: String, audio: String? = null, subtitles: String? = null,
-                       video: String? = null, subtitle: String? = null) {
-        val key = profileKey(c, "title:$metaId")
-        val json = prefs(c).getString(key, null)?.let { runCatching { org.json.JSONObject(it) }.getOrNull() } ?: org.json.JSONObject()
+                       video: String? = null, subtitle: String? = null,
+                       sourceProvider: String? = null, sourceId: String? = null) {
+        val key = profileKey(c, titleChoiceKey(metaId, sourceProvider, sourceId))
+        val saved = prefs(c).getString(key, null) ?: prefs(c).getString(profileKey(c, "title:$metaId"), null)
+            ?.takeIf { sourceProvider == null || sourceProvider == Accounts.STREMIO }
+        val json = saved?.let { runCatching { org.json.JSONObject(it) }.getOrNull() } ?: org.json.JSONObject()
         audio?.let { json.put("audio", it) }
         subtitles?.let { json.put("subtitles", it) }
         video?.let { json.put("subtitleVideo", it).put("subtitle", subtitle.orEmpty()) }
@@ -373,8 +385,9 @@ class SettingsActivity : Screen() {
             avatar.text = name?.take(1)?.uppercase() ?: "A"
             refresh.forEach { it() }
         }
-        val key = authKey ?: return
-        background({ Stremio.addons(key).size }) { result ->
+        val active = activeProfile ?: return
+        val key = active.sources.firstOrNull { it.provider == Accounts.STREMIO } ?: return
+        background({ Sources.addons(key, owner = Sources.cacheOwner(active.id, key)).size }) { result ->
             addonValue?.text = installed(result.getOrNull(), R.string.addons_unavailable)
         }
     }
@@ -474,7 +487,7 @@ class SettingsActivity : Screen() {
                 Profiles.streamLenders(this).forEach { lender ->
                     val value = actionRow(getString(R.string.shared_by, lender.name), "…",
                         getString(R.string.shared_by_hint, lender.name)) {}
-                    background({ (Stremio.savedAddons(lender.authKey) ?: Stremio.addons(lender.authKey)).filter { it.shareable } }) { result ->
+                    background({ (Sources.savedContent(lender) ?: Sources.content(lender)).filter { it.shareable } }) { result ->
                         value.text = result.getOrNull()?.map { addonShortName(it.name) }?.ifEmpty { null }?.joinToString(", ")
                             ?: getString(if (result.isSuccess) R.string.no_stream_addons else R.string.load_failed)
                     }
@@ -495,17 +508,20 @@ class SettingsActivity : Screen() {
             }
             Group.ADDONS -> {
                 actionRow(getString(R.string.my_addons), "…", getString(R.string.my_addons_hint)) {
-                    if (authKey != null) startActivity(Intent(this, AddonsActivity::class.java))
+                    if (activeProfile?.sources?.any { it.provider == Accounts.STREMIO } == true)
+                        startActivity(Intent(this, AddonsActivity::class.java))
                 }.also { addonValue = it }
                 actionRow(getString(R.string.reload_addons), "", getString(R.string.reload_addons_hint)) {
-                    val key = authKey ?: return@actionRow
+                    val active = activeProfile ?: return@actionRow
+                    val key = active.sources.firstOrNull { it.provider == Accounts.STREMIO } ?: return@actionRow
                     addonValue?.text = getString(R.string.reloading)
-                    background({ Stremio.addons(key, refresh = true).size }) { result ->
+                    background({ Sources.addons(key, refresh = true, owner = Sources.cacheOwner(active.id, key)).size }) { result ->
                         addonValue?.text = installed(result.getOrNull(), R.string.reload_failed)
                     }
                 }
-                val key = authKey
-                if (key != null) background({ Stremio.addons(key).size }) { result ->
+                val active = activeProfile
+                val key = active?.sources?.firstOrNull { it.provider == Accounts.STREMIO }
+                if (active != null && key != null) background({ Sources.addons(key, owner = Sources.cacheOwner(active.id, key)).size }) { result ->
                     addonValue?.text = installed(result.getOrNull(), R.string.addons_unavailable)
                 }
             }
@@ -607,13 +623,12 @@ class SettingsActivity : Screen() {
         val all = Settings.hidden(this)
         val ids = all.keys().asSequence().toList()
         if (ids.isEmpty()) return choose(getString(R.string.nothing_hidden), listOf(getString(R.string.action_ok)), getString(R.string.nothing_hidden_desc)) {}
-        val key = authKey ?: return
+        val key = account ?: return
         choose(getString(R.string.hidden_continue), ids.map { all.getJSONObject(it).optString("name", it) }, getString(R.string.unhide_title_hint)) { i ->
             val id = ids[i]
             background({
-                val item = Stremio.library(key, listOf(id)).firstOrNull() ?: error("not in the library")
-                Library.unhide(item, all.getJSONObject(id).optLong("timeOffset"))
-                Stremio.saveLibrary(key, listOf(item))
+                val item = Accounts.libraryItems(key, listOf(id)).firstOrNull() ?: error("not in the library")
+                Accounts.saveLibraryItems(key, listOf(Library.unhide(item, all.getJSONObject(id).optLong("timeOffset"))))
             }) { result ->
                 result.fold({
                     all.remove(id)

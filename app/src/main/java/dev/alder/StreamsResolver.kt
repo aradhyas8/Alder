@@ -71,14 +71,14 @@ object StreamsResolver {
         type: String,
         videoId: String,
         metaId: String,
-        authKey: String?,
+        profile: Profile?,
         maxHeight: Int = 0,
         executor: Executor = Screen.pool,
         mainHandler: Handler = Handler(Looper.getMainLooper()),
         onReady: (List<Stream>) -> Unit,
         onFallback: () -> Unit
     ): Cancellable {
-        val key = authKey ?: run {
+        val selected = profile ?: run {
             mainHandler.post(onFallback)
             return object : Cancellable { override fun cancel() {} }
         }
@@ -94,19 +94,11 @@ object StreamsResolver {
             }
         }
 
-        val lenders = Profiles.streamLenders(context)
 
         executor.execute {
             if (canceled) return@execute
             val res = runCatching {
-                val own = Stremio.addons(key).filter { it.providesStreams }
-                val lent = lenders.flatMap { lender ->
-                    runCatching {
-                        (Stremio.savedAddons(lender.authKey) ?: Stremio.addons(lender.authKey)).filter { it.shareable }
-                    }.getOrDefault(emptyList())
-                }
-                val household = lent.filter { it.serves("stream", type, videoId) }.distinctBy { it.id }
-                household + own.filter { it.serves("stream", type, videoId) }.filterNot { mine -> household.any { it.id == mine.id } }
+                Sources.forVideo(context, selected, type, videoId).sources
             }
 
             val addons = res.getOrNull().orEmpty()
@@ -135,9 +127,10 @@ object StreamsResolver {
                 executor.execute {
                     if (canceled) return@execute
                     val streamsResult = runCatching { addon.streams(type, videoId) }
+                    val playable = streamsResult.getOrNull()?.let { StreamResolution.playable(it.candidates) }.orEmpty()
                     mainHandler.post {
                         if (canceled) return@post
-                        answers[i] = streamsResult.getOrNull()?.playable.orEmpty()
+                        answers[i] = playable
                         if (answers.all { it != null }) {
                             tryStart(allowGaps = true)
                         } else {

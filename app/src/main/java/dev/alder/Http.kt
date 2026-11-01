@@ -22,51 +22,72 @@ object Http {
     /** Set once at start with the app's version. */
     var userAgent = "Alder"
 
-    /** [strict]: an error answer throws [HttpError] even when its body is JSON (add-ons, not Stremio's API, read so). */
-    fun get(url: String, keep: Boolean = false, timeoutMs: Int = 20_000, strict: Boolean = false, headers: Map<String, String> = emptyMap()): String =
-        text(url, null, keep, timeoutMs, strict, headers)
+    /** The first key scopes an answer set; the connection credential is hashed into its private subdirectory. */
+    class CacheOwner private constructor(
+        internal val scopeId: String,
+        val provider: String,
+        private val connection: String,
+    ) {
+        internal fun directory(root: File) = File(scopeDirectory(root), cacheHash("$provider\n$connection"))
+        internal fun scopeDirectory(root: File) = File(root, cacheHash(scopeId))
+        override fun toString() = "CacheOwner(scopeId=$scopeId, provider=$provider)"
 
-    fun post(url: String, json: String, keep: Boolean = false, timeoutMs: Int = 20_000, headers: Map<String, String> = emptyMap()): String =
-        text(url, json, keep, timeoutMs, false, headers)
+        companion object {
+            internal fun of(scopeId: String, provider: String, connection: String) = CacheOwner(scopeId, provider, connection)
+        }
+    }
+
+    fun owner(scopeId: String, provider: String, connection: String) = CacheOwner.of(scopeId, provider, connection)
+
+    /** [strict]: an error answer throws [HttpError] even when its body is JSON (add-ons, not Stremio's API, read so). */
+    fun get(url: String, keep: Boolean = false, timeoutMs: Int = 20_000, strict: Boolean = false,
+            headers: Map<String, String> = emptyMap(), owner: CacheOwner? = null): String =
+        text(url, null, keep, timeoutMs, strict, headers, owner)
+
+    fun post(url: String, json: String, keep: Boolean = false, timeoutMs: Int = 20_000,
+             headers: Map<String, String> = emptyMap(), owner: CacheOwner? = null): String =
+        text(url, json, keep, timeoutMs, false, headers, owner)
 
     fun bytes(url: String): ByteArray = request(url, null, cache = true).second
 
-    private fun text(url: String, json: String?, keep: Boolean, timeoutMs: Int = 20_000, strict: Boolean = false, headers: Map<String, String> = emptyMap()): String {
+    private fun text(url: String, json: String?, keep: Boolean, timeoutMs: Int = 20_000, strict: Boolean = false,
+                     headers: Map<String, String> = emptyMap(), owner: CacheOwner? = null): String {
         val (code, body) = request(url, json, cache = false, timeoutMs, headers)
         val text = String(body, Charsets.UTF_8)
         // Stremio's API answers errors as JSON (read by the caller); anything else failed is an error page: say the code.
         if (code >= 400 && (strict || !text.trimStart().startsWith("{"))) throw HttpError(code)
-        return text.also { if (keep && code < 400) keep(url, json, it) }
+        return text.also { if (keep && code < 400) keep(url, json, it, owner) }
     }
 
     /** The last answer kept for this request, or null. Never touches the network. */
-    fun savedAnswer(url: String, json: String? = null): String? =
-        file(url, json)?.takeIf { it.exists() }?.let { runCatching { it.readText() }.getOrNull() }
+    fun savedAnswer(url: String, json: String? = null, owner: CacheOwner? = null): String? =
+        file(url, json, owner)?.takeIf { it.exists() }?.let { runCatching { it.readText() }.getOrNull() }
 
     /** Keeps [body] as the answer to this request, for [savedAnswer] next time. */
-    fun keep(url: String, json: String?, body: String) {
-        val f = file(url, json) ?: return
+    fun keep(url: String, json: String?, body: String, owner: CacheOwner? = null) {
+        val f = file(url, json, owner) ?: return
         runCatching { File(f.path + ".tmp").apply { writeText(body) }.renameTo(f) }
     }
 
-    /**
-     * Forgets every kept answer. Used when a profile is removed: its library, addon list and personal addons' answers
-     * (their URLs carry tokens) aren't told apart by name, so all go, and the other profiles fetch theirs again once.
-     */
-    fun forget() {
-        saved?.listFiles()?.forEach { it.delete() }
+    /** Removes one profile/connection's scoped answers. Legacy flat files have no owner, so leave them untouched. */
+    fun forget(owner: CacheOwner) { saved?.let { owner.directory(it).deleteRecursively() } }
+
+    /** Removes all profile-scoped answers for [profileId], but leaves shared account and legacy answers alone. */
+    fun forgetProfile(profileId: String) {
+        saved?.let { File(it, cacheHash("profile:$profileId")).deleteRecursively() }
     }
 
     // Named by a hash of the request: urls carry addon settings and the body an auth key, so neither is a file name.
-    private fun file(url: String, json: String?): File? {
+    private fun file(url: String, json: String?, owner: CacheOwner?): File? {
         val dir = saved ?: return null
         val hash = MessageDigest.getInstance("SHA-1").digest((url + "\n" + (json ?: "")).toByteArray())
-        return File(dir, hash.joinToString("") { "%02x".format(it) })
+        val ownerDir = owner?.directory(dir)?.also { it.mkdirs() } ?: dir
+        return File(ownerDir, hash.joinToString("") { "%02x".format(it) })
     }
 
     // ponytail: one pass at start, oldest first, down to 60 MB; an index would only matter for far bigger caches.
     private fun trim() {
-        val files = saved?.listFiles()?.sortedBy { it.lastModified() } ?: return
+        val files = saved?.walkTopDown()?.filter { it.isFile }?.sortedBy { it.lastModified() } ?: return
         var total = files.sumOf { it.length() }
         for (f in files) {
             if (total <= 60L * 1024 * 1024) break
@@ -99,6 +120,9 @@ object Http {
         return code to stream.use { it.readBytes() }
     }
 }
+
+private fun cacheHash(value: String) = MessageDigest.getInstance("SHA-1").digest(value.toByteArray())
+    .joinToString("") { "%02x".format(it) }
 
 /** A failed answer, with its status code: 401 and 403 from an add-on usually mean an expired key or account. */
 class HttpError(val code: Int) : IOException("HTTP $code")
