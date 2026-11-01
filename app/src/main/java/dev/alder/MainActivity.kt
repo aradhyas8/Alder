@@ -186,7 +186,7 @@ class MainActivity : Screen() {
     private var focusedSomething = false
     private val metas = mutableMapOf<ContentIdentity, Meta>() // full details, fetched once per content identity
 
-    private fun cachedMeta(item: Item): Meta? = item.identity?.let(metas::get) ?: metas.values.firstOrNull { it.id == item.id }
+    private fun cachedMeta(item: Item): Meta? = item.identity?.let(metas::get)
     private fun cachedMeta(id: String): Meta? = metas.values.firstOrNull { it.id == id }
 
     // The art, at full strength and full bleed, over the previous title's art while it crossfades in.
@@ -2129,10 +2129,7 @@ class MainActivity : Screen() {
             // Last time's details from disk when there are some; the network only for titles never seen here.
             val m = runCatching {
                 val sources = Sources.content(profile)
-                val preferred = item.sourceProvider?.let { provider ->
-                    sources.filter { it.identity.first == provider && it.identity.second == item.sourceId }
-                }.orEmpty()
-                val ordered = preferred + sources.filterNot { it in preferred }
+                val ordered = sources.preferred(item.sourceProvider, item.sourceId)
                 ordered.let { it.savedMeta(item.type, item.id) ?: it.meta(item.type, item.id) }
             }.getOrNull()
             main.post {

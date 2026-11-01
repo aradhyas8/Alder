@@ -143,4 +143,48 @@ class LibraryModelTest {
         assertEquals("fake-user", backend.userId(account.credential))
         assertEquals(setOf("fake-episode"), backend.watchedEpisodes(account.credential, item, emptyList()))
     }
+
+    @Test
+    fun resumePointFollowsTheSourceNotOnlyTheRawVideoId() {
+        val id = "episode:one"
+        val fromOne = Video(id, "One", 1, 1, null, null, null, "one", "addon")
+        val fromTwo = Video(id, "One", 1, 1, null, null, null, "two", "addon")
+        val item = LibraryItem("series:one", progress = LibraryProgress(
+            videoId = id, videoIdentity = fromOne.identity, timeOffset = 600_000, duration = 1_200_000
+        ))
+
+        assertEquals(600_000L, Library.resumeAt(item, id, fromOne.identity))
+        assertEquals(0L, Library.resumeAt(item, id, fromTwo.identity))
+    }
+
+    @Test
+    fun recordKeepsTheSourceIdentityOfTheEpisode() {
+        val video = Video("episode:two", "Two", 1, 2, null, null, null, "one", "addon")
+        val recorded = Library.record(LibraryItem("series:one"), video.id, 1_000, 2_000, 1_000, video.identity)
+
+        assertEquals("episode:two", recorded.progress.videoId)
+        assertEquals(video.identity, recorded.progress.videoIdentity)
+    }
+
+    @Test
+    fun markWatchedKeepsTheItemWhenTheEpisodeListCouldNotBeRead() {
+        val videos = listOf(Video("episode:one", "One", 1, 1, null, null, null))
+        val item = LibraryItem("series:one", progress = LibraryProgress(watchedEpisodes = null))
+
+        assertEquals(item, Library.markWatched(item, videos, "episode:one"))
+    }
+
+    @Test
+    fun stremioSaveKeepsWatchedWhenTheFieldCannotBeDecoded() {
+        // A field this episode list cannot read, for example because its anchor episode is gone.
+        val field = "episode:gone:2:not-a-decoded-bitfield"
+        val raw = JSONObject().put("_id", "series:one").put("state", JSONObject().put("watched", field))
+        val videos = listOf(Video("episode:one", "One", 1, 1, null, null, null))
+
+        val decoded = Stremio.libraryItemFromJson(raw, videos)
+        val restored = Stremio.libraryItemToJson(decoded, videos)
+
+        assertNull(decoded.progress.watchedEpisodes)
+        assertEquals(field, restored.getJSONObject("state").getString("watched"))
+    }
 }

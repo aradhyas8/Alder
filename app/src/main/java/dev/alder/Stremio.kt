@@ -67,6 +67,20 @@ object Stremio {
         addonsCache[authKey] = addons
     }
 
+    /**
+     * Reads the manifest at [typed] and builds the installed add-on. Stremio's install links are
+     * stremio://host/…/manifest.json; a bare addon address gets https and /manifest.json added.
+     */
+    fun installAddon(typed: String, owner: Http.CacheOwner? = null): Addon {
+        val url = typed.replaceFirst(Regex("^stremio://", RegexOption.IGNORE_CASE), "https://")
+            .let { if (it.contains("://")) it else "https://$it" }
+            .let { if (it.endsWith("/manifest.json")) it else it.trimEnd('/') + "/manifest.json" }
+        val manifest = JSONObject(Http.get(url, owner = owner))
+        require(manifest.has("id") && manifest.has("resources")) { "That address isn't a Stremio addon." }
+        return Addon(JSONObject().put("transportUrl", url).put("manifest", manifest)
+            .put("flags", JSONObject().put("official", false).put("protected", false)))
+    }
+
     /** Library items (watch history included): the given ids, or every item when [ids] is empty. */
     private fun libraryJson(authKey: String, ids: List<String> = emptyList()): List<JSONObject> {
         val body = libraryBody(authKey, ids)
@@ -146,6 +160,9 @@ object Stremio {
             progress = LibraryProgress(
                 lastWatched = state.text("lastWatched"),
                 videoId = state.text("video_id"),
+                videoIdentity = state.text("video_id")?.let {
+                    contentIdentity(Accounts.STREMIO, "", it, verifiedImdbIds = true)
+                },
                 timeWatched = state.optLong("timeWatched"),
                 timeOffset = state.optLong("timeOffset"),
                 overallTimeWatched = state.optLong("overallTimeWatched"),
@@ -194,17 +211,17 @@ object Stremio {
         return json.put("state", state)
     }
 
-    /** Decode Stremio's anchored watched bitfield using the current episode order. */
-    internal fun watchedEpisodes(item: JSONObject?, videos: List<Video>): Set<String> {
+    /** Decode Stremio's anchored watched bitfield using the current episode order. Null means it cannot be decoded. */
+    internal fun watchedEpisodes(item: JSONObject?, videos: List<Video>): Set<String>? {
         return watchedEpisodes(item?.optJSONObject("state")?.text("watched"), videos)
     }
 
-    internal fun watchedEpisodes(item: LibraryItem, videos: List<Video>): Set<String> =
+    internal fun watchedEpisodes(item: LibraryItem, videos: List<Video>): Set<String>? =
         item.progress.watchedEpisodes ?: watchedEpisodes(
             (item.adapterData as? StremioLibraryData)?.stateFields?.get("watched") as? String, videos
         )
 
-    private fun watchedEpisodes(field: String?, videos: List<Video>): Set<String> {
+    private fun watchedEpisodes(field: String?, videos: List<Video>): Set<String>? {
         field ?: return emptySet()
         val parts = field.split(":")
         if (parts.size < 3) return emptySet()
@@ -214,13 +231,15 @@ object Stremio {
             val anchor = parts.dropLast(2).joinToString(":") // ids may hold ':' themselves
             val ids = videos.sortedWith(compareBy({ it.season }, { it.episode })).map { it.id }
             val anchorAt = ids.indexOf(anchor)
-            if (anchorAt < 0) return emptySet() // stremio-core: anchor gone, nothing counts as watched
+            // stremio-core: anchor gone, nothing counts as watched. Null keeps the stored field, so a save cannot
+            // erase history that this episode list can no longer read.
+            if (anchorAt < 0) return null
             val offset = anchorLength - anchorAt - 1
             ids.filterIndexed { i, _ ->
                 val bit = i + offset
                 bit >= 0 && bit < ids.size && bit / 8 < bits.size && (bits[bit / 8].toInt() shr (bit % 8)) and 1 == 1
             }.toSet()
-        }.getOrDefault(emptySet())
+        }.getOrNull()
     }
 
     /** Encode watched episodes in stremio-core's anchor-relative bitfield; null means no episodes are watched. */

@@ -49,4 +49,27 @@ class StreamResolutionTest {
             failed()
         }
     }
+
+    @Test
+    fun resolverOutputMustBeAnHttpAddressWithAHost() {
+        val hash = StreamCandidate.InfoHash("stremio", "addon", "abc123", null, "Torrent", "", 0L, null, null)
+        val file = Stream("Torrent", "", "file:///data/local/tmp/video.mkv", emptyMap(), 0L, null, null)
+        val script = Stream("Torrent", "", "javascript:alert(1)", emptyMap(), 0L, null, null)
+        val ok = Stream("Torrent", "", "https://example.com/resolved.mkv", emptyMap(), 0L, null, null)
+
+        assertEquals(emptyList<Stream>(), resolveWith(hash, file))
+        assertEquals(emptyList<Stream>(), resolveWith(hash, script))
+        assertEquals(listOf(ok), resolveWith(hash, ok))
+    }
+
+    private fun resolveWith(candidate: StreamCandidate, answer: Stream): List<Stream> {
+        val remove = StreamResolution.register(object : StreamCandidateResolver {
+            override fun resolve(candidate: StreamCandidate) = answer
+        })
+        return try {
+            StreamResolution.playable(listOf(candidate))
+        } finally {
+            remove()
+        }
+    }
 }

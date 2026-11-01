@@ -7,7 +7,6 @@ package dev.alder
 interface ContentSource {
     val provider: String
     val id: String
-    val identity: Pair<String, String> get() = provider to id
     val name: String
     val cacheKey: String get() = "$provider:$id"
     val catalogs: List<Catalog> get() = emptyList()
@@ -33,7 +32,26 @@ class Catalog(val source: ContentSource, val type: String, val id: String, val n
 
 class SourceStreams(val candidates: List<StreamCandidate>, val torrents: Int = 0, val links: Int = 0)
 
-data class ContentIdentity(val provider: String, val sourceId: String, val id: String)
+data class ContentIdentity(val provider: String, val sourceId: String, val id: String) {
+    /**
+     * True when both identities name the same title or episode. An empty [sourceId] means the account's wire format
+     * only kept the raw ID, so the source is unknown and only the provider and ID take part.
+     */
+    fun sameContent(other: ContentIdentity): Boolean =
+        id == other.id && provider == other.provider &&
+            (sourceId == other.sourceId || sourceId.isEmpty() || other.sourceId.isEmpty())
+}
+
+/** True when this source is the one the title came from. */
+internal fun ContentSource.fromSource(provider: String?, sourceId: String?): Boolean =
+    provider == this.provider && sourceId == id
+
+/** The source a screen opened from answers first; the rest keep the profile's order. */
+internal fun List<ContentSource>.preferred(provider: String?, sourceId: String?): List<ContentSource> {
+    if (provider == null || sourceId == null) return this
+    val (first, rest) = partition { it.fromSource(provider, sourceId) }
+    return first + rest
+}
 
 internal fun contentIdentity(provider: String, sourceId: String, id: String, verifiedImdbIds: Boolean = false): ContentIdentity =
     if (verifiedImdbIds && id.matches(imdbIdPattern)) ContentIdentity("imdb", "", id) else ContentIdentity(provider, sourceId, id)

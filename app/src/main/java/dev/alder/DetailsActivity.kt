@@ -90,6 +90,11 @@ class DetailsActivity : Screen() {
     private val sourceProvider by lazy { intent.getStringExtra("sourceProvider") }
     private val sourceId by lazy { intent.getStringExtra("sourceId") }
 
+    /** Which source a video belongs to, from the loaded title's own identities. */
+    private fun videoIdentity(id: String): ContentIdentity? =
+        meta?.videos?.firstOrNull { it.id == id }?.identity
+            ?: meta?.let { contentIdentity(it.sourceProvider, it.sourceId, id, verifiedImdbIds = true) }
+
     private lateinit var key: AccountRef
     private lateinit var profile: Profile
     override val backdrop get() = heroArt
@@ -137,12 +142,8 @@ class DetailsActivity : Screen() {
 
     private fun watchedEpisodes(videos: List<Video>) = item?.let { Accounts.watchedEpisodes(key, it, videos) }.orEmpty()
 
-    private fun preferredSources(sources: List<ContentSource>): List<ContentSource> {
-        val provider = sourceProvider ?: return sources
-        val id = sourceId ?: return sources
-        val preferred = sources.filter { it.identity.first == provider && it.identity.second == id }
-        return preferred + sources.filterNot { it in preferred }
-    }
+    private fun preferredSources(sources: List<ContentSource>): List<ContentSource> =
+        sources.preferred(sourceProvider, sourceId)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -333,7 +334,7 @@ class DetailsActivity : Screen() {
         val target = playTarget(m)
         val episode = target?.second
         // Under a minute in is not started: a title opened and closed at 0:00 offers Play, not Resume.
-        val resumeAt = (item?.let { Library.resumeAt(it, target?.first ?: metaId) } ?: 0L).takeIf { it >= STARTED } ?: 0L
+        val resumeAt = (item?.let { Library.resumeAt(it, target?.first ?: metaId, videoIdentity(target?.first ?: metaId)) } ?: 0L).takeIf { it >= STARTED } ?: 0L
         val videos = m.videos
         val watched = watchedEpisodes(videos)
         val airedVideos = videos.filter { it.season > 0 && isEpisodeAired(it.released) }
@@ -661,8 +662,8 @@ class DetailsActivity : Screen() {
             row.addView(number, FrameLayout.LayoutParams(dp(32), -2, Gravity.CENTER_VERTICAL).apply {
                 leftMargin = dp(12)
             })
-            val resumeAt = item?.let { Library.resumeAt(it, video.id) } ?: 0L
-            val duration = item?.progress?.takeIf { it.videoId == video.id }?.duration ?: 0L
+            val resumeAt = item?.let { Library.resumeAt(it, video.id, video.identity) } ?: 0L
+            val duration = item?.takeIf { Library.isCurrent(it, video.id, video.identity) }?.progress?.duration ?: 0L
             val aired = isEpisodeAired(video.released)
             val status = when {
                 !aired -> airDay(video.released)?.let { getString(R.string.airs_on, it) }.orEmpty()
@@ -711,8 +712,8 @@ class DetailsActivity : Screen() {
         previewAbout.text = video.overview.orEmpty()
         previewAbout.visibility = if (video.overview.isNullOrBlank()) View.GONE else View.VISIBLE
         previewProgress.removeAllViews()
-        val state = item?.progress?.takeIf { it.videoId == video.id }
-        val resumeAt = item?.let { Library.resumeAt(it, video.id) } ?: 0L
+        val state = item?.takeIf { Library.isCurrent(it, video.id, video.identity) }?.progress
+        val resumeAt = item?.let { Library.resumeAt(it, video.id, video.identity) } ?: 0L
         val duration = state?.duration ?: 0L
         if (resumeAt > 0 && duration > resumeAt) {
             previewProgress.addView(progressBar(resumeAt.toFloat() / duration),
@@ -1081,7 +1082,8 @@ class DetailsActivity : Screen() {
             }.orEmpty()
         }) { result ->
             result.getOrNull()?.let { titles ->
-                titles.asSequence().filter { it.identity != meta?.identity && it.type == type }
+                val current = meta?.identity ?: return@let // without the title's identity its own row cannot be removed
+                titles.asSequence().filter { it.identity != current && it.type == type }
                     .distinctBy { it.identity }.take(12).toList().takeIf { it.isNotEmpty() }
                     ?.let { showSimilar(getString(R.string.details_more_like_this), it) }
             }
@@ -1540,7 +1542,7 @@ class DetailsActivity : Screen() {
         val nextId = next ?: m?.videos?.let { vs -> vs.getOrNull(vs.indexOfFirst { it.id == videoId } + 1)?.id }
         val video = m?.videos?.firstOrNull { it.id == videoId }
         val short = label ?: video?.let { "S${it.season} E${it.episode}" }
-        val resumeAt = if (startOver) 0L else item?.let { Library.resumeAt(it, videoId) } ?: 0L
+        val resumeAt = if (startOver) 0L else item?.let { Library.resumeAt(it, videoId, video?.identity) } ?: 0L
         val selectedProvider = video?.sourceProvider ?: m?.sourceProvider ?: sourceProvider
         val selectedSourceId = video?.sourceId ?: m?.sourceId ?: sourceId
         val intent = Intent(this, StreamsActivity::class.java)

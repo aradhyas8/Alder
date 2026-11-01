@@ -19,7 +19,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 
 ### New
 - **Source connections.** A profile can keep its Stremio add-ons when its account changes.
-- **Stream sources.** Alder can use a stream resolver to turn a supported hash into a playable link.
+- **Stream sources.** Alder has a place for a stream resolver. No resolver is included yet.
 - **Alder website.** The House Lights website shows the TV app, setup steps, and a link to the latest APK.
 - Add an Alder website card image with the app screen and product text.
 - **Architecture plan.** A plan shows how Alder can use more accounts, add-ons, and stream sources.
@@ -30,6 +30,9 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 
 ### Fixes
 - **Audio and subtitles.** Alder keeps each source's title choices separate.
+- **Watch progress.** Two add-ons with the same video ID do not share a resume point.
+- **Watched episodes.** A changed episode list cannot erase the watched list from Stremio.
+- **Profile removal.** A large cache does not stop the screen while Alder deletes it.
 - **Profile data.** Alder removes one profile's saved answers and keeps answers for other profiles.
 - **Source order.** Automatic play and the source list use the same order for shared stream add-ons.
 

@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.concurrent.Executors
 
 class Profile(val id: String, val name: String, val color: Int, val account: AccountRef, val pin: String? = null,
               val sources: List<SourceRef> = listOf(SourceRef(account.provider, account.credential)))
@@ -14,6 +15,10 @@ class Profile(val id: String, val name: String, val color: Int, val account: Acc
 object Profiles {
     const val MAX = 5
     val COLORS = intArrayOf(0xFFF3D9B1.toInt(), 0xFFC98E6A.toInt(), 0xFF8FA39A.toInt(), 0xFFA6A2BD.toInt(), 0xFFD3A66B.toInt())
+
+    /** Cache cleanup deletes files; keep it off the screen's thread. Tests can run the task inline. */
+    internal var cacheCleanup: ((() -> Unit) -> Unit) = { task -> cleanup.execute(task) }
+    private val cleanup = Executors.newSingleThreadExecutor { task -> Thread(task, "alder-cache-cleanup").apply { isDaemon = true } }
 
     fun all(context: Context): List<Profile> = store(context).all()
 
@@ -46,9 +51,9 @@ object Profiles {
         prefs.edit().remove("shareStreams:$id").remove("signedOut:$id").apply()
         Settings.forget(context, id)
         context.getSharedPreferences("search", Context.MODE_PRIVATE).edit().remove("recent:$id").apply()
-        Http.forgetProfile(id)
+        cacheCleanup { Http.forgetProfile(id) }
         removed?.account?.takeIf { account -> remaining.none { it.account == account } }
-            ?.let { Http.forget(Http.owner("account", it.provider, it.credential)) }
+            ?.let { account -> cacheCleanup { Http.forget(Http.owner("account", account.provider, account.credential)) } }
     }
 
     /**
@@ -69,11 +74,12 @@ object Profiles {
         }
         store.save(updated)
         previous?.let { old ->
-            (old.sources - updated.firstOrNull { it.id == id }?.sources.orEmpty().toSet()).forEach { source ->
-                Http.forget(Http.owner("profile:$id", source.provider, source.credential))
+            val dropped = old.sources - updated.firstOrNull { it.id == id }?.sources.orEmpty().toSet()
+            if (dropped.isNotEmpty() || updated.none { it.account == old.account }) cacheCleanup {
+                dropped.forEach { source -> Http.forget(Http.owner("profile:$id", source.provider, source.credential)) }
+                if (updated.none { it.account == old.account })
+                    Http.forget(Http.owner("account", old.account.provider, old.account.credential))
             }
-            if (updated.none { it.account == old.account })
-                Http.forget(Http.owner("account", old.account.provider, old.account.credential))
         }
         prefs(context).edit().remove("signedOut:$id").apply()
     }
@@ -86,7 +92,9 @@ object Profiles {
         val profile = current.firstOrNull { it.id == id } ?: return
         val removed = profile.sources - sources.toSet()
         store.save(current.map { if (it.id != id) it else Profile(it.id, it.name, it.color, it.account, it.pin, sources) })
-        removed.forEach { Http.forget(Http.owner("profile:$id", it.provider, it.credential)) }
+        if (removed.isNotEmpty()) cacheCleanup {
+            removed.forEach { Http.forget(Http.owner("profile:$id", it.provider, it.credential)) }
+        }
     }
 
     fun linkSource(context: Context, id: String, source: SourceRef) {

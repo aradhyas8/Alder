@@ -246,21 +246,17 @@ class AddonsActivity : Screen() {
         field.requestFocus()
     }
 
-    // Stremio's install links are stremio://host/…/manifest.json; a bare addon address gets /manifest.json added.
+    // Stremio's install links are stremio://host/…/manifest.json; the source adapter normalizes the address.
     private fun install(typed: String) {
         if (typed.isEmpty()) return show(ADD_URL)
-        val url = typed.replaceFirst(Regex("^stremio://", RegexOption.IGNORE_CASE), "https://")
-            .let { if (it.contains("://")) it else "https://$it" }
-            .let { if (it.endsWith("/manifest.json")) it else it.trimEnd('/') + "/manifest.json" }
-        if (addons.any { it.transportUrl == url }) return show(url, getString(R.string.addons_already))
-        background({
-            val manifest = JSONObject(Http.get(url))
-            require(manifest.has("id") && manifest.has("resources")) { "That address isn't a Stremio addon." }
-            Addon(JSONObject().put("transportUrl", url).put("manifest", manifest)
-                .put("flags", JSONObject().put("official", false).put("protected", false)))
-        }) { result ->
-            result.onSuccess { save(addons + it, url) }
-                .onFailure { show(ADD_URL, getString(R.string.addons_add_failed)) }
+        val key = stremioSource ?: return
+        val owner = activeProfile?.let { Sources.cacheOwner(it.id, key) } ?: return
+        background({ Sources.install(key, typed, owner) }) { result ->
+            result.onSuccess { addon ->
+                if (addons.any { it.transportUrl == addon.transportUrl })
+                    show(addon.transportUrl, getString(R.string.addons_already))
+                else save(addons + addon, addon.transportUrl)
+            }.onFailure { show(ADD_URL, getString(R.string.addons_add_failed)) }
         }
     }
 

@@ -25,6 +25,8 @@ data class LibraryItem(
 data class LibraryProgress(
     val lastWatched: String? = null,
     val videoId: String? = null,
+    /** Which source the current video belongs to. Null for records from a backend that keeps only the raw ID. */
+    val videoIdentity: ContentIdentity? = null,
     val timeWatched: Long = 0,
     val timeOffset: Long = 0,
     val overallTimeWatched: Long = 0,
@@ -70,8 +72,10 @@ object Library {
     /** Marks the current title complete without discarding its watch history. */
     fun markTitleWatched(item: LibraryItem, videos: List<Video> = emptyList()): LibraryItem {
         var progress = item.progress
-        progress.videoId?.let { id -> if (videos.any { it.id == id })
-            progress = progress.copy(watchedEpisodes = watchedSet(item) + id)
+        progress.videoId?.let { id ->
+            if (videos.any { it.id == id }) progress.watchedEpisodes?.let { seen ->
+                progress = progress.copy(watchedEpisodes = seen + id)
+            }
         }
         return item.copy(
             modifiedAt = now(),
@@ -94,10 +98,21 @@ object Library {
         item.copy(modifiedAt = now(), progress = item.progress.copy(timeOffset = offset))
 
     /** Where to resume [videoId] in milliseconds, 0 to start from the beginning. */
-    fun resumeAt(item: LibraryItem, videoId: String): Long {
+    fun resumeAt(item: LibraryItem, videoId: String, identity: ContentIdentity? = null): Long {
         val progress = item.progress
         val unfinished = progress.duration == 0L || progress.timeOffset < progress.duration * CREDITS
-        return if (progress.videoId == videoId && progress.timeOffset > 0 && unfinished) progress.timeOffset else 0
+        return if (isCurrent(item, videoId, identity) && progress.timeOffset > 0 && unfinished) progress.timeOffset else 0
+    }
+
+    /** True when [videoId] is the progress point, checked by identity when both sides know the source. */
+    fun isCurrent(item: LibraryItem, videoId: String, identity: ContentIdentity? = null): Boolean {
+        val progress = item.progress
+        val stored = progress.videoIdentity
+        return when {
+            stored != null && identity != null -> stored.sameContent(identity)
+            progress.videoId != null -> progress.videoId == videoId
+            else -> false
+        }
     }
 
     fun setWatched(item: LibraryItem, videos: List<Video>, seen: Set<String>): LibraryItem = item.copy(
@@ -105,23 +120,28 @@ object Library {
         progress = item.progress.copy(watchedEpisodes = seen.filter { id -> videos.any { it.id == id } }.toSet())
     )
 
-    /** Adds a watched episode while preserving the other ticks already hydrated by the account backend. */
+    /**
+     * Adds a watched episode while preserving the other ticks already hydrated by the account backend. A title whose
+     * watched set could not be hydrated keeps its item unchanged, so a failed read cannot erase history.
+     */
     fun markWatched(item: LibraryItem, videos: List<Video>, videoId: String) =
-        setWatched(item, videos, watchedSet(item) + videoId)
+        addWatched(item, videos, setOf(videoId))
 
     /** Removes [videoId] while preserving other watched episodes. */
     fun markUnwatched(item: LibraryItem, videos: List<Video>, videoId: String) =
-        setWatched(item, videos, watchedSet(item) - videoId)
+        removeWatched(item, videos, setOf(videoId))
 
     fun markEpisodesWatched(item: LibraryItem, videos: List<Video>, videoIds: Collection<String>) =
-        setWatched(item, videos, watchedSet(item) + videoIds)
+        addWatched(item, videos, videoIds)
 
     fun unmarkEpisodesWatched(item: LibraryItem, videos: List<Video>, videoIds: Collection<String>) =
-        setWatched(item, videos, watchedSet(item) - videoIds.toSet())
+        removeWatched(item, videos, videoIds)
 
-    private fun watchedSet(item: LibraryItem): Set<String> = requireNotNull(item.progress.watchedEpisodes) {
-        "Watched episodes must be loaded by the account backend before they can be changed"
-    }
+    private fun addWatched(item: LibraryItem, videos: List<Video>, ids: Collection<String>): LibraryItem =
+        item.progress.watchedEpisodes?.let { setWatched(item, videos, it + ids) } ?: item
+
+    private fun removeWatched(item: LibraryItem, videos: List<Video>, ids: Collection<String>): LibraryItem =
+        item.progress.watchedEpisodes?.let { setWatched(item, videos, it - ids.toSet()) } ?: item
 
     /** Episodes strictly prior to [target] in series order (specials excluded unless target is a special). */
     fun priorEpisodes(videos: List<Video>, target: Video): List<Video> {
@@ -146,16 +166,20 @@ object Library {
     }
 
     /** Playback progress, called every few seconds. [playedMs] is time actually watched since the last call. */
-    fun record(item: LibraryItem, videoId: String, positionMs: Long, durationMs: Long, playedMs: Long): LibraryItem {
+    fun record(item: LibraryItem, videoId: String, positionMs: Long, durationMs: Long, playedMs: Long,
+               identity: ContentIdentity? = null): LibraryItem {
         val now = now()
         var progress = item.progress.copy(lastWatched = now)
-        if (progress.videoId != videoId) {
+        if (!isCurrent(item, videoId, identity)) {
             progress = progress.copy(
                 videoId = videoId,
+                videoIdentity = identity ?: progress.videoIdentity,
                 overallTimeWatched = progress.overallTimeWatched + progress.timeWatched,
                 timeWatched = 0,
                 flaggedWatched = 0
             )
+        } else if (progress.videoIdentity == null && identity != null) {
+            progress = progress.copy(videoIdentity = identity)
         }
         progress = progress.copy(
             timeWatched = progress.timeWatched + playedMs,
@@ -176,13 +200,14 @@ object Library {
     }
 
     /** When playback stops: past the credits it's finished, and a series moves on to [nextVideoId]. */
-    fun stopped(item: LibraryItem, nextVideoId: String?): LibraryItem {
+    fun stopped(item: LibraryItem, nextVideoId: String?, nextIdentity: ContentIdentity? = null): LibraryItem {
         var progress = item.progress
         if (progress.duration == 0L || progress.timeOffset <= progress.duration * CREDITS) return item
         progress = progress.copy(timeOffset = 0)
         if (nextVideoId != null) {
             progress = progress.copy(
                 videoId = nextVideoId,
+                videoIdentity = nextIdentity ?: progress.videoIdentity,
                 overallTimeWatched = progress.overallTimeWatched + progress.timeWatched,
                 timeWatched = 0,
                 flaggedWatched = 0,

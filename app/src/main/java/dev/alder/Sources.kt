@@ -23,6 +23,8 @@ interface StremioAddonManagement {
     fun addons(source: SourceRef, refresh: Boolean = false, owner: Http.CacheOwner? = null): List<Addon>
     fun savedAddons(source: SourceRef, owner: Http.CacheOwner? = null): List<Addon>?
     fun setAddons(source: SourceRef, addons: List<Addon>, owner: Http.CacheOwner? = null)
+    /** Reads the manifest at [typed] (a Stremio install link or a bare address) and returns the installed add-on. */
+    fun install(source: SourceRef, typed: String, owner: Http.CacheOwner? = null): Addon
 }
 
 private object StremioSources : SourceBackend, StremioAddonManagement {
@@ -47,6 +49,11 @@ private object StremioSources : SourceBackend, StremioAddonManagement {
     override fun setAddons(source: SourceRef, addons: List<Addon>, owner: Http.CacheOwner?) {
         require(source.provider == Accounts.STREMIO)
         Stremio.setAddons(source.credential, addons, owner)
+    }
+
+    override fun install(source: SourceRef, typed: String, owner: Http.CacheOwner?): Addon {
+        require(source.provider == Accounts.STREMIO)
+        return Stremio.installAddon(typed, owner)
     }
 }
 
@@ -90,6 +97,10 @@ object Sources {
         (stremioAddons(source) ?: error("Source provider does not manage Stremio add-ons"))
             .setAddons(source, addons, owner)
     }
+
+    fun install(source: SourceRef, typed: String, owner: Http.CacheOwner? = null): Addon =
+        (stremioAddons(source) ?: error("Source provider does not manage Stremio add-ons"))
+            .install(source, typed, owner)
 
     internal fun cacheOwner(profileId: String, source: SourceRef) =
         Http.owner("profile:$profileId", source.provider, source.credential)

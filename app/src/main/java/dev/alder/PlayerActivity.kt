@@ -262,6 +262,11 @@ class PlayerActivity : Screen() {
     private val videoId by lazy { intent.getStringExtra("videoId")!! }
     private val sourceProvider by lazy { intent.getStringExtra("sourceProvider") }
     private val sourceId by lazy { intent.getStringExtra("sourceId") }
+
+    /** Which source the playing video belongs to; null until the title's details are in. */
+    private fun videoIdentity(id: String): ContentIdentity? =
+        meta?.videos?.firstOrNull { it.id == id }?.identity
+            ?: meta?.let { contentIdentity(it.sourceProvider, it.sourceId, id, verifiedImdbIds = true) }
     private val isTrailer by lazy { intent.getBooleanExtra("isTrailer", false) }
 
     // The title's library item. Null when it couldn't be loaded: then nothing is saved, rather than
@@ -270,12 +275,8 @@ class PlayerActivity : Screen() {
     private var lastPosition = 0L
     private var ticks = 0
 
-    private fun preferredSources(sources: List<ContentSource>): List<ContentSource> {
-        val provider = sourceProvider ?: return sources
-        val id = sourceId ?: return sources
-        val preferred = sources.filter { it.identity.first == provider && it.identity.second == id }
-        return preferred + sources.filterNot { it in preferred }
-    }
+    private fun preferredSources(sources: List<ContentSource>): List<ContentSource> =
+        sources.preferred(sourceProvider, sourceId)
 
     private var sources: List<Stream> = emptyList()
     private var resolvingStreams: Cancellable? = null
@@ -707,14 +708,14 @@ class PlayerActivity : Screen() {
         // waiting a round trip to Stremio for the resume point; Stremio's answer corrects it if it moved elsewhere.
         if (known != null) begin(known)
         else background({ Accounts.savedLibraryItems(key)?.firstOrNull { it.id == metaId } }) { r ->
-            r.getOrNull()?.let { begin(Library.resumeAt(it, videoId)) }
+            r.getOrNull()?.let { begin(Library.resumeAt(it, videoId, videoIdentity(videoId))) }
         }
         background({ Accounts.libraryItems(key, listOf(metaId)).firstOrNull() }) { result ->
             item = result.fold(
                 { it ?: Library.newLibraryItem(metaId, type, intent.getStringExtra("name") ?: "", intent.getStringExtra("poster")) },
                 { null },
             )
-            val resume = known ?: item?.let { Library.resumeAt(it, videoId) } ?: 0L
+            val resume = known ?: item?.let { Library.resumeAt(it, videoId, videoIdentity(videoId)) } ?: 0L
             if (!prepared) begin(resume)
             // Watched further on the phone since the TV saved its copy: go there, unless you've already moved on.
             else if (known == null && abs(resume - startAt) > RESUME_SLACK && position() < startAt + RESUME_SLACK) {
@@ -960,7 +961,7 @@ class PlayerActivity : Screen() {
         // Only real viewing counts as watched time: a seek moves the position by more than a tick allows.
         val played = (position - lastPosition).takeIf { it in 1..TICK * 2 } ?: 0
         lastPosition = position
-        current = Library.record(current, videoId, position, duration, played)
+        current = Library.record(current, videoId, position, duration, played, videoIdentity(videoId))
         val videos = meta?.videos
         if (!tickedWatched && videos != null && current.progress.flaggedWatched == 1) {
             tickedWatched = true
@@ -2919,7 +2920,8 @@ class PlayerActivity : Screen() {
         record()
         // The player's own episode list first: Home's Resume passes no next episode when the title's details weren't in
         // yet, and a finished episode with no next one drops the title out of Continue Watching.
-        item = item?.let { Library.stopped(it, nextVideo(onlyAired = false)?.id ?: intent.getStringExtra("nextVideoId")) }
+        val nextId = nextVideo(onlyAired = false)?.id ?: intent.getStringExtra("nextVideoId")
+        item = item?.let { Library.stopped(it, nextId, nextId?.let(::videoIdentity)) }
         push()
     }
 

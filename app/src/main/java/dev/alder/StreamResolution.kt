@@ -42,10 +42,14 @@ object StreamResolution {
         when (candidate) {
             is StreamCandidate.Direct -> candidate.stream
             is StreamCandidate.InfoHash -> resolvers.firstNotNullOfOrNull { resolver ->
-                runCatching { resolver.resolve(candidate) }.getOrNull()?.takeIf { it.url.isAbsoluteUrl() }
+                runCatching { resolver.resolve(candidate) }.getOrNull()?.takeIf { it.url.isPlayableUrl() }
             }
         }
     }
 
-    private fun String.isAbsoluteUrl() = runCatching { java.net.URI(this).isAbsolute }.getOrDefault(false)
+    /** A resolver may only hand Media3 an HTTP(S) address with a host; file: and script: schemes are refused. */
+    private fun String.isPlayableUrl(): Boolean = runCatching {
+        val uri = java.net.URI(this)
+        uri.isAbsolute && uri.scheme.lowercase() in setOf("http", "https") && !uri.host.isNullOrEmpty()
+    }.getOrDefault(false)
 }

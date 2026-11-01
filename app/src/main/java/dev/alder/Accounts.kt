@@ -14,7 +14,7 @@ interface AccountBackend {
     ): List<LibraryItem>
     fun savedLibraryItems(credential: String, videosByItem: Map<String, List<Video>> = emptyMap()): List<LibraryItem>?
     fun saveLibraryItems(credential: String, items: List<LibraryItem>, videosByItem: Map<String, List<Video>> = emptyMap())
-    fun watchedEpisodes(credential: String, item: LibraryItem, videos: List<Video>): Set<String>
+    fun watchedEpisodes(credential: String, item: LibraryItem, videos: List<Video>): Set<String>?
     fun userId(credential: String): String
     fun logout(credential: String)
     fun isExpired(error: Throwable): Boolean
@@ -60,9 +60,10 @@ object Accounts {
     fun watchedEpisodes(account: AccountRef, item: LibraryItem, videos: List<Video>) =
         item.progress.watchedEpisodes ?: backend(account).watchedEpisodes(account.credential, item, videos)
     fun withWatchedEpisodes(account: AccountRef, item: LibraryItem, videos: List<Video>) =
-        if (item.progress.watchedEpisodes != null) item else item.copy(
-            progress = item.progress.copy(watchedEpisodes = backend(account).watchedEpisodes(account.credential, item, videos))
-        )
+        if (item.progress.watchedEpisodes != null) item else {
+            val seen = backend(account).watchedEpisodes(account.credential, item, videos)
+            if (seen == null) item else item.copy(progress = item.progress.copy(watchedEpisodes = seen))
+        }
     fun userId(account: AccountRef) = backend(account).userId(account.credential)
     fun logout(account: AccountRef) = backend(account).logout(account.credential)
     fun isExpired(account: AccountRef, error: Throwable) = backend(account).isExpired(error)

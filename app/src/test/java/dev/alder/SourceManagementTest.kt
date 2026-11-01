@@ -46,4 +46,22 @@ class SourceManagementTest {
         assertEquals(ContentIdentity(Accounts.STREMIO, "cinemeta", "$id:1:2"), episode.identity)
         assertEquals("cinemeta", verified.sourceId)
     }
+
+    @Test
+    fun theTitleSourceAnswersFirstAndTheRestKeepTheirOrder() {
+        val first = FakeSource("first")
+        val second = FakeSource("second")
+        val third = FakeSource("third")
+        val sources = listOf(first, second, third)
+
+        assertEquals(listOf("second", "first", "third"), sources.preferred("one", "second").map { it.id })
+        assertEquals(listOf("first", "second", "third"), sources.preferred(null, "second").map { it.id })
+        assertEquals(listOf("first", "second", "third"), sources.preferred("two", "second").map { it.id })
+        assertTrue(second.fromSource("one", "second"))
+        assertFalse(second.fromSource("one", "first"))
+    }
+
+    private class FakeSource(override val id: String, override val provider: String = "one") : ContentSource {
+        override val name = id
+    }
 }
