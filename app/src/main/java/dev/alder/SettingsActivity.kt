@@ -156,6 +156,7 @@ object Settings {
 
 /** ARGB color for subtitle text from a preference name. */
 fun subtitleColorValue(name: String): Int = when (name.trim().lowercase()) {
+    "gray" -> 0xFFBFBFBF.toInt()
     "yellow" -> 0xFFFFE600.toInt()
     "cyan" -> 0xFF00FFFF.toInt()
     "cream" -> 0xFFFFF5C0.toInt()
@@ -272,7 +273,8 @@ class SettingsActivity : Screen() {
             listOf(100 to getString(R.string.size_medium), 130 to getString(R.string.size_large),
                 160 to getString(R.string.size_extra_large), 80 to getString(R.string.size_small))),
         Choice("subColor", getString(R.string.subtitle_color), getString(R.string.subtitle_color_hint),
-            listOf("white" to getString(R.string.color_white), "yellow" to getString(R.string.color_yellow),
+            listOf("white" to getString(R.string.color_white), "gray" to getString(R.string.color_gray),
+                "yellow" to getString(R.string.color_yellow),
                 "cyan" to getString(R.string.color_cyan), "cream" to getString(R.string.color_cream),
                 "warm_white" to getString(R.string.color_warm_white))),
         Choice("subBackground", getString(R.string.subtitle_background), getString(R.string.subtitle_background_hint), onOff()),
