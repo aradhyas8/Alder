@@ -165,6 +165,28 @@ class ScreenDesignTest {
         assertEquals(false, isAddonMessage("The Authentication"))
     }
 
+    @Test fun cardLoadWindowLimitsLoadedCardsAndUnloadsFarCards() {
+        val step = 120
+        val width = 960
+        val start = cardLoadWindow(0, width, step, 100)
+        assertEquals(0, start.loadStart)
+        assertEquals(14, start.loadEnd)
+        assertEquals(0, start.farLeftEnd)
+        assertEquals(20, start.farRightStart)
+
+        val middle = cardLoadWindow(50 * step, width, step, 100)
+        assertEquals(46, middle.loadStart)
+        assertEquals(64, middle.loadEnd)
+        assertEquals(38, middle.farLeftEnd)
+        assertEquals(70, middle.farRightStart)
+
+        val end = cardLoadWindow(95 * step, width, step, 100)
+        assertEquals(91, end.loadStart)
+        assertEquals(100, end.loadEnd)
+        assertEquals(83, end.farLeftEnd)
+        assertEquals(100, end.farRightStart)
+    }
+
     @Test fun myListKeepsTheLastPartialRow() {
         assertEquals(0, listRowCount(0, 6))
         assertEquals(1, listRowCount(6, 6))
