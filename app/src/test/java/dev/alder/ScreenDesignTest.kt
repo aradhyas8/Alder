@@ -525,4 +525,28 @@ class ScreenDesignTest {
         assertEquals(0xFFFFFFFF.toInt(), subtitleColorValue("unknown"))
         assertEquals(0xFFFFFFFF.toInt(), subtitleColorValue(""))
     }
+
+    @Test fun initialRowCardsExceedsScreenViewportToPreventSnap() {
+        assertEquals(14, initialRowCards(wide = false))
+        assertEquals(8, initialRowCards(wide = true))
+    }
+
+    @Test fun wideRowPacesRepeatKeyScrollsToMatchPosterVelocity() {
+        assertEquals(false, shouldSkipRepeat(held = false, wide = true, repeatCount = 1))
+        assertEquals(false, shouldSkipRepeat(held = true, wide = false, repeatCount = 1))
+        assertEquals(true, shouldSkipRepeat(held = true, wide = true, repeatCount = 1))
+        assertEquals(false, shouldSkipRepeat(held = true, wide = true, repeatCount = 2))
+        assertEquals(true, shouldSkipRepeat(held = true, wide = true, repeatCount = 3))
+        assertEquals(100L, rowGlideDuration(held = true, wide = true, repeatDelay = 50L))
+        assertEquals(50L, rowGlideDuration(held = true, wide = false, repeatDelay = 50L))
+        assertEquals(200L, rowGlideDuration(held = false, wide = true, repeatDelay = 50L))
+    }
+
+    @Test fun backdropArtPostponesCrossfadeWhileHoldingRemote() {
+        assertEquals(0L, artDelay(held = false, cached = true, ready = false))
+        assertEquals(120L, artDelay(held = false, cached = false, ready = false))
+        assertEquals(280L, artDelay(held = true, cached = true, ready = false))
+        assertEquals(280L, artDelay(held = true, cached = false, ready = false))
+        assertEquals(0L, artDelay(held = true, cached = true, ready = true))
+    }
 }

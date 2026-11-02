@@ -24,6 +24,9 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 ### Easier to use
 - **Alder website.** The site shows the app screens and makes the download and setup steps easy to find.
 
+### Fixes
+- **Smooth row motion.** Rows move smoothly when you move right fast. Live rows move at the same speed as poster rows. Background art waits until you stop on a title.
+
 ## 1.3.1
 
 ### Fixes

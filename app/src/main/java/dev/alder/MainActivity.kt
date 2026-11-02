@@ -84,6 +84,16 @@ internal fun shortRowName(name: String, genres: Collection<String> = emptyList()
 
 internal fun isAddonMessage(name: String) = name.contains("Authentication Required", ignoreCase = true)
 
+internal fun initialRowCards(wide: Boolean): Int = if (wide) 8 else 14
+
+internal fun shouldSkipRepeat(held: Boolean, wide: Boolean, repeatCount: Int): Boolean =
+    wide && held && repeatCount % 2 != 0
+
+internal fun rowGlideDuration(held: Boolean, wide: Boolean, repeatDelay: Long): Long =
+    if (held) repeatDelay * (if (wide) 2 else 1) else 200L
+
+internal fun artDelay(held: Boolean, cached: Boolean, ready: Boolean): Long =
+    if (ready) 0L else if (held) 280L else if (cached) 0L else 120L
 internal fun listRowCount(titles: Int, columns: Int) = (titles + columns - 1) / columns
 
 internal fun nextCatalogSection(total: Int, loaded: Int) = minOf(total, loaded + 4)
@@ -164,6 +174,7 @@ class MainActivity : Screen() {
     private val navItems = mutableMapOf<Page, TextView>()
     private var page = Page.HOME
     private val Page.isCatalog get() = this == Page.SHOWS || this == Page.MOVIES
+    private var held = false
     /** One row of cards under the focused title's art: every page but My List's grid. */
     private val Page.isBrowse get() = this == Page.HOME || isCatalog || this == Page.LIVE
     private var mode = Mode.BROWSE
@@ -877,7 +888,8 @@ class MainActivity : Screen() {
                 ready?.invoke()
             }
         }
-        if (Images.cached(url, artW, look) || ready != null) artTask.run() else main.postDelayed(artTask, 120)
+        val delay = artDelay(held, Images.cached(url, artW, look), ready != null)
+        if (delay == 0L) artTask.run() else main.postDelayed(artTask, delay)
     }
 
     /**
@@ -1279,7 +1291,7 @@ class MainActivity : Screen() {
                 if (p == Page.HOME) {
                     val items = cw.map(::libraryItem)
                     if (items.isNotEmpty()) {
-                        slot.addView(row(getString(R.string.row_continue), items.take(START), later(items)).view)
+                        slot.addView(row(getString(R.string.row_continue), items.take(initialRowCards(false)), later(items)).view)
                         android.util.Log.d("Alder", "page ${p.label}: Continue in ${android.os.SystemClock.uptimeMillis() - opened} ms")
                         startCinema(items.take(CINEMA_MAX))
                     }
@@ -1410,7 +1422,8 @@ class MainActivity : Screen() {
                         val old = rows.firstOrNull { it.view.parent === slot }
                         if (old?.view?.hasFocus() == true) { old.pendingUpdate = ::add; return }
                         old?.let { it.cards.forEach { card -> card.unload() }; rows.remove(it); slot.removeAllViews() }
-                        val made = row(title, items.take(maxOf(START, old?.items?.size ?: START)), more, wide = (p == Page.LIVE))
+                        val initial = initialRowCards(p == Page.LIVE)
+                        val made = row(title, items.take(maxOf(initial, old?.items?.size ?: initial)), more, wide = (p == Page.LIVE))
                         slot.addView(made.view)
                         if (i == 0) android.util.Log.d("Alder", "page ${p.label}: first row in ${android.os.SystemClock.uptimeMillis() - opened} ms")
                         updateNextRow()
@@ -1808,7 +1821,6 @@ class MainActivity : Screen() {
         var active = false
         var loaded = false
         private var anim: ValueAnimator? = null
-        private var held = false // the remote's key is held down: the row glides instead of stepping
         val strip = LinearLayout(this@MainActivity).apply {
             // Room above and below for the focused card to grow into without being clipped.
             setPadding(dp(PAD), dp(if (grid) LIST_TOP_ROOM else ROW_TOP_ROOM), dp(PAD), if (grid) dp(LIST_GAP) else dp(ROW_BOTTOM_ROOM))
@@ -1823,8 +1835,13 @@ class MainActivity : Screen() {
                 if (!left && event.keyCode != KeyEvent.KEYCODE_DPAD_RIGHT) return super.dispatchKeyEvent(event)
                 if (event.action == KeyEvent.ACTION_DOWN) {
                     held = event.repeatCount > 0
+                    if (shouldSkipRepeat(held, wide, event.repeatCount)) return true
                     cards.getOrNull(selected + if (left) -1 else 1)?.requestFocus()
-                } else held = false
+                } else {
+                    val wasHeld = held
+                    held = false
+                    if (wasHeld) items.getOrNull(selected)?.let(::showArt)
+                }
                 return true // at either end the remote simply stays put
             }
 
@@ -1920,7 +1937,8 @@ class MainActivity : Screen() {
             }
             // A held key repeats every 50 ms. Restarting a slowing-down slide on each repeat made the row lurch and brake
             // twenty times a second; a straight slide that lasts until the next repeat joins them into one glide.
-            anim = ValueAnimator.ofInt(startScroll, targetScroll).setDuration(if (held) ViewConfiguration.getKeyRepeatDelay().toLong() else 200).apply {
+            val glideTime = rowGlideDuration(held, wide, ViewConfiguration.getKeyRepeatDelay().toLong())
+            anim = ValueAnimator.ofInt(startScroll, targetScroll).setDuration(glideTime).apply {
                 interpolator = if (held) LinearInterpolator() else DecelerateInterpolator()
                 addUpdateListener { scroller.scrollTo(it.animatedValue as Int, 0) }
                 start()
@@ -1946,8 +1964,14 @@ class MainActivity : Screen() {
                     card.dim(active)
                     if (loaded) card.load()
                 }
-                // The slide was clamped to the row's old end; with more cards in, the focused one can reach the start.
-                if (active && !grid) strip.post { if (active) { focus(selected); placeCaption() } }
+                if (active && !grid) strip.post {
+                    if (active) {
+                        placeCaption()
+                        val right = scroller.width - dp(PAD) / 2
+                        val beyond = cards.any { it.right - scroller.scrollX > right }
+                        moreHint.animate().alpha(if (beyond && mode == Mode.BROWSE && !page.isBrowse) 0.9f else 0f).setDuration(200).start()
+                    }
+                }
             }
         }
 
@@ -2348,7 +2372,8 @@ class MainActivity : Screen() {
         // Building every row's 25 cards at once held the main thread for over a second on a page switch (about 3.6 ms
         // a card), so the first row's posters, already decoded, didn't show until every row was made.
         const val FOCUS_ROOM = 8 // dp around the title block for a focused pill to grow into
-        const val START = 9
+        const val START = 14
+        const val START_WIDE = 8
         const val ROW_LATER = 350L // ms after a page opens before its rows out of sight are made
         const val ROW_STAGGER = 60L // ms between them
         const val PAGE = 12
