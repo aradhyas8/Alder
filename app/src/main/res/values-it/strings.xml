@@ -346,6 +346,17 @@
     <string name="updates_install">Installa %1$s  ›</string>
     <string name="updates_check_failed">Impossibile verificare · Riprova  ›</string>
     <string name="updates_up_to_date">Aggiornato</string>
+    <string name="report_problem">Segnala un problema</string>
+    <string name="report_problem_hint">Mostra cosa ha salvato Alder l’ultima volta che si è fermato. Copialo in una segnalazione dal telefono. Non viene inviato nulla.</string>
+    <string name="report_last">Ultimo arresto %1$s</string>
+    <string name="report_none">Alder non si è fermato su questa TV.</string>
+    <string name="report_scan">Scansiona con un telefono sulla stessa rete Wi-Fi di questa TV per copiare la segnalazione.</string>
+    <string name="report_no_network">Collega questa TV al Wi-Fi per copiare la segnalazione, o fotografala.</string>
+    <string name="report_page">Copia questa segnalazione e incollala in una issue di GitHub o in un post di Reddit.</string>
+    <string name="report_issues">Apri una issue su GitHub</string>
+    <string name="report_crashed_title">Alder si è fermato l’ultima volta</string>
+    <string name="report_crashed_desc">Alder ha salvato una segnalazione su questa TV. Non è stato inviato nulla. Mostrarla per copiarla sul telefono?</string>
+    <string name="report_show">Mostra segnalazione</string>
     <string name="this_profile">Questo profilo</string>
     <string name="nothing_hidden">Niente di nascosto</string>
     <string name="nothing_hidden_desc">I titoli che rimuovi da Continua a guardare compaiono qui.</string>

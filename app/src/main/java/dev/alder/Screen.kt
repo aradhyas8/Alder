@@ -539,6 +539,46 @@ abstract class Screen : Activity() {
         typeInstead.requestFocus()
     }
 
+    /**
+     * Settings › About › Report a problem, and Home after a crash: the TV's version and device and the last crash,
+     * shown here and served to a phone on the same Wi-Fi (PhoneEntry) to copy into a GitHub issue. Nothing is sent.
+     */
+    protected fun reportProblem() {
+        val report = Crashes.describe(this) + "\n" + (Crashes.last(this)?.let { "Last stop:\n$it" } ?: getString(R.string.report_none))
+        val dialog = android.app.Dialog(this).apply { requestWindowFeature(android.view.Window.FEATURE_NO_TITLE) }
+        val title = getString(R.string.report_problem)
+        val entry = runCatching {
+            PhoneEntry({ phoneEntryPage(title, getString(R.string.report_page), getString(R.string.report_issues), null, report) }) {}
+        }.getOrNull()
+        val back = currentFocus
+        dialog.setOnDismissListener { entry?.close(); back?.requestFocus() }
+        val close = chip(R.string.action_ok).apply { setOnClickListener { dialog.dismiss() } }
+        val url = entry?.url
+        dialog.setContentView(column(Gravity.CENTER,
+            text(title, BODY, bold = true),
+            text(if (url != null) R.string.report_scan else R.string.report_no_network, SMALL, color = TEXT_2)
+                .apply { gravity = Gravity.CENTER }.marginTop(8),
+            *listOfNotNull(url?.let {
+                ImageView(this).apply {
+                    setImageBitmap(qrBitmap(it, dp(160)))
+                    background = rounded(TEXT, 12)
+                    setPadding(dp(6), dp(6), dp(6), dp(6))
+                }.marginTop(14)
+            }).toTypedArray(),
+            // The first lines on the TV too, for a photo when the phone can't reach it.
+            text(report.lines().take(if (url != null) 7 else 14).joinToString("\n"), SMALL, color = TEXT_3).apply {
+                typeface = Typeface.MONOSPACE; maxLines = 14; ellipsize = android.text.TextUtils.TruncateAt.END
+            }.marginTop(12),
+            close.marginTop(14),
+        ).apply {
+            setPadding(dp(24), dp(22), dp(24), dp(20))
+            background = glassOver(this, 14)
+        })
+        dialog.show()
+        dialog.window?.apply { setBackgroundDrawable(android.graphics.drawable.ColorDrawable(0)); setLayout(dp(520), -2); setDimAmount(0.6f) }
+        close.requestFocus()
+    }
+
     /** Null animates loading; for countdowns set progress to fraction × max as time changes. */
     protected fun ring(fraction: Float? = null): ProgressBar = object : ProgressBar(this, null,
         // A countdown needs a style that keeps its progress; the default one is indeterminate-only and reads 0.

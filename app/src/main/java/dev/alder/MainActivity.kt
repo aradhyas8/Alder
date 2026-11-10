@@ -2412,6 +2412,11 @@ class MainActivity : Screen() {
      * version. Versions before this one kept no record, so an update is told from an install by the package's dates.
      */
     private fun whatsNewOnce() {
+        // Alder stopped since the last Home visit: offer the report once, before any "What's new".
+        if (Crashes.unseen(this)) return choose(getString(R.string.report_crashed_title),
+            listOf(getString(R.string.report_show), getString(R.string.action_later)), getString(R.string.report_crashed_desc)) {
+            if (it == 0) reportProblem()
+        }
         val prefs = getSharedPreferences("app", MODE_PRIVATE)
         val version = Updates.mine(this)
         val seen = prefs.getString("seenVersion", null)

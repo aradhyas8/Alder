@@ -343,6 +343,17 @@
     <string name="updates_install">Install %1$s  ›</string>
     <string name="updates_check_failed">Couldn\'t check · Try again  ›</string>
     <string name="updates_up_to_date">Up to date</string>
+    <string name="report_problem">Report a problem</string>
+    <string name="report_problem_hint">Shows what Alder saved the last time it stopped. Copy it into a report on your phone. Nothing is sent.</string>
+    <string name="report_last">Last stop %1$s</string>
+    <string name="report_none">Alder has not stopped on this TV.</string>
+    <string name="report_scan">Scan with a phone on the same Wi-Fi as this TV to copy the report.</string>
+    <string name="report_no_network">Connect this TV to Wi-Fi to copy the report, or take a photo of it.</string>
+    <string name="report_page">Copy this report and paste it into a GitHub issue or a Reddit post.</string>
+    <string name="report_issues">Open a GitHub issue</string>
+    <string name="report_crashed_title">Alder stopped last time</string>
+    <string name="report_crashed_desc">Alder saved a report on this TV. Nothing was sent. Show it, so you can copy it to your phone?</string>
+    <string name="report_show">Show report</string>
     <string name="this_profile">This profile</string>
     <string name="nothing_hidden">Nothing is hidden</string>
     <string name="nothing_hidden_desc">Titles you remove from Continue Watching show here.</string>

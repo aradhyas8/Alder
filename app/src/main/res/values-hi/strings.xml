@@ -342,6 +342,17 @@
     <string name="updates_install">%1$s इंस्टॉल करें  ›</string>
     <string name="updates_check_failed">जाँच नहीं हो सकी · फिर से कोशिश करें  ›</string>
     <string name="updates_up_to_date">अप टू डेट</string>
+    <string name="report_problem">समस्या की रिपोर्ट करें</string>
+    <string name="report_problem_hint">Alder पिछली बार रुकने पर जो सहेजा था, वह दिखाता है। इसे फ़ोन पर रिपोर्ट में कॉपी करें। कुछ भी भेजा नहीं जाता।</string>
+    <string name="report_last">पिछली बार रुका %1$s</string>
+    <string name="report_none">Alder इस टीवी पर नहीं रुका है।</string>
+    <string name="report_scan">रिपोर्ट कॉपी करने के लिए इस टीवी वाले Wi-Fi पर फ़ोन से स्कैन करें।</string>
+    <string name="report_no_network">रिपोर्ट कॉपी करने के लिए इस टीवी को Wi-Fi से जोड़ें, या इसकी फ़ोटो लें।</string>
+    <string name="report_page">यह रिपोर्ट कॉपी करें और GitHub issue या Reddit पोस्ट में पेस्ट करें।</string>
+    <string name="report_issues">GitHub issue खोलें</string>
+    <string name="report_crashed_title">Alder पिछली बार रुक गया था</string>
+    <string name="report_crashed_desc">Alder ने इस टीवी पर एक रिपोर्ट सहेजी है। कुछ भी भेजा नहीं गया। फ़ोन पर कॉपी करने के लिए इसे दिखाएँ?</string>
+    <string name="report_show">रिपोर्ट दिखाएँ</string>
     <string name="this_profile">यह प्रोफ़ाइल</string>
     <string name="nothing_hidden">कुछ भी छिपा नहीं है</string>
     <string name="nothing_hidden_desc">देखना जारी रखें से हटाए गए टाइटल यहाँ दिखते हैं।</string>

@@ -346,6 +346,17 @@
     <string name="updates_install">Instalar %1$s  ›</string>
     <string name="updates_check_failed">Não foi possível verificar · Tentar de novo  ›</string>
     <string name="updates_up_to_date">Em dia</string>
+    <string name="report_problem">Informar um problema</string>
+    <string name="report_problem_hint">Mostra o que o Alder salvou na última vez que parou. Copie para um relatório no seu celular. Nada é enviado.</string>
+    <string name="report_last">Última parada %1$s</string>
+    <string name="report_none">O Alder não parou nesta TV.</string>
+    <string name="report_scan">Escaneie com um celular na mesma rede Wi-Fi desta TV para copiar o relatório.</string>
+    <string name="report_no_network">Conecte esta TV ao Wi-Fi para copiar o relatório, ou tire uma foto dele.</string>
+    <string name="report_page">Copie este relatório e cole em uma issue do GitHub ou em um post do Reddit.</string>
+    <string name="report_issues">Abrir uma issue no GitHub</string>
+    <string name="report_crashed_title">O Alder parou da última vez</string>
+    <string name="report_crashed_desc">O Alder salvou um relatório nesta TV. Nada foi enviado. Mostrar para copiar no seu celular?</string>
+    <string name="report_show">Mostrar relatório</string>
     <string name="this_profile">Este perfil</string>
     <string name="nothing_hidden">Nada está oculto</string>
     <string name="nothing_hidden_desc">Os títulos que você remover de Continuar assistindo aparecem aqui.</string>

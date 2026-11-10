@@ -346,6 +346,17 @@
     <string name="updates_install">Installer %1$s  ›</string>
     <string name="updates_check_failed">Vérification impossible · Réessayer  ›</string>
     <string name="updates_up_to_date">À jour</string>
+    <string name="report_problem">Signaler un problème</string>
+    <string name="report_problem_hint">Affiche ce qu’Alder a enregistré lors de son dernier arrêt. Copiez-le dans un rapport sur votre téléphone. Rien n’est envoyé.</string>
+    <string name="report_last">Dernier arrêt %1$s</string>
+    <string name="report_none">Alder ne s’est pas arrêté sur ce téléviseur.</string>
+    <string name="report_scan">Scannez avec un téléphone sur le même Wi-Fi que ce téléviseur pour copier le rapport.</string>
+    <string name="report_no_network">Connectez ce téléviseur au Wi-Fi pour copier le rapport, ou prenez-le en photo.</string>
+    <string name="report_page">Copiez ce rapport et collez-le dans un ticket GitHub ou un message Reddit.</string>
+    <string name="report_issues">Ouvrir un ticket GitHub</string>
+    <string name="report_crashed_title">Alder s’est arrêté la dernière fois</string>
+    <string name="report_crashed_desc">Alder a enregistré un rapport sur ce téléviseur. Rien n’a été envoyé. L’afficher pour le copier sur votre téléphone ?</string>
+    <string name="report_show">Afficher le rapport</string>
     <string name="this_profile">Ce profil</string>
     <string name="nothing_hidden">Rien n’est masqué</string>
     <string name="nothing_hidden_desc">Les titres que vous retirez de Reprendre apparaissent ici.</string>

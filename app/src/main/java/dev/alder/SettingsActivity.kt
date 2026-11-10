@@ -588,6 +588,9 @@ class SettingsActivity : Screen() {
                     choose("Alder", listOf(getString(R.string.action_ok)), getString(R.string.about_desc)) {}
                 }
                 actionRow(getString(R.string.whats_new), getString(R.string.version, Updates.mine(this)), getString(R.string.whats_new_hint)) { whatsNew() }
+                val stopped = Crashes.lastTime(this).takeIf { it > 0 }
+                    ?.let { getString(R.string.report_last, android.text.format.DateFormat.getMediumDateFormat(this).format(java.util.Date(it))) }
+                actionRow(getString(R.string.report_problem), stopped ?: "", getString(R.string.report_problem_hint)) { reportProblem() }
                 var found: Updates.Release? = null
                 val value = actionRow(getString(R.string.updates), getString(R.string.updates_checking), getString(R.string.updates_hint)) {
                     found?.let(::installUpdate) ?: showGroup(Group.ABOUT)
