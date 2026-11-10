@@ -12,9 +12,9 @@ class App : android.app.Application() {
 }
 
 /**
- * The last time Alder stopped, kept on the TV only. Nothing is sent: Settings › About › Report a problem shows it, and a
- * phone on the same Wi-Fi can open it to copy into a report. Web addresses and long keys are removed before it is saved,
- * since add-on addresses carry debrid keys and stack messages can quote them.
+ * The last time Alder stopped. It leaves the TV only when the viewer selects Send report (on Home after the crash, or in
+ * Settings › About). Web addresses and long keys are removed before it is saved, since add-on addresses carry debrid
+ * keys and stack messages can quote them.
  */
 internal object Crashes {
     private fun file(c: Context) = File(c.noBackupFilesDir, "crash.txt")
@@ -33,14 +33,30 @@ internal object Crashes {
 
     fun lastTime(c: Context): Long = file(c).lastModified()
 
-    /** True once per crash: the next Home visit offers the report, then not again until Alder stops again. */
+    /** True once per crash: the next Home visit offers to send it, then not again until Alder stops again. */
     fun unseen(c: Context): Boolean {
         val prefs = c.getSharedPreferences("app", Context.MODE_PRIVATE)
         val at = lastTime(c)
-        if (at == 0L || prefs.getLong("crashSeen", 0) >= at) return false
+        if (!sendable(c) || prefs.getLong("crashSeen", 0) >= at) return false
         prefs.edit().putLong("crashSeen", at).apply()
         return true
     }
+
+    /** A crash is saved, not sent yet, and there is somewhere to send it. */
+    fun sendable(c: Context): Boolean {
+        val at = lastTime(c)
+        return ENDPOINT.isNotEmpty() && at > 0 && c.getSharedPreferences("app", Context.MODE_PRIVATE).getLong("crashSent", 0) < at
+    }
+
+    /** Posts the saved crash to the crash worker (crash-worker/), which files it as a GitHub issue. Blocks. */
+    fun send(c: Context) {
+        val report = last(c) ?: return
+        Http.post(ENDPOINT, report, timeoutMs = 15_000, headers = mapOf("X-Alder" to "1"))
+        c.getSharedPreferences("app", Context.MODE_PRIVATE).edit().putLong("crashSent", lastTime(c)).apply()
+    }
+
+    // The crash worker's address (crash-worker/README.md); empty hides Send report until it is deployed.
+    private const val ENDPOINT = ""
 
     /** Version, build, Android and device: enough to repeat a report, and nothing about the viewer. */
     fun describe(c: Context): String {

@@ -19,13 +19,6 @@ class CrashesTest {
         assertTrue(out.contains("ExoPlaybackExceptionWrapper"))
     }
 
-    @Test fun phonePageEscapesTheReport() {
-        val page = phoneEntryPage("Report a problem", "Copy this", "Open a GitHub issue", null, "at <init> & more")
-        assertTrue(page.contains("<textarea readonly"))
-        assertTrue(page.contains("at &lt;init&gt; &amp; more"))
-        assertTrue(page.contains("github.com/aradhyas8/Alder/issues/new"))
-    }
-
     @Test fun traceHasTheCauseAndStaysShort() {
         val error = RuntimeException("outer", IllegalArgumentException("inner"))
         val out = Crashes.trace(error)

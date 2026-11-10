@@ -90,24 +90,20 @@ internal fun lanAddress(): String? = runCatching {
 }.getOrNull()
 
 /** The phone's page: one box and a button, or a "saved" note, in the TV's language. Words are escaped. */
-internal fun phoneEntryPage(title: String, label: String, button: String, saved: String?, report: String? = null): String {
+internal fun phoneEntryPage(title: String, label: String, button: String, saved: String?): String {
     fun esc(s: String) = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
     // The House Lights tokens, as CSS.
     fun css(c: Int) = "rgba(${c shr 16 and 255},${c shr 8 and 255},${c and 255},${"%.2f".format(java.util.Locale.US, (c ushr 24) / 255f)})"
     val base = css(Screen.BASE); val text = css(Screen.TEXT); val text2 = css(Screen.TEXT_2)
     val edge = css(Screen.GLASS_EDGE); val glass = css(Screen.GLASS_EDGE or 0x10000000); val lamp = css(Screen.TUNGSTEN)
-    // A report to copy: plain http on the home network has no clipboard API, so the box selects itself on a tap.
-    val inner = if (report != null) "<p>${esc(label)}</p><textarea readonly rows=\"16\" onfocus=\"this.select()\">${esc(report)}</textarea>" +
-            "<a class=\"button\" href=\"https://github.com/aradhyas8/Alder/issues/new\">${esc(button)}</a>"
-        else if (saved != null) "<p>${esc(saved)}</p>"
+    val inner = if (saved != null) "<p>${esc(saved)}</p>"
         else "<form method=\"post\"><label>${esc(label)}<input name=\"text\" autocomplete=\"off\" autocapitalize=\"off\" " +
             "spellcheck=\"false\" autofocus></label><button>${esc(button)}</button></form>"
     return "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">" +
         "<title>${esc(title)}</title><style>body{margin:0;padding:32px 20px;background:$base;color:$text;" +
         "font:17px/1.4 system-ui,sans-serif}h1{font-size:22px;margin:0 0 20px}label{display:block;color:$text2}" +
-        "a.button{display:block;text-align:center;text-decoration:none;box-sizing:border-box}" +
-        "input,textarea{display:block;box-sizing:border-box;width:100%;margin:8px 0 16px;padding:14px;border-radius:10px;" +
+        "input{display:block;box-sizing:border-box;width:100%;margin:8px 0 16px;padding:14px;border-radius:10px;" +
         "border:1px solid $edge;background:$glass;color:$text;font:16px monospace}" +
-        "button,a.button{width:100%;padding:14px;border:0;border-radius:24px;background:$lamp;color:$base;font:600 17px system-ui}textarea{font:12px/1.4 monospace;white-space:pre}" +
+        "button{width:100%;padding:14px;border:0;border-radius:24px;background:$lamp;color:$base;font:600 17px system-ui}" +
         "</style></head><body><h1>${esc(title)}</h1>$inner</body></html>"
 }

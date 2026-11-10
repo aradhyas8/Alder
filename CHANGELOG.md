@@ -27,7 +27,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - **Alder website.** The House Lights website shows the TV app, setup steps, and a link to the latest APK.
 - Add an Alder website card image with the app screen and product text.
 <!-- Spotlight -->
-- **Report a problem.** Alder keeps a report of the last time it stopped. The report stays on your TV. Select **Settings → About → Report a problem**, then scan the code with a phone on the same Wi-Fi. Copy the report into a GitHub issue or a Reddit post. After Alder stops, Home asks one time to show the report.
+- **Send report.** When Alder stops, it saves the error on your TV. The next time Home opens, Alder asks to send a report. Select **Send report** or **No**. The report has the error, the Alder version and the TV model. It does not have your account details. To send it later, select **Settings → About → Send report**.
 
 ### Easier to use
 - **Gray subtitles.** You can show subtitles in gray. Gray is less bright than white on OLED and Mini LED TVs in a dark room. Select **Settings → Subtitles → Subtitle color → Gray**, or select **Gray** in the player.
