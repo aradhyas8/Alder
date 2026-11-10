@@ -31,6 +31,7 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.HttpDataSource
 import android.os.Looper
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.Renderer
 import androidx.media3.exoplayer.RendererCapabilities
@@ -44,6 +45,7 @@ import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.audio.ForwardingAudioSink
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.mp3.Mp3Extractor
 import androidx.media3.ui.CaptionStyleCompat
@@ -375,7 +377,11 @@ class PlayerActivity : Screen() {
                 out.addAll(wrapped)
             }
         }.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON) // ffmpeg after the TV's own decoders
-        player = ExoPlayer.Builder(this, renderers).build()
+        // Start after 2 s of video and 4 s after a stall, not 1 s and 2 s: big files stall again at once on 2 s.
+        val load = DefaultLoadControl.Builder().setBufferDurationsMs(DefaultLoadControl.DEFAULT_MIN_BUFFER_MS,
+            DefaultLoadControl.DEFAULT_MAX_BUFFER_MS, 2_000, 4_000)
+            .apply { bufferBytesFor(Runtime.getRuntime().maxMemory())?.let(::setTargetBufferBytes) }.build()
+        player = ExoPlayer.Builder(this, renderers).setLoadControl(load).build()
         val remembered = Settings.titleChoice(this, metaId)
         wantAudio = remembered?.audio ?: Settings.audioLanguage(this)
         subPref = Settings.subPref(this)
@@ -982,6 +988,11 @@ class PlayerActivity : Screen() {
         val now = System.currentTimeMillis()
         stalls.addLast(now)
         while (stalls.first() < now - 60_000) stalls.removeFirst()
+        // Download speed against the file's bitrate tells a slow link (speed below bitrate) from a short buffer.
+        val size = sources.getOrNull(at)?.size ?: 0L
+        val fileKbps = if (size > 0 && player.duration > 0) size * 8 / player.duration else -1
+        android.util.Log.i("Alder", "stall: download ${DefaultBandwidthMeter.getSingletonInstance(this).bitrateEstimate / 1000} kbps, " +
+            "file $fileKbps kbps, buffered ${player.totalBufferedDuration} ms, heap ${Runtime.getRuntime().maxMemory() shr 20} MB")
         val height = sources[at].height
         if (stalls.size != 3 || offeringLower || upNextPanel.visibility == View.VISIBLE || lowerSourceHeight(height) == null) return
         showStall(height)
@@ -3067,4 +3078,14 @@ internal fun resizeModeFor(fit: String) = when (fit) {
     "zoom" -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
     "stretch" -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
     else -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+}
+
+/**
+ * The buffer's size limit for the memory Android gives Alder ([maxHeap], bytes), or null for Media3's own (about 131 MB:
+ * 10 to 17 s of a 4K remux). With the large heap (512 MB on most TV boxes) the buffer can use up to 200 MB, and
+ * 250 MB stays free for decoders, pictures and screens. As NuvioTV does it.
+ */
+internal fun bufferBytesFor(maxHeap: Long): Int? {
+    val mb = 1024L * 1024
+    return (maxHeap - 250 * mb).coerceAtMost(200 * mb).takeIf { it > DefaultLoadControl.DEFAULT_VIDEO_BUFFER_SIZE }?.toInt()
 }
