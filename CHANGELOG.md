@@ -26,6 +26,8 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - **Letterboxd ratings.** Alder can show the Letterboxd rating of a film next to the IMDb rating, or in its place. Select **Settings → Profile → Ratings**. Letterboxd ratings need a free MDBList key. Select **MDBList key** and scan the code with your phone, then paste the key on the phone. Shows always use IMDb.
 - **Alder website.** The House Lights website shows the TV app, setup steps, and a link to the latest APK.
 - Add an Alder website card image with the app screen and product text.
+<!-- Spotlight -->
+- **Report a problem.** Alder keeps a report of the last time it stopped. The report stays on your TV. Select **Settings → About → Report a problem**, then scan the code with a phone on the same Wi-Fi. Copy the report into a GitHub issue or a Reddit post. After Alder stops, Home asks one time to show the report.
 
 ### Easier to use
 - **Gray subtitles.** You can show subtitles in gray. Gray is less bright than white on OLED and Mini LED TVs in a dark room. Select **Settings → Subtitles → Subtitle color → Gray**, or select **Gray** in the player.
@@ -41,6 +43,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - **Missing sources.** The source list tells you which add-ons gave no sources, and why. Before, Alder told you only when no source was available. An add-on that finds only torrents needs a debrid service.
 - **Backups.** Alder does not put profiles, sign-ins, or PINs in Android backups or device transfers. After a restore to a new TV, sign in to each profile again.
 - **Android 6 and 7.** Alder starts on Android 6 and 7 TVs. Before, Alder closed and the TV showed the home screen.
+- **Start after a downgrade.** Alder starts when you install an older version over a newer one. Before, Alder closed at start and the TV showed the home screen.
 
 ## 1.3.1
 

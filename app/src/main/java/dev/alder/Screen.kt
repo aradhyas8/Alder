@@ -544,7 +544,12 @@ abstract class Screen : Activity() {
      * shown here and served to a phone on the same Wi-Fi (PhoneEntry) to copy into a GitHub issue. Nothing is sent.
      */
     protected fun reportProblem() {
-        val report = Crashes.describe(this) + "\n" + (Crashes.last(this)?.let { "Last stop:\n$it" } ?: getString(R.string.report_none))
+        val now = Crashes.describe(this)
+        val crash = Crashes.last(this)
+        val report = now + "\n" + (crash?.let { "Last stop:\n$it" } ?: getString(R.string.report_none))
+        // The TV shows the device and the error itself; the phone gets the whole trace.
+        val preview = now.lines().take(3) + (crash?.substringAfter("Thread: ", "")?.lines()?.drop(1)?.take(4)
+            ?: listOf(getString(R.string.report_none)))
         val dialog = android.app.Dialog(this).apply { requestWindowFeature(android.view.Window.FEATURE_NO_TITLE) }
         val title = getString(R.string.report_problem)
         val entry = runCatching {
@@ -566,8 +571,8 @@ abstract class Screen : Activity() {
                 }.marginTop(14)
             }).toTypedArray(),
             // The first lines on the TV too, for a photo when the phone can't reach it.
-            text(report.lines().take(if (url != null) 7 else 14).joinToString("\n"), SMALL, color = TEXT_3).apply {
-                typeface = Typeface.MONOSPACE; maxLines = 14; ellipsize = android.text.TextUtils.TruncateAt.END
+            text(preview.joinToString("\n"), SMALL, color = TEXT_3).apply {
+                typeface = Typeface.MONOSPACE; maxLines = 8; ellipsize = android.text.TextUtils.TruncateAt.END
             }.marginTop(12),
             close.marginTop(14),
         ).apply {
