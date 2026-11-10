@@ -30,6 +30,8 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - **Alder website.** The site shows the app screens and makes the download and setup steps easy to find.
 
 ### Fixes
+<!-- Spotlight -->
+- **Large files.** Large files, such as 4K remuxes, stop less often to load. On most TVs, Alder now keeps up to 200 MB of the video ready. Before, Alder kept approximately 131 MB, which is only 10 to 17 seconds of a remux. After a stop, Alder waits for 4 seconds of video before it starts again.
 - **Long rows.** Alder releases poster memory for titles far off the screen. Rows stay fast when you move through many titles.
 - **Rows.** Each row on Shows and Movies keeps its own place. Before, a move to the next row went to the same position as in the last row.
 - **Smooth row motion.** Rows move smoothly when you move right fast. Live rows move at the same speed as poster rows. Background art waits until you stop on a title.
