@@ -169,6 +169,7 @@
     <string name="tab_sync_style">Timing und Stil</string>
     <string name="subtitle_timing_heading">Untertitel-Timing · %1$s</string>
     <string name="color_white">Weiß</string>
+    <string name="color_gray">Grau</string>
     <string name="color_yellow">Gelb</string>
     <string name="color_cyan">Cyan</string>
     <string name="color_cream">Creme</string>

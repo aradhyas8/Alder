@@ -173,6 +173,7 @@
     <string name="tab_sync_style">Sincro e stile</string>
     <string name="subtitle_timing_heading">Sincro sottotitoli · %1$s</string>
     <string name="color_white">Bianco</string>
+    <string name="color_gray">Grigio</string>
     <string name="color_yellow">Giallo</string>
     <string name="color_cyan">Ciano</string>
     <string name="color_cream">Crema</string>

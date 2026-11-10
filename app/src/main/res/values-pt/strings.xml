@@ -173,6 +173,7 @@
     <string name="tab_sync_style">Sincronia e estilo</string>
     <string name="subtitle_timing_heading">Sincronia das legendas · %1$s</string>
     <string name="color_white">Branco</string>
+    <string name="color_gray">Cinza</string>
     <string name="color_yellow">Amarelo</string>
     <string name="color_cyan">Ciano</string>
     <string name="color_cream">Creme</string>

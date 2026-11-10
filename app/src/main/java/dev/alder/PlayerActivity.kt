@@ -2156,6 +2156,7 @@ class PlayerActivity : Screen() {
 
         val colors = listOf(
             "white" to getString(R.string.color_white),
+            "gray" to getString(R.string.color_gray),
             "yellow" to getString(R.string.color_yellow),
             "cyan" to getString(R.string.color_cyan),
             "cream" to getString(R.string.color_cream),

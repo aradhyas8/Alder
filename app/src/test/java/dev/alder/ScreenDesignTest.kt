@@ -553,6 +553,7 @@ class ScreenDesignTest {
 
     @Test fun subtitleColorResolvesCorrectly() {
         assertEquals(0xFFFFFFFF.toInt(), subtitleColorValue("white"))
+        assertEquals(0xFFBFBFBF.toInt(), subtitleColorValue("gray"))
         assertEquals(0xFFFFE600.toInt(), subtitleColorValue("yellow"))
         assertEquals(0xFF00FFFF.toInt(), subtitleColorValue("cyan"))
         assertEquals(0xFFFFF5C0.toInt(), subtitleColorValue("cream"))

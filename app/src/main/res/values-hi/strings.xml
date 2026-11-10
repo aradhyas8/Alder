@@ -169,6 +169,7 @@
     <string name="tab_sync_style">सिंक और स्टाइल</string>
     <string name="subtitle_timing_heading">सबटाइटल टाइमिंग · %1$s</string>
     <string name="color_white">सफ़ेद</string>
+    <string name="color_gray">ग्रे</string>
     <string name="color_yellow">पीला</string>
     <string name="color_cyan">सियान</string>
     <string name="color_cream">क्रीम</string>
