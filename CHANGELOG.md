@@ -33,6 +33,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - **Send report.** When Alder stops, it saves the error on your TV. The next time Home opens, Alder asks to send a report. Select **Send report** or **No**. The report has the error, the Alder version and the TV model. It does not have your account details. To send it later, select **Settings → About → Send report**.
 
 ### Easier to use
+- **Change stream keeps your video.** When you select **Change stream**, the video stops and stays behind the source list. Press Back to continue from the same picture without a new load. Select a different source to play it from the same second.
 <!-- Spotlight -->
 - **Smooth motion.** Screens fade and settle when they open and close. When you select **Play**, the screen dims to black and the video fades up. A title page opens with its picture moving slowly into place. Focus settles with a small bounce. Panels open fast and close faster. To turn off motion, set the TV to **Remove animations** in its accessibility settings.
 - **Gray subtitles.** You can show subtitles in gray. Gray is less bright than white on OLED and Mini LED TVs in a dark room. Select **Settings → Subtitles → Subtitle color → Gray**, or select **Gray** in the player.

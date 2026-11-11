@@ -906,6 +906,7 @@ class PlayerActivity : Screen() {
     @Deprecated("Activity result API")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == SOURCES_REQUEST) return sourcesClosed(resultCode, data)
         if (requestCode != ExternalPlayer.REQUEST) return
         val (position, told) = ExternalPlayer.result(data)
         val item = item
@@ -2023,13 +2024,31 @@ class PlayerActivity : Screen() {
     private var toldUnseekable = false
 
     /** The source list for this video, from this second; the player closes, and a pick starts a new one. */
+    /**
+     * The source list over a paused player, not in its place: Back comes back to the same picture at once, with no
+     * reload (a debrid link can expire meanwhile, and a file that can't seek would restart at 0:00). A source picked
+     * there comes back in [onActivityResult] and plays from the same second.
+     */
     private fun changeStream() {
-        startActivity(Intent(this, StreamsActivity::class.java).putExtras(intent).apply {
+        playAfterSources = player.playWhenReady
+        player.pause()
+        startActivityForResult(Intent(this, StreamsActivity::class.java).putExtras(intent).apply {
             removeExtra("picked"); removeExtra("maxHeight")
-            putExtra("pick", true)
+            putExtra("pick", true); putExtra("fromPlayer", true)
             if (!player.isCurrentMediaItemLive) putExtra("resumeAt", player.currentPosition)
-        })
-        finish()
+        }, SOURCES_REQUEST)
+    }
+    private var playAfterSources = false
+
+    /** Back from the source list: the picked source at the same second, or the paused one as it was. */
+    private fun sourcesClosed(resultCode: Int, data: Intent?) {
+        val picked = data?.getStringExtra("sources")?.takeIf { resultCode == RESULT_OK }
+        if (picked == null) { if (playAfterSources) player.play(); return }
+        sources = JSONArray(picked).objects().map(Stream::read)
+        at = 0
+        intent.putExtra("picked", true) // as before: if it fails, say so and offer the list again
+        dismissStall()
+        load(if (player.isCurrentMediaItemLive) 0L else position())
     }
 
     // ---------- playback options, after design/player-options-cinematic-minimal-glass.png ----------
@@ -3006,6 +3025,7 @@ class PlayerActivity : Screen() {
     }
 
     private companion object {
+        const val SOURCES_REQUEST = 42
         const val TICK = 10_000L
         const val RESUME_SLACK = 10_000L // how far apart the saved and fresh resume points may be before it jumps
         const val SKIP = 10_000L // ms a Left/Right press on the bar moves
