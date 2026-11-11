@@ -101,8 +101,12 @@ object Stremio {
     }
 
     /** The account behind a sign-in: each sign-in has its own auth key, so two keys can be the same account. */
-    fun userId(authKey: String): String =
-        result(post("getUser", JSONObject().put("type", "GetUser").put("authKey", authKey))).getString("_id")
+    fun userId(authKey: String): String = user(authKey).getString("_id")
+
+    /** The account's address, so the setup check can say which account this TV uses; null if Stremio has none. */
+    fun email(authKey: String): String? = user(authKey).optString("email").ifBlank { null }
+
+    private fun user(authKey: String) = result(post("getUser", JSONObject().put("type", "GetUser").put("authKey", authKey)))
 
     fun logout(authKey: String) {
         addonsCache.remove(authKey)

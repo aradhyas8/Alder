@@ -521,4 +521,20 @@
     <string name="profiles_watchly_steps">"1.  Scan with %1$s's phone to open Watchly\n2.  Connect %1$s's Stremio account there\n3.  Install it to %1$s's Stremio account\n\n%1$s's own \"Top Picks\" then show up on Home. You can finish this later."</string>
     <string name="profiles_all_set">You\'re all set</string>
     <string name="profiles_ready">%1$s\'s profile is ready. You can add more add-ons later in Settings.</string>
+    <string name="setup_check">Check setup</string>
+    <string name="setup_check_hint">Test that your add-ons can play video on this TV.</string>
+    <string name="setup_checking">Checking your add-ons</string>
+    <string name="setup_checking_desc">Alder asks each stream add-on for a well-known film, to see that something can play on this TV.</string>
+    <string name="setup_account">Signed in to Stremio as %1$s</string>
+    <string name="setup_account_apple">Signed in to Stremio with Apple (%1$s)</string>
+    <string name="setup_problem">Nothing can play yet</string>
+    <string name="setup_no_addons">Your add-ons show titles, but none of them finds video. For that, the account needs a stream add-on.</string>
+    <string name="setup_other_account">Add-ons belong to one Stremio account. If another device shows add-ons that are not here, that device uses a different account.</string>
+    <string name="setup_scan_addons">Scan with your phone to add a stream add-on</string>
+    <string name="setup_scan_addons_steps">Install one in Stremio there, signed in to this account. Then select Try again.</string>
+    <string name="setup_use_other_account">Use another account</string>
+    <string name="setup_nothing_played">Alder asked your add-ons for a well-known film. Nothing they found can play on this TV.</string>
+    <string name="setup_ready">Ready to play</string>
+    <string name="setup_ready_desc">%1$s found video for a test film. Titles you pick can play on this TV.</string>
+    <string name="setup_done">Done</string>
 </resources>

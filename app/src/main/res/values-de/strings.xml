@@ -520,4 +520,20 @@
     <string name="profiles_watchly_steps">"1.  Mit dem Handy von %1$s scannen, um Watchly zu öffnen\n2.  Dort das Stremio-Konto von %1$s verbinden\n3.  Im Stremio-Konto von %1$s installieren\n\nDanach erscheinen die eigenen Top-Tipps von %1$s auf Start. Du kannst das später abschließen."</string>
     <string name="profiles_all_set">Alles bereit</string>
     <string name="profiles_ready">Das Profil von %1$s ist bereit. Weitere Add-ons kannst du später in den Einstellungen hinzufügen.</string>
+    <string name="setup_check">Einrichtung prÃ¼fen</string>
+    <string name="setup_check_hint">PrÃ¼ft, ob deine Add-ons auf diesem Fernseher Videos abspielen kÃ¶nnen.</string>
+    <string name="setup_checking">Deine Add-ons werden geprÃ¼ft</string>
+    <string name="setup_checking_desc">Alder fragt jedes Stream-Add-on nach einem bekannten Film, um zu sehen, ob auf diesem Fernseher etwas abspielbar ist.</string>
+    <string name="setup_account">Bei Stremio angemeldet als %1$s</string>
+    <string name="setup_account_apple">Bei Stremio mit Apple angemeldet (%1$s)</string>
+    <string name="setup_problem">Noch ist nichts abspielbar</string>
+    <string name="setup_no_addons">Deine Add-ons zeigen Titel, aber keines findet Videos. DafÃ¼r braucht das Konto ein Stream-Add-on.</string>
+    <string name="setup_other_account">Add-ons gehÃ¶ren zu einem Stremio-Konto. Zeigt ein anderes GerÃ¤t Add-ons, die hier fehlen, nutzt dieses GerÃ¤t ein anderes Konto.</string>
+    <string name="setup_scan_addons">Mit dem Handy scannen, um ein Stream-Add-on hinzuzufÃ¼gen</string>
+    <string name="setup_scan_addons_steps">Installiere dort eines in Stremio, angemeldet mit diesem Konto. WÃ¤hle dann Erneut versuchen.</string>
+    <string name="setup_use_other_account">Anderes Konto verwenden</string>
+    <string name="setup_nothing_played">Alder hat deine Add-ons nach einem bekannten Film gefragt. Nichts davon ist auf diesem Fernseher abspielbar.</string>
+    <string name="setup_ready">Bereit zum Abspielen</string>
+    <string name="setup_ready_desc">%1$s hat Videos fÃ¼r einen Testfilm gefunden. Titel, die du wÃ¤hlst, sind auf diesem Fernseher abspielbar.</string>
+    <string name="setup_done">Fertig</string>
 </resources>

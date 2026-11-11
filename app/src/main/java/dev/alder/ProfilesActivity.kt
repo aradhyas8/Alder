@@ -31,14 +31,18 @@ class ProfilesActivity : Screen() {
     private var nameInput: EditText? = null
     // Where Back goes from the profile menu's screens (PIN, rename); null elsewhere.
     private var backTo: (() -> Unit)? = null
+    private var checkGeneration = 0 // a setup check's answers count only while it's the newest one
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val profiles = Profiles.all(this)
         // Home found this profile signed out: straight to its sign-in, the profile and its settings kept.
         val again = intent.getStringExtra("signIn")?.let { id -> profiles.firstOrNull { it.id == id } }
+        val active = Profiles.active(this)
         when {
             again != null -> showSignIn(again.name, again)
+            // Settings › Add-ons › Check setup, or a Sources page with no stream add-on.
+            intent.getBooleanExtra("check", false) && active != null -> showCheck(active, quiet = false, of = null, andThen = ::finish)
             profiles.isEmpty() -> showName()
             profiles.size == 1 && !intent.getBooleanExtra("pick", false) -> enter(profiles[0])
             else -> showPicker()
@@ -688,9 +692,97 @@ class ProfilesActivity : Screen() {
         draftColor = Profiles.COLORS[0]
         // Each profile brings its own add-ons (stream add-ons are shared in Settings, never copied);
         // the others' lists only tell where Watchly lives, so the new profile can set up its own.
-        if (others.isEmpty()) openHome(profile)
-        else background({ others.flatMap { runCatching { Stremio.addons(it.authKey) }.getOrDefault(emptyList()) } }) {
-            showWatchly(profile, it.getOrDefault(emptyList()))
+        // The setup check runs first, as the end of the sign-in step: it shows only when something can't play.
+        showCheck(profile, quiet = true, of = 2 to if (others.isEmpty()) 2 else 3) {
+            if (others.isEmpty()) openHome(profile)
+            else background({ others.flatMap { runCatching { Stremio.addons(it.authKey) }.getOrDefault(emptyList()) } }) {
+                showWatchly(profile, it.getOrDefault(emptyList()))
+            }
+        }
+    }
+
+    // ---------- setup check ----------
+
+    /**
+     * Asks each stream add-on for a well-known title (see SetupCheck.kt) and says what stops it from playing: one
+     * problem, with one QR code to fix it on a phone. [quiet]: in setup, a check that passes goes on to [next] without
+     * showing "Ready to play". [of]: the setup step it belongs to, or null outside setup.
+     */
+    private fun showCheck(profile: Profile, quiet: Boolean, of: Pair<Int, Int>?, andThen: () -> Unit) {
+        val generation = ++checkGeneration
+        // Leaving ends the check, so a late answer can't move on a second time.
+        val next = { if (generation == checkGeneration) { ++checkGeneration; andThen() } }
+        backTo = next
+        val done = onboardingButton(getString(if (of != null) R.string.profiles_continue_to_alder else R.string.setup_done))
+            .apply { setOnClickListener { next() } }
+        val again = onboardingButton(getString(R.string.action_try_again))
+            .apply { setOnClickListener { showCheck(profile, quiet = false, of = of, andThen = andThen) } }
+        fun draw(heading: Int, account: String?, lines: List<String>, code: View?, vararg buttons: View) {
+            if (generation != checkGeneration) return
+            val right = column(Gravity.START, text(heading, SERIF_TITLE, serif = true))
+            account?.let { right.addView(text(it, SMALL, color = TEXT_3).marginTop(8)) }
+            lines.forEach { right.addView(text(it, BODY, color = TEXT_2).marginTop(12)) }
+            code?.let { right.addView(it, LinearLayout.LayoutParams(-1, -2)) }
+            if (buttons.isNotEmpty()) right.addView(LinearLayout(this).apply {
+                buttons.forEachIndexed { i, b -> addView(b, wrap().apply { if (i > 0) marginStart = dp(12) }) }
+            }.marginTop(24))
+            val portrait = column(Gravity.CENTER,
+                onboardingAvatar(profile.name.take(1).uppercase(), 100, profile.color),
+                text(profile.name, SERIF_TITLE, serif = true).marginTop(12)
+            ).apply { gravity = Gravity.CENTER }
+            setWindowed(onboardingFrame(of?.let { step(it.first, it.second) }.orEmpty(), of?.first ?: 0, of?.second ?: 0,
+                portrait, right.apply { gravity = Gravity.CENTER_VERTICAL }, dp(55), 0.9f, 1.1f), onboardingBackdrop())
+            buttons.firstOrNull()?.requestFocus()
+        }
+        draw(R.string.setup_checking, null, listOf(getString(R.string.setup_checking_desc)), null)
+        val tv = Device.of(this)
+        background({
+            val lent = Profiles.streamLenders(this, profile)
+                .flatMap { runCatching { Stremio.addons(it.authKey) }.getOrDefault(emptyList()) }
+            val email = runCatching { Stremio.email(profile.authKey) }.getOrNull()
+            // Shared ones first, then the profile's own; not Stremio's own or personal ones (MyTrakt declares streams).
+            email to (lent + Stremio.addons(profile.authKey, refresh = true)).filter { it.shareable }.distinctBy { it.id }
+        }) { result ->
+            val (email, addons) = result.getOrElse {
+                return@background draw(R.string.setup_checking, null, listOf(getString(R.string.home_unreachable)), null, again, done)
+            }
+            val account = email?.let { getString(if (appleRelay(it)) R.string.setup_account_apple else R.string.setup_account, it) }
+            fun ready(names: List<String>) = if (quiet) next()
+                else draw(R.string.setup_ready, account, listOf(getString(R.string.setup_ready_desc, names.joinToString(", "))), null, done)
+            if (addons.isEmpty()) return@background draw(R.string.setup_problem, account,
+                listOf(getString(R.string.setup_no_addons), getString(R.string.setup_other_account)),
+                setupCode(STREMIO_ADDONS, getString(R.string.setup_scan_addons), getString(R.string.setup_scan_addons_steps)),
+                again, onboardingButton(getString(R.string.setup_use_other_account)).apply {
+                    setOnClickListener { showSignIn(profile.name, profile) }
+                }, done)
+            // ponytail: an add-on that knows neither test title (anime only) can't be tested here, so it passes.
+            val tested = addons.mapNotNull { a -> setupProbe { type, id -> a.serves("stream", type, id) }?.let { a to it } }
+            if (tested.isEmpty()) return@background ready(addons.map { it.name })
+            val failures = arrayOfNulls<Throwable>(tested.size)
+            val torrents = IntArray(tested.size)
+            val links = IntArray(tested.size)
+            val playable = IntArray(tested.size)
+            var unplayable = 0
+            var answered = 0
+            tested.forEachIndexed { i, (addon, probe) ->
+                background({ addon.streams(probe.first, probe.second) }) { answer ->
+                    if (generation != checkGeneration) return@background
+                    answer.onSuccess { s ->
+                        torrents[i] = s.torrents
+                        links[i] = s.links
+                        playable[i] = s.playable.count { it.isVideo && it.playableOn(tv) }
+                        unplayable += s.playable.count { it.isVideo && !it.playableOn(tv) }
+                    }.onFailure { failures[i] = it; android.util.Log.w("Alder", "setup check: ${addon.name} failed", it) }
+                    if (++answered < tested.size) return@background
+                    val names = tested.map { it.first.name }
+                    val working = names.filterIndexed { n, _ -> playable[n] > 0 }
+                    if (working.isNotEmpty()) return@background ready(working)
+                    val fix = fixableAddon(tested.map { it.first.configureUrl != null }, failures, torrents)
+                    draw(R.string.setup_problem, account,
+                        listOf(getString(R.string.setup_nothing_played)) + noSourceReasons(names, failures, torrents, links, unplayable, sourceWords),
+                        fix?.let { setupCode(tested[it].first, torrentsOnly = failures[it] == null) }, again, done)
+                }
+            }
         }
     }
 
@@ -734,5 +826,7 @@ class ProfilesActivity : Screen() {
     private companion object {
         const val LIFT_ROOM = 8 // dp above the portraits for the focused one's 10% lift and ring
         const val KEY_H = 25 // dp a key row on the name step, so Continue fits under the colours
+        // Stremio's own add-on catalogue: installing there adds to the account this TV reads.
+        const val STREMIO_ADDONS = "https://web.stremio.com/#/addons"
     }
 }

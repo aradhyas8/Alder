@@ -527,4 +527,20 @@
     <string name="profiles_watchly_steps">"1.  Scannez avec le téléphone de %1$s pour ouvrir Watchly\n2.  Connectez-y le compte Stremio de %1$s\n3.  Installez-la sur le compte Stremio de %1$s\n\nLes sélections de %1$s apparaîtront ensuite sur l’Accueil. Vous pouvez terminer plus tard."</string>
     <string name="profiles_all_set">Tout est prêt</string>
     <string name="profiles_ready">Le profil de %1$s est prêt. Vous pourrez ajouter d’autres extensions plus tard dans Paramètres.</string>
+    <string name="setup_check">VÃ©rifier la configuration</string>
+    <string name="setup_check_hint">VÃ©rifiez que vos extensions peuvent lire une vidÃ©o sur ce tÃ©lÃ©viseur.</string>
+    <string name="setup_checking">VÃ©rification de vos extensions</string>
+    <string name="setup_checking_desc">Alder demande un film connu Ã  chaque extension de streaming, pour voir si quelque chose peut Ãªtre lu sur ce tÃ©lÃ©viseur.</string>
+    <string name="setup_account">ConnectÃ© Ã  Stremio en tant que %1$s</string>
+    <string name="setup_account_apple">ConnectÃ© Ã  Stremio avec Apple (%1$s)</string>
+    <string name="setup_problem">Rien ne peut encore Ãªtre lu</string>
+    <string name="setup_no_addons">Vos extensions affichent des titres, mais aucune ne trouve de vidÃ©o. Pour cela, le compte a besoin dâ€™une extension de streaming.</string>
+    <string name="setup_other_account">Les extensions appartiennent Ã  un seul compte Stremio. Si un autre appareil affiche des extensions absentes ici, cet appareil utilise un autre compte.</string>
+    <string name="setup_scan_addons">Scannez avec votre tÃ©lÃ©phone pour ajouter une extension de streaming</string>
+    <string name="setup_scan_addons_steps">Installez-en une dans Stremio, connectÃ© Ã  ce compte. SÃ©lectionnez ensuite RÃ©essayer.</string>
+    <string name="setup_use_other_account">Utiliser un autre compte</string>
+    <string name="setup_nothing_played">Alder a demandÃ© un film connu Ã  vos extensions. Rien de ce quâ€™elles ont trouvÃ© ne peut Ãªtre lu sur ce tÃ©lÃ©viseur.</string>
+    <string name="setup_ready">PrÃªt Ã  lire</string>
+    <string name="setup_ready_desc">%1$s a trouvÃ© une vidÃ©o pour un film test. Les titres que vous choisissez peuvent Ãªtre lus sur ce tÃ©lÃ©viseur.</string>
+    <string name="setup_done">TerminÃ©</string>
 </resources>

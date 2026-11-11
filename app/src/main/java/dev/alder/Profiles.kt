@@ -68,9 +68,9 @@ object Profiles {
 
     fun setSharesStreams(context: Context, id: String, on: Boolean) = prefs(context).edit().putBoolean("shareStreams:$id", on).apply()
 
-    /** The other profiles lending their stream add-ons to the active one; watch progress still uses the active account. */
-    fun streamLenders(context: Context): List<Profile> {
-        val current = active(context) ?: return emptyList()
+    /** The other profiles lending their stream add-ons to [current]; watch progress still uses [current]'s account. */
+    fun streamLenders(context: Context, current: Profile? = active(context)): List<Profile> {
+        current ?: return emptyList()
         return all(context).filter { it.id != current.id && sharesStreams(context, it.id) }
     }
 

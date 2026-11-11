@@ -527,4 +527,20 @@
     <string name="profiles_watchly_steps">"1.  Escaneie com o celular de %1$s para abrir o Watchly\n2.  Conecte lá a conta do Stremio de %1$s\n3.  Instale-o na conta do Stremio de %1$s\n\nAs sugestões de %1$s vão aparecer no Início. Você pode terminar isso depois."</string>
     <string name="profiles_all_set">Tudo pronto</string>
     <string name="profiles_ready">O perfil de %1$s está pronto. Você pode adicionar mais complementos depois em Configurações.</string>
+    <string name="setup_check">Verificar configuraÃ§Ã£o</string>
+    <string name="setup_check_hint">Teste se os seus complementos conseguem reproduzir vÃ­deo nesta TV.</string>
+    <string name="setup_checking">Verificando os seus complementos</string>
+    <string name="setup_checking_desc">O Alder pede a cada complemento de streaming um filme conhecido, para ver se algo pode ser reproduzido nesta TV.</string>
+    <string name="setup_account">Conectado ao Stremio como %1$s</string>
+    <string name="setup_account_apple">Conectado ao Stremio com a Apple (%1$s)</string>
+    <string name="setup_problem">Nada pode ser reproduzido ainda</string>
+    <string name="setup_no_addons">Os seus complementos mostram tÃ­tulos, mas nenhum encontra vÃ­deo. Para isso, a conta precisa de um complemento de streaming.</string>
+    <string name="setup_other_account">Os complementos pertencem a uma conta do Stremio. Se outro dispositivo mostra complementos que nÃ£o estÃ£o aqui, esse dispositivo usa outra conta.</string>
+    <string name="setup_scan_addons">Escaneie com o celular para adicionar um complemento de streaming</string>
+    <string name="setup_scan_addons_steps">Instale um no Stremio lÃ¡, conectado a esta conta. Depois selecione Tentar de novo.</string>
+    <string name="setup_use_other_account">Usar outra conta</string>
+    <string name="setup_nothing_played">O Alder pediu aos seus complementos um filme conhecido. Nada do que encontraram pode ser reproduzido nesta TV.</string>
+    <string name="setup_ready">Pronto para reproduzir</string>
+    <string name="setup_ready_desc">%1$s encontrou vÃ­deo para um filme de teste. Os tÃ­tulos que vocÃª escolher podem ser reproduzidos nesta TV.</string>
+    <string name="setup_done">ConcluÃ­do</string>
 </resources>

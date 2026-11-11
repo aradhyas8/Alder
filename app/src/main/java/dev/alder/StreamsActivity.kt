@@ -166,7 +166,12 @@ class StreamsActivity : Screen() {
             }
             if (addons.isEmpty()) {
                 status.text = getString(if (anyStreams) R.string.streams_none_for_kind else R.string.streams_no_addons)
-                return@background tryAgain()
+                tryAgain()
+                // No stream add-on at all: the setup check says which account this is and how to add one.
+                if (!anyStreams) rows.addView(pill(R.string.setup_check).apply {
+                    setOnClickListener { startActivity(Intent(this@StreamsActivity, ProfilesActivity::class.java).putExtra("check", true)) }
+                }, wrap().apply { marginStart = dp(12); bottomMargin = dp(12) })
+                return@background
             }
             val answers = arrayOfNulls<List<Stream>>(addons.size)
             // Why an add-on gave nothing to play, so an empty list can say so instead of blaming the TV.
@@ -209,9 +214,7 @@ class StreamsActivity : Screen() {
                         LinearLayout.LayoutParams(-1, -2))
                 }
                 // The first add-on a phone can fix: it found only torrents (no debrid service yet) or refused its key.
-                addons.indices.firstOrNull { i ->
-                    addons[i].configureUrl != null && (failures[i]?.let(::refusedKey) ?: (torrents[i] > 0))
-                }?.let { i -> setupCode(addons[i], torrentsOnly = failures[i] == null)?.let { rows.addView(it, LinearLayout.LayoutParams(-1, -2)) } }
+                fixableAddon(addons.map { it.configureUrl != null }, failures, torrents)?.let { i -> setupCode(addons[i], torrentsOnly = failures[i] == null)?.let { rows.addView(it, LinearLayout.LayoutParams(-1, -2)) } }
                 if (shown.isEmpty()) tryAgain(focusList) else if (focusList) rows.getChildAt(0).requestFocus()
             }
             fun showList() {
@@ -304,28 +307,6 @@ class StreamsActivity : Screen() {
         Locale(code).getDisplayLanguage(Locale.getDefault()).ifBlank { code }.replaceFirstChar { it.titlecase(Locale.getDefault()) }
 
     /**
-     * A QR code for [addon]'s settings page, to set it up on a phone: a debrid service when it found [torrentsOnly], a new
-     * key when it refused this one. It opens a fresh setup (see [Addon.configureUrl]); null if the address is too long
-     * for a code.
-     */
-    private fun setupCode(addon: Addon, torrentsOnly: Boolean): View? {
-        val page = addon.configureUrl ?: return null
-        val code = runCatching { qrBitmap(page, dp(112)) }.getOrNull() ?: return null
-        return LinearLayout(this).apply {
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(12), dp(14), dp(12), 0)
-            addView(ImageView(context).apply {
-                setImageBitmap(code); background = rounded(TEXT, 8); setPadding(dp(4), dp(4), dp(4), dp(4))
-            }, wrap())
-            addView(column(Gravity.START,
-                text(getString(R.string.streams_scan, addon.name), BODY, bold = true).onArt(),
-                text(if (torrentsOnly) R.string.streams_scan_debrid else R.string.streams_scan_key,
-                    SMALL, color = TEXT_2).onArt().marginTop(6),
-            ), LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(16) })
-        }
-    }
-
-    /**
      * The order to try sources in: when the player asked for a lower quality, the tallest that's left first; then the
      * file played last time for this video (debrid links expire, so the link is fresh but the release is the same), then
      * the release the previous episode used (AIOStreams' bingeGroup), then the addon's own order, with releases above the
@@ -404,27 +385,6 @@ class StreamsActivity : Screen() {
             else -> getString(R.string.custom)
         }
     }
-
-    /** [noSourceReasons] in the viewer's language. */
-    private val sourceWords by lazy { object : SourceWords() {
-        override fun failed(names: String) = getString(R.string.no_sources_failed, names)
-        override fun torrentsOnly(names: String) = getString(R.string.no_sources_torrents, names)
-        override fun linksOnly(names: String) = getString(R.string.no_sources_links, names)
-        override fun unplayable(count: Int) = plural(R.plurals.no_sources_unplayable, count)
-        override fun none() = getString(R.string.no_sources_none)
-        override fun reason(e: Throwable) = when (val english = failureReason(e)) {
-            "key or sign-in refused" -> getString(R.string.failure_refused)
-            "too many requests" -> getString(R.string.failure_too_many)
-            "having problems" -> getString(R.string.failure_server)
-            "timed out" -> getString(R.string.failure_timeout)
-            "address not found" -> getString(R.string.failure_no_address)
-            "connection refused" -> getString(R.string.failure_connection)
-            "secure connection failed" -> getString(R.string.failure_secure)
-            "not a source list" -> getString(R.string.failure_not_sources)
-            "error" -> getString(R.string.failure_error)
-            else -> english // the add-on's own words ("HTTP 400")
-        }
-    } }
 
     private companion object {
         const val TRY = 3
