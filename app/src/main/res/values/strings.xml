@@ -135,6 +135,9 @@
     <string name="player_loading_percent">Loading · %1$d%%</string>
     <string name="player_starting">Starting · %1$s</string>
     <string name="player_starting_stream">Starting stream…</string>
+    <string name="player_torrent_connecting">Connecting to torrent peers…</string>
+    <string name="player_torrent_failed">Torrent did not play · choose another source</string>
+    <string name="streams_tag_p2p" translatable="false">P2P</string>
     <string name="player_source_failed_next">That source failed · trying the next one</string>
     <string name="player_source_failed_choose">That source failed · choose another source</string>
     <string name="player_keeps_buffering">Keeps buffering</string>

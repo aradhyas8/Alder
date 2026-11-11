@@ -1,5 +1,12 @@
 package dev.alder
 
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.launch
+
 import android.content.Context
 import android.content.Intent
 import android.content.res.ColorStateList
@@ -338,6 +345,10 @@ class PlayerActivity : Screen() {
         android.util.Log.w("Alder", "source ${at + 1}/${sources.size} timed out, state ${player.playbackState}")
         next()
     }
+    private var torrentJob: Job? = null
+    private var torrentUrl: String? = null
+    private var torrentResume: Long? = null
+    private var torrentInBackground = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -477,6 +488,7 @@ class PlayerActivity : Screen() {
                         return
                     }
                 }
+                if (sources.getOrNull(at)?.torrent != null) return next(e.errorCodeName)
                 // A link that isn't a file ExoPlayer knows may be an HLS playlist without .m3u8 in its name.
                 if (!asHls && e.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED) {
                     asHls = true
@@ -518,6 +530,7 @@ class PlayerActivity : Screen() {
                 // At the real end the next episode starts, unless the viewer chose to watch the credits or to stop after
                 // this one, or this is the third episode in a row with no key pressed: then "Still watching?" waits.
                 if (state == Player.STATE_ENDED) {
+                    stopTorrent()
                     if (isTrailer) {
                         finish()
                         return
@@ -815,11 +828,11 @@ class PlayerActivity : Screen() {
     }
 
     /** Plays the current source from [position], with its own request headers (debrid proxies need them). */
-    private fun load(position: Long, message: String? = null) {
+    private fun load(position: Long, message: String? = null, playWhenReady: Boolean = true) {
         if (sources.isEmpty()) return
         val s = sources[at]
         val app = Settings.externalPlayer(this)
-        if (!isTrailer && !handedOff && app != null) {
+        if (s.torrent == null && !isTrailer && !handedOff && app != null) {
             if (handOff(s, position, app)) return
             // No other video app on this TV: Alder plays it, and says so.
             return load(position, getString(R.string.player_no_other_app))
@@ -837,19 +850,51 @@ class PlayerActivity : Screen() {
         updateMarkers()
         refreshBadges()
         showControls(null)
-        val sourceUrl = s.url
-        val sourceHeaders = s.headers
-        background({
-            MkvChapters.fetch(sourceUrl, sourceHeaders)
-        }) { r ->
-            val chaps = r.getOrNull()
-            if (!chaps.isNullOrEmpty() && sources.getOrNull(at)?.url == sourceUrl) {
-                mkvChapters = chaps
-                reconcileSegments()
+        val torrent = s.torrent
+        if (torrent == null) {
+            background({ MkvChapters.fetch(s.url, s.headers) }) { r ->
+                val chaps = r.getOrNull()
+                if (!chaps.isNullOrEmpty() && sources.getOrNull(at)?.url == s.url) {
+                    mkvChapters = chaps
+                    reconcileSegments()
+                }
+            }
+            return prepareSource(s, s.url, position, playWhenReady)
+        }
+        torrentUrl?.let { return prepareSource(s, it, position, playWhenReady) }
+        if (torrentJob?.isActive == true) return
+        if (isFinishing || isDestroyed) return
+        if (torrentInBackground) {
+            torrentResume = position
+            return
+        }
+        if (!supportsTorrentPlayback) return next()
+        showLoading(getString(R.string.player_torrent_connecting))
+        torrentJob = CoroutineScope(Dispatchers.Main).launch {
+            try {
+                playTorrent(applicationContext, torrent, s.filename) { url ->
+                    torrentUrl = url
+                    prepareSource(s, url, position, playWhenReady)
+                }
+            } catch (e: Exception) {
+                if (e is CancellationException && e !is TimeoutCancellationException) throw e
+                next("torrent connection failed")
+            } catch (_: LinkageError) {
+                next("torrent engine unavailable")
             }
         }
+    }
+
+    private fun stopTorrent() {
+        torrentJob?.cancel()
+        torrentJob = null
+        torrentUrl = null
+    }
+
+    private fun prepareSource(s: Stream, url: String, position: Long, playWhenReady: Boolean) {
         val http = DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true).setDefaultRequestProperties(s.headers)
-        val item = MediaItem.Builder().setUri(s.url).apply { if (asHls) setMimeType(MimeTypes.APPLICATION_M3U8) }
+        if (s.torrent != null) http.setReadTimeoutMs(35_000)
+        val item = MediaItem.Builder().setUri(url).apply { if (asHls) setMimeType(MimeTypes.APPLICATION_M3U8) }
             .setSubtitleConfigurations(listOfNotNull(chosenSub?.let {
                 MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(it.url)).setMimeType(it.mimeType)
                     .setLanguage(it.lang).setLabel(it.addon).setId(ADDON_SUB).build()
@@ -860,9 +905,9 @@ class PlayerActivity : Screen() {
             .setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING)
         player.setMediaSource(DefaultMediaSourceFactory(DefaultDataSource.Factory(this, http), extractors).createMediaSource(item), position) // files too: shifted subtitles
         player.prepare()
-        player.playWhenReady = true
+        player.playWhenReady = playWhenReady
         main.removeCallbacks(startTimeout)
-        main.postDelayed(startTimeout, START_WAIT)
+        main.postDelayed(startTimeout, if (s.torrent == null) START_WAIT else 45_000L)
     }
 
     /**
@@ -912,6 +957,7 @@ class PlayerActivity : Screen() {
     private fun next(reason: String = "didn't start") {
         main.removeCallbacks(startTimeout)
         val position = position()
+        stopTorrent()
         if (at + 1 < sources.size) {
             at++
             stalls.clear()
@@ -938,7 +984,8 @@ class PlayerActivity : Screen() {
         if (intent.getBooleanExtra("picked", false)) {
             showSourceError()
             player.stop()
-            showLoading(getString(R.string.player_source_failed_choose))
+            showLoading(getString(if (sources.getOrNull(at)?.torrent == null) R.string.player_source_failed_choose
+                else R.string.player_torrent_failed))
             return
         }
         startActivity(Intent(this, StreamsActivity::class.java).putExtras(intent).putExtra("pick", true)
@@ -990,7 +1037,12 @@ class PlayerActivity : Screen() {
 
     override fun onStart() {
         super.onStart()
+        torrentInBackground = false
         if (prepared) {
+            torrentResume?.let {
+                torrentResume = null
+                load(it, playWhenReady = false)
+            }
             lastPosition = player.currentPosition
             if (!isTrailer) {
                 main.postDelayed(tickTask, TICK)
@@ -2963,21 +3015,30 @@ class PlayerActivity : Screen() {
 
     override fun onStop() {
         super.onStop()
+        torrentInBackground = true
         if (!::status.isInitialized) return
         main.removeCallbacks(tickTask)
         main.removeCallbacks(progressTask)
         main.removeCallbacks(skipTask)
         main.removeCallbacks(loadingTask)
         player.pause()
-        if (isTrailer || !watched || player.isCurrentMediaItemLive || isLiveType(type) || episodic && !plausibleEpisode(player.duration)) return
-        record()
-        // The player's own episode list first: Home's Resume passes no next episode when the title's details weren't in
-        // yet, and a finished episode with no next one drops the title out of Continue Watching.
-        item?.let { Library.stopped(it, nextVideo(onlyAired = false)?.id ?: intent.getStringExtra("nextVideoId")) }
-        push()
+        if (!isTrailer && watched && !player.isCurrentMediaItemLive && !isLiveType(type) &&
+            (!episodic || plausibleEpisode(player.duration))) {
+            record()
+            // The player's own episode list first, since Home's Resume can omit the next episode.
+            item?.let { Library.stopped(it, nextVideo(onlyAired = false)?.id ?: intent.getStringExtra("nextVideoId")) }
+            push()
+        }
+        if (torrentJob?.isActive == true) {
+            if (!isFinishing) torrentResume = position()
+            main.removeCallbacks(startTimeout)
+            stopTorrent()
+            player.stop()
+        }
     }
 
     override fun onDestroy() {
+        stopTorrent()
         resolvingStreams?.cancel()
         resolvingStreams = null
         main.removeCallbacks(startTimeout)

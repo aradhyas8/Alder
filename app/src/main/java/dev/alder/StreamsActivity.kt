@@ -230,7 +230,7 @@ class StreamsActivity : Screen() {
             fun tryStart(allowGaps: Boolean = false) {
                 if (started || pick || listed) return
                 val ready = readyStreams(answers, allowGaps)
-                val best = rank(ready.filter { it.isVideo && it.playableOn(tv) && wanted(it) }, videoId)
+                val best = rank(ready.filter { it.torrent == null && it.isVideo && it.playableOn(tv) && wanted(it) }, videoId)
                 if (best.isEmpty() && answers.any { it == null }) return
                 if (best.isEmpty()) return showList()
                 started = true
@@ -240,7 +240,7 @@ class StreamsActivity : Screen() {
             }
 
             addons.forEachIndexed { i, addon ->
-                background({ addon.streams(type, videoId) }) { streams ->
+                background({ addon.streams(type, videoId, allowTorrents = supportsTorrentPlayback) }) { streams ->
                     streams.exceptionOrNull()?.let { e ->
                         failures[i] = e
                         android.util.Log.w("Alder", "streams from ${addon.name} failed", e)
@@ -252,7 +252,7 @@ class StreamsActivity : Screen() {
                         if (pick || listed) showList() else tryStart()
                     } else if (!pick) {
                         tryStart()
-                        if (!started && !waitingForEarlier && readyStreams(answers, true).any { it.isVideo && it.playableOn(tv) && wanted(it) }) {
+                        if (!started && !waitingForEarlier && readyStreams(answers, true).any { it.torrent == null && it.isVideo && it.playableOn(tv) && wanted(it) }) {
                             waitingForEarlier = true
                             main.postDelayed({ tryStart(allowGaps = true) }, 800)
                         }
@@ -352,7 +352,8 @@ class StreamsActivity : Screen() {
             maxLines = 1; ellipsize = TextUtils.TruncateAt.END; maxWidth = dp(if (best) 145 else 170)
         }, wrap().apply { marginEnd = dp(6) })
         // The debrid service first ("RD ⚡": cached on Real-Debrid, starts at once), then the release's own tags.
-        (listOfNotNull(s.debrid?.tag) + s.tags.filter { it !in listOf("BluRay", "WEB") }.take(if (best) 1 else 2)).forEach { tag ->
+        val sourceTag = if (s.torrent != null) getString(R.string.streams_tag_p2p) else s.debrid?.tag
+        (listOfNotNull(sourceTag) + s.tags.filter { it !in listOf("BluRay", "WEB") }.take(if (best) 1 else 2)).forEach { tag ->
             val words = when (tag) {
                 "Multi audio" -> getString(R.string.streams_tag_multi_audio)
                 "Dub" -> getString(R.string.streams_tag_dub)

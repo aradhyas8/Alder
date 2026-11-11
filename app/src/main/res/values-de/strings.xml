@@ -134,6 +134,8 @@
     <string name="player_loading_percent">Wird geladen · %1$d %%</string>
     <string name="player_starting">Startet · %1$s</string>
     <string name="player_starting_stream">Stream startet…</string>
+    <string name="player_torrent_connecting">Verbindung zu Torrent-Peers wird aufgebaut…</string>
+    <string name="player_torrent_failed">Torrent konnte nicht abgespielt werden · andere Quelle auswählen</string>
     <string name="player_source_failed_next">Diese Quelle ist fehlgeschlagen · die nächste wird versucht</string>
     <string name="player_source_failed_choose">Diese Quelle ist fehlgeschlagen · wähle eine andere Quelle</string>
     <string name="player_keeps_buffering">Puffert immer wieder</string>

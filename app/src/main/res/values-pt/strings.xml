@@ -138,6 +138,8 @@
     <string name="player_loading_percent">Carregando · %1$d%%</string>
     <string name="player_starting">Iniciando · %1$s</string>
     <string name="player_starting_stream">Iniciando a transmissão…</string>
+    <string name="player_torrent_connecting">Conectando aos pares do torrent…</string>
+    <string name="player_torrent_failed">Não foi possível reproduzir o torrent · escolha outra fonte</string>
     <string name="player_source_failed_next">Essa fonte falhou · tentando a próxima</string>
     <string name="player_source_failed_choose">Essa fonte falhou · escolha outra fonte</string>
     <string name="player_keeps_buffering">Continua carregando</string>

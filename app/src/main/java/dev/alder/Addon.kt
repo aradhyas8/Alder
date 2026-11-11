@@ -151,17 +151,17 @@ class Addon(val descriptor: JSONObject) {
     }
 
     /**
-     * Playable streams only: torrent-only results (no url) need a streaming server, which this app doesn't have. An error
-     * answer throws [HttpError], so a refused key reads as that rather than as no sources; a 404 is just none.
+     * Include P2P sources only for the manual source list on supported devices. A 404 means no sources.
      */
-    fun streams(type: String, videoId: String): Streams {
+    fun streams(type: String, videoId: String, allowTorrents: Boolean = false): Streams {
         val all = try {
             get(false, "stream", type, videoId, strict = true).optJSONArray("streams").objects()
         } catch (e: HttpError) {
             if (e.code == 404) emptyList<JSONObject>() else throw e
         }
-        return Streams(all.mapNotNull { Stream.from(it) },
-            all.count { it.text("url") == null && it.text("infoHash") != null },
+        val playable = all.mapNotNull { Stream.from(it, allowTorrents) }
+        return Streams(playable,
+            all.count { it.text("url") == null && it.text("infoHash") != null } - playable.count { it.torrent != null },
             all.count { it.text("url") == null && it.text("infoHash") == null && (it.text("externalUrl") ?: it.text("ytId")) != null })
     }
 
@@ -326,6 +326,7 @@ internal fun subtitleExtras(filename: String?, size: Long): String = listOfNotNu
 class Stream(
     val title: String, val description: String, val url: String, val headers: Map<String, String>,
     val size: Long, val filename: String?, val bingeGroup: String?,
+    val torrent: TorrentSource? = null,
 ) {
     /**
      * False for addon "actions" dressed up as streams, such as MyTrakt's "Mark Watched" (a 27 KB placeholder file).
@@ -341,7 +342,7 @@ class Stream(
         .replace(Regex("\\s*\\((.+?)\\)\\s*$"), "  ·  $1") + (debrid?.let { "  ·  ${it.name}" } ?: "")
 
     /** The debrid service it comes through, null for a direct link. */
-    val debrid: Debrid? = debridOf(title, url)
+    val debrid: Debrid? = if (torrent == null) debridOf(title, url) else null
 
     // What the release is, read from its file name and the addon's labels (AIOStreams writes "2160p", "DV", "HEVC"
     // into them; the file name says it for every addon). ponytail: name matching, not the file's real tracks.
@@ -399,20 +400,24 @@ class Stream(
 
     fun toJson(): JSONObject = JSONObject().put("name", title).put("description", description).put("url", url)
         .put("headers", JSONObject(headers)).put("size", size).put("filename", filename).put("binge", bingeGroup)
+        .apply { torrent?.let { put("torrent", it.toJson()) } }
 
     companion object {
-        fun from(json: JSONObject): Stream? {
-            val url = json.text("url") ?: return null
+        fun from(json: JSONObject, allowTorrents: Boolean = false): Stream? {
+            val url = json.text("url")
+            val torrent = if (url == null && allowTorrents) TorrentSource.from(json) else null
+            if (url == null && torrent == null) return null
             val hints = json.optJSONObject("behaviorHints")
             val headers = hints?.optJSONObject("proxyHeaders")?.optJSONObject("request")
             return Stream(
                 json.text("name") ?: "",
                 json.text("description") ?: json.text("title") ?: "",
-                url,
-                headers?.keys()?.asSequence()?.associateWith { headers.getString(it) } ?: emptyMap(),
+                url.orEmpty(),
+                if (torrent != null) emptyMap() else headers?.keys()?.asSequence()?.associateWith { headers.getString(it) }.orEmpty(),
                 hints?.optLong("videoSize") ?: 0L,
                 hints?.text("filename"),
                 hints?.text("bingeGroup"),
+                torrent,
             )
         }
 
@@ -421,7 +426,7 @@ class Stream(
             val headers = json.optJSONObject("headers") ?: JSONObject()
             return Stream(json.optString("name"), json.optString("description"), json.getString("url"),
                 headers.keys().asSequence().associateWith { headers.getString(it) }, json.optLong("size"),
-                json.text("filename"), json.text("binge"))
+                json.text("filename"), json.text("binge"), json.optJSONObject("torrent")?.let(TorrentSource::from))
         }
     }
 }

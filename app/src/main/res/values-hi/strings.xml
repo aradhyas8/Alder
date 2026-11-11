@@ -134,6 +134,8 @@
     <string name="player_loading_percent">लोड हो रहा है · %1$d%%</string>
     <string name="player_starting">शुरू हो रहा है · %1$s</string>
     <string name="player_starting_stream">स्ट्रीम शुरू हो रही है…</string>
+    <string name="player_torrent_connecting">टॉरेंट पीयर से कनेक्ट हो रहा है…</string>
+    <string name="player_torrent_failed">टॉरेंट नहीं चला · कोई दूसरा स्रोत चुनें</string>
     <string name="player_source_failed_next">वह स्रोत नहीं चला · अगला आज़माया जा रहा है</string>
     <string name="player_source_failed_choose">वह स्रोत नहीं चला · कोई दूसरा स्रोत चुनें</string>
     <string name="player_keeps_buffering">बार-बार बफ़र हो रहा है</string>

@@ -138,6 +138,8 @@
     <string name="player_loading_percent">Chargement · %1$d %%</string>
     <string name="player_starting">Démarrage · %1$s</string>
     <string name="player_starting_stream">Démarrage du flux…</string>
+    <string name="player_torrent_connecting">Connexion aux pairs du torrent…</string>
+    <string name="player_torrent_failed">Impossible de lire le torrent · choisissez une autre source</string>
     <string name="player_source_failed_next">Cette source a échoué · essai de la suivante</string>
     <string name="player_source_failed_choose">Cette source a échoué · choisissez-en une autre</string>
     <string name="player_keeps_buffering">Mise en mémoire tampon répétée</string>

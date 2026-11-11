@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Alder only loads the torrent engine on API 24 and later. -->
+    <uses-sdk tools:overrideLibrary="com.nuvio.engine" />
 
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Updates itself from the GitHub releases (Updates.kt) -->
