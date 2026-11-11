@@ -282,6 +282,9 @@ class PlayerActivity : Screen() {
     private var handedOff = false // this source went to another video app (Settings › Video player)
     private var startAt = 0L
     private var prepared = false
+    private var stopped = false // Alder is behind another app: a late load must not start the sound
+    // Stremio's resume point when it differs from the TV's copy; used once the picture shows and the file can seek.
+    private var lateResume: Long? = null
     private lateinit var status: android.widget.TextView
     private lateinit var loading: FrameLayout
     private lateinit var stallPanel: FrameLayout
@@ -499,6 +502,7 @@ class PlayerActivity : Screen() {
             override fun onRenderedFirstFrame() {
                 if (started) return
                 started = true
+                applyLateResume()
                 watched = true
                 retries = 0
                 hideLoading()
@@ -670,9 +674,7 @@ class PlayerActivity : Screen() {
                     chosenSub = exact
                     if (prepared) {
                         selectAddonSub = true
-                        val playing = player.playWhenReady
-                        load(position())
-                        player.playWhenReady = playing
+                        load(position(), play = player.playWhenReady)
                     }
                 }
                 return@background
@@ -724,13 +726,21 @@ class PlayerActivity : Screen() {
             )
             val resume = known ?: item?.let { Library.resumeAt(it, videoId) } ?: 0L
             if (!prepared) begin(resume)
-            // Watched further on the phone since the TV saved its copy: go there, unless you've already moved on.
-            else if (known == null && abs(resume - startAt) > RESUME_SLACK && position() < startAt + RESUME_SLACK &&
-                player.isCurrentMediaItemSeekable) { // a file that can't seek would go to 0:00 instead
-                startAt = resume
-                player.seekTo(resume)
-                lastPosition = resume
-            }
+            // Watched further on the phone since the TV saved its copy: go there once the file has started.
+            else if (known == null) { lateResume = resume; applyLateResume() }
+        }
+    }
+
+    /** Moves to [lateResume] unless the viewer has already moved on. Waits for the first picture: before it, a subtitle
+     *  may still be getting ready (no file loaded) and the file doesn't yet say if it can seek (if not, a seek lands on 0:00). */
+    private fun applyLateResume() {
+        val resume = lateResume ?: return
+        if (!started) return
+        lateResume = null
+        if (abs(resume - startAt) > RESUME_SLACK && player.currentPosition < startAt + RESUME_SLACK && player.isCurrentMediaItemSeekable) {
+            startAt = resume
+            player.seekTo(resume)
+            lastPosition = resume
         }
     }
 
@@ -818,14 +828,14 @@ class PlayerActivity : Screen() {
     }
 
     /** Plays the current source from [position], with its own request headers (debrid proxies need them). */
-    private fun load(position: Long, message: String? = null) {
+    private fun load(position: Long, message: String? = null, play: Boolean = true) {
         if (sources.isEmpty()) return
         val s = sources[at]
         val app = Settings.externalPlayer(this)
         if (!isTrailer && !handedOff && app != null) {
             if (handOff(s, position, app)) return
             // No other video app on this TV: Alder plays it, and says so.
-            return load(position, getString(R.string.player_no_other_app))
+            return load(position, getString(R.string.player_no_other_app), play)
         }
         // An add-on subtitle is fetched and made ready first (unpacked, UTF-8): see SubtitleFiles. Once per file.
         chosenSub?.let { sub ->
@@ -833,7 +843,7 @@ class PlayerActivity : Screen() {
                 background({ SubtitleFiles.prepare(java.io.File(cacheDir, "subtitles"), sub) }) { r ->
                     r.exceptionOrNull()?.let { android.util.Log.w("Alder", "subtitle from ${sub.addon} not prepared", it) }
                     readySubs[sub.url] = r.getOrNull()
-                    if (!isFinishing && chosenSub === sub) load(position, message)
+                    if (!isFinishing && chosenSub === sub) load(position, message, play)
                 }
                 return
             }
@@ -876,7 +886,7 @@ class PlayerActivity : Screen() {
             .setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING)
         player.setMediaSource(DefaultMediaSourceFactory(DefaultDataSource.Factory(this, http), extractors).createMediaSource(item), position) // files too: shifted subtitles
         player.prepare()
-        player.playWhenReady = true
+        player.playWhenReady = play && !stopped
         main.removeCallbacks(startTimeout)
         main.postDelayed(startTimeout, START_WAIT)
     }
@@ -1007,6 +1017,7 @@ class PlayerActivity : Screen() {
 
     override fun onStart() {
         super.onStart()
+        stopped = false
         if (prepared) {
             lastPosition = player.currentPosition
             if (!isTrailer) {
@@ -3005,6 +3016,7 @@ class PlayerActivity : Screen() {
 
     override fun onStop() {
         super.onStop()
+        stopped = true
         if (!::status.isInitialized) return
         main.removeCallbacks(tickTask)
         main.removeCallbacks(progressTask)
