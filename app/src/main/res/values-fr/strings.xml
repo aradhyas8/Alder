@@ -258,6 +258,11 @@
     <string name="ui_size">Taille du texte et des affiches</string>
     <string name="ui_size_hint">Agrandit le texte, les affiches et les boutons sur tous les écrans, pour un téléviseur loin de votre place.</string>
     <string name="ui_size_normal">Normale</string>
+    <string name="video_player">Lecteur vidéo</string>
+    <string name="video_player_hint">Choisissez l’app qui lit vos vidéos. Avec une autre app, Alder choisit toujours la source et enregistre l’endroit où vous vous arrêtez.</string>
+    <string name="video_player_alder">Alder</string>
+    <string name="player_other_app">Lecture dans une autre app. Appuyez sur Retour dans celle-ci pour revenir.</string>
+    <string name="player_no_other_app">Aucun autre lecteur vidéo sur ce téléviseur. Alder lit la vidéo.</string>
     <string name="audio_tv_speakers">Haut-parleurs TV</string>
     <string name="audio_receiver">Ampli</string>
     <string name="clear_dialogue_setting_hint">Fait ressortir les voix par-dessus la musique et les effets forts sur les haut-parleurs du téléviseur.</string>

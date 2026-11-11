@@ -258,6 +258,11 @@
     <string name="ui_size">Dimensione di testo e locandine</string>
     <string name="ui_size_hint">Ingrandisce testo, locandine e pulsanti in tutte le schermate, per una TV lontana dal tuo posto.</string>
     <string name="ui_size_normal">Normale</string>
+    <string name="video_player">Lettore video</string>
+    <string name="video_player_hint">Scegli l’app che riproduce i tuoi video. Con un’altra app, Alder sceglie comunque la fonte e salva dove ti fermi.</string>
+    <string name="video_player_alder">Alder</string>
+    <string name="player_other_app">In riproduzione in un’altra app. Premi Indietro lì per tornare.</string>
+    <string name="player_no_other_app">Su questa TV non c’è un altro lettore video. Alder riproduce il video.</string>
     <string name="audio_tv_speakers">Altoparlanti TV</string>
     <string name="audio_receiver">Ricevitore</string>
     <string name="clear_dialogue_setting_hint">Mette in risalto le voci sopra musica ed effetti forti con gli altoparlanti della TV.</string>

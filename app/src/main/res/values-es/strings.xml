@@ -258,6 +258,11 @@
     <string name="ui_size">Tamaño de texto y pósteres</string>
     <string name="ui_size_hint">Agranda el texto, los pósteres y los botones en todas las pantallas, para un TV lejos de tu asiento.</string>
     <string name="ui_size_normal">Normal</string>
+    <string name="video_player">Reproductor de video</string>
+    <string name="video_player_hint">Elige la app que reproduce tus videos. Con otra app, Alder elige la fuente y guarda dónde te detienes.</string>
+    <string name="video_player_alder">Alder</string>
+    <string name="player_other_app">Se reproduce en otra app. Pulsa Atrás allí para volver.</string>
+    <string name="player_no_other_app">No hay otro reproductor de video en este TV. Alder reproduce el video.</string>
     <string name="audio_tv_speakers">Altavoces del TV</string>
     <string name="audio_receiver">Receptor</string>
     <string name="clear_dialogue_setting_hint">Realza las voces sobre la música y los efectos fuertes con los altavoces del TV.</string>

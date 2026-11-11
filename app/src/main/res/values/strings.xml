@@ -255,6 +255,11 @@
     <string name="ui_size">Text and poster size</string>
     <string name="ui_size_hint">Makes text, posters and buttons bigger on every screen, for a TV far from your seat.</string>
     <string name="ui_size_normal">Normal</string>
+    <string name="video_player">Video player</string>
+    <string name="video_player_hint">Choose the app that plays your videos. With another app, Alder still picks the source and saves where you stop.</string>
+    <string name="video_player_alder">Alder</string>
+    <string name="player_other_app">Plays in another app. Press Back there to return.</string>
+    <string name="player_no_other_app">No other video player is on this TV. Alder plays the video.</string>
     <string name="audio_tv_speakers">TV speakers</string>
     <string name="audio_receiver">Receiver</string>
     <string name="clear_dialogue_setting_hint">Lifts voices above music and loud effects when using TV speakers.</string>
