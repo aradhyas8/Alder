@@ -36,9 +36,11 @@ class ProfilesActivity : Screen() {
         super.onCreate(savedInstanceState)
         val profiles = Profiles.all(this)
         // Home found this profile signed out: straight to its sign-in, the profile and its settings kept.
+        // The activity is exported, so the extra is untrusted: enter() still asks for the PIN, and a profile that
+        // isn't signed out just opens.
         val again = intent.getStringExtra("signIn")?.let { id -> profiles.firstOrNull { it.id == id } }
         when {
-            again != null -> showSignIn(again.name, again)
+            again != null -> enter(again)
             profiles.isEmpty() -> showName()
             profiles.size == 1 && !intent.getBooleanExtra("pick", false) -> enter(profiles[0])
             else -> showPicker()
@@ -90,6 +92,9 @@ class ProfilesActivity : Screen() {
         val current = Profiles.active(this)?.takeIf { intent.getBooleanExtra("pick", false) }
         backTo = current?.let { { openHome(it) } }
         nameInput = null
+        // Left a sign-in: stop its polling, or approving the abandoned code would still change the profile.
+        signingIn = false
+        waitingCode = null
         val generation = ++pickerGeneration
         val profiles = Profiles.all(this)
         val art = onboardingBackdrop(false).apply { alpha = 0.42f }
