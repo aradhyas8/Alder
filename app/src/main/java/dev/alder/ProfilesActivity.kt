@@ -302,11 +302,7 @@ class ProfilesActivity : Screen() {
             if (check(digits.joinToString("") { "$it" })) return
             digits.fill(-1); at = 0; draw()
             error.text = errorMessage
-            row.animate().translationX(dp(16).toFloat()).setDuration(50).withEndAction {
-                row.animate().translationX(-dp(16).toFloat()).setDuration(80).withEndAction {
-                    row.animate().translationX(0f).setDuration(50).start()
-                }.start()
-            }.start()
+            row.shake()
         }
         row.setOnKeyListener { _, code, event ->
             if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false

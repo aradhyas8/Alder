@@ -586,4 +586,13 @@ class ScreenDesignTest {
         assertEquals(280L, artDelay(held = true, cached = false, ready = false))
         assertEquals(0L, artDelay(held = true, cached = true, ready = true))
     }
+
+    /** Motion comes from Screen.kt's tokens (FOCUS_MS, ENTER_MS, …): no screen picks its own duration. */
+    @Test fun screensUseMotionTokens() {
+        val code = java.io.File("src/main/java/dev/alder").takeIf { it.exists() } ?: java.io.File("app/src/main/java/dev/alder")
+        val literal = Regex("""setDuration\(\s*\d""")
+        val offenders = code.listFiles()!!.filter { it.name.endsWith("Activity.kt") }
+            .flatMap { f -> f.readLines().mapIndexedNotNull { i, line -> if (literal.containsMatchIn(line)) "${f.name}:${i + 1}" else null } }
+        org.junit.Assert.assertTrue("Use a motion token: $offenders", offenders.isEmpty())
+    }
 }

@@ -733,14 +733,14 @@ class MainActivity : Screen() {
         if ((!page.isBrowse && page != Page.LIBRARY) || mode != Mode.BROWSE || homeDimmed == on) return
         homeDimmed = on
         val alpha = if (on) 0.3f else 1f
-        header.animate().alpha(alpha).setDuration(400).start()
-        scroller.animate().alpha(alpha).setDuration(400).start()
-        browseInfo.animate().alpha(if (heroItem == null) 0f else alpha).setDuration(400).start()
-        cardCaption.animate().alpha(alpha).setDuration(400).start()
-        nextRowHint.animate().alpha(alpha).setDuration(400).start()
-        genreStrip.animate().alpha(alpha).setDuration(400).start()
-        listCount.animate().alpha(alpha).setDuration(400).start()
-        listHint.animate().alpha(alpha).setDuration(400).start()
+        header.animate().alpha(alpha).setDuration(IDLE_MS).start()
+        scroller.animate().alpha(alpha).setDuration(IDLE_MS).start()
+        browseInfo.animate().alpha(if (heroItem == null) 0f else alpha).setDuration(IDLE_MS).start()
+        cardCaption.animate().alpha(alpha).setDuration(IDLE_MS).start()
+        nextRowHint.animate().alpha(alpha).setDuration(IDLE_MS).start()
+        genreStrip.animate().alpha(alpha).setDuration(IDLE_MS).start()
+        listCount.animate().alpha(alpha).setDuration(IDLE_MS).start()
+        listHint.animate().alpha(alpha).setDuration(IDLE_MS).start()
     }
 
     private fun switchProfile() {
@@ -959,9 +959,9 @@ class MainActivity : Screen() {
             art.alpha = 0f
             Images.load(url, art, artW, urgent = true, look = look, failed = ready) {
                 // Once the new art covers it, the old one lets go: otherwise the GPU paints a hidden full screen every frame.
-                art.animate().alpha(1f).setDuration(if (artBack.drawable == null) 800 else 600).withEndAction {
+                art.enter(if (artBack.drawable == null) LIGHTS_MS else ART_MS).alpha(1f).withEndAction {
                     artBack.setImageDrawable(null)
-                    art.animate().scaleX(1.03f).scaleY(1.03f).setDuration(20_000).start()
+                    art.animate().scaleX(PUSH_IN).scaleY(PUSH_IN).setDuration(PUSH_IN_MS).start()
                 }.start()
                 refrost()
                 ready?.invoke()
@@ -983,7 +983,7 @@ class MainActivity : Screen() {
         art.animate().cancel()
         art.tag = null
         artBack.setImageDrawable(null)
-        art.animate().alpha(0f).setDuration(300).withEndAction { if (art.tag == null) art.setImageDrawable(null) }.start()
+        art.exit(PAGE_MS).alpha(0f).withEndAction { if (art.tag == null) art.setImageDrawable(null) }.start()
     }
 
     /** Gets [item]'s full-screen art ready ahead (fetching its details first if need be), so moving to it is instant. */
@@ -1000,21 +1000,21 @@ class MainActivity : Screen() {
     private fun chrome() {
         val cinemaOn = mode == Mode.CINEMA
         val headerOn = !cinemaOn || header.hasFocus()
-        header.animate().alpha(if (headerOn) 1f else 0f).setDuration(250).start()
-        topShade.animate().alpha(if (headerOn) 1f else 0f).setDuration(250).start()
+        header.animate().alpha(if (headerOn) 1f else 0f).setDuration(ENTER_MS).start()
+        topShade.animate().alpha(if (headerOn) 1f else 0f).setDuration(ENTER_MS).start()
         // Lighter in the cinema (only its few words sit low on the left), full while browsing under the cards.
-        browseInfo.animate().alpha(if (cinemaOn || heroItem == null) 0f else 1f).setDuration(250).start()
+        browseInfo.animate().alpha(if (cinemaOn || heroItem == null) 0f else 1f).setDuration(ENTER_MS).start()
         cardCaption.alpha = if (cinemaOn || page == Page.LIBRARY) 0f else 1f
         nextRowHint.alpha = if (cinemaOn || page == Page.LIBRARY) 0f else 1f
         genreStrip.alpha = if (cinemaOn) 0f else 1f
         listCount.alpha = if (cinemaOn) 0f else 1f
         listHint.alpha = if (cinemaOn) 0f else 1f
         if (cinemaOn) {
-            moreHint.animate().alpha(0f).setDuration(250).start()
+            moreHint.exit(ENTER_MS).alpha(0f).start()
         }
-        cinemaInfo.animate().alpha(if (cinemaOn && cinemaReady) 1f else 0f).setDuration(250).start()
-        cinemaClock.animate().alpha(if (cinemaOn && !headerOn) 1f else 0f).setDuration(250).start()
-        dots.animate().alpha(if (cinemaOn && cinemaReady && cinema.size > 1) 1f else 0f).setDuration(250).start()
+        cinemaInfo.animate().alpha(if (cinemaOn && cinemaReady) 1f else 0f).setDuration(ENTER_MS).start()
+        cinemaClock.animate().alpha(if (cinemaOn && !headerOn) 1f else 0f).setDuration(ENTER_MS).start()
+        dots.animate().alpha(if (cinemaOn && cinemaReady && cinema.size > 1) 1f else 0f).setDuration(ENTER_MS).start()
     }
 
     // ---------- cinema ----------
@@ -1096,7 +1096,7 @@ class MainActivity : Screen() {
         mode = Mode.CINEMA
         stage.isFocusable = true
         stage.requestFocus()
-        scroller.animate().translationY(dp(RISE).toFloat()).alpha(0f).setDuration(300).withEndAction {
+        scroller.exit(PAGE_MS).translationY(dp(RISE).toFloat()).alpha(0f).withEndAction {
             if (mode == Mode.CINEMA) scroller.visibility = View.INVISIBLE
         }.start()
         chrome()
@@ -1109,7 +1109,7 @@ class MainActivity : Screen() {
         dimHome(false)
         main.removeCallbacks(advance)
         scroller.visibility = View.VISIBLE
-        scroller.animate().translationY(0f).alpha(1f).setDuration(300).setInterpolator(DecelerateInterpolator()).start()
+        scroller.enter(PAGE_MS).translationY(0f).alpha(1f).start()
         chrome()
         val back = beforeCinema?.takeIf { it.isAttachedToWindow && it.isShown } ?: firstRow()?.let { it.cards[it.selected] }
         stage.isFocusable = false
@@ -1219,7 +1219,7 @@ class MainActivity : Screen() {
         }
         heroActions.visibility = if (page != Page.HOME && page != Page.LIBRARY && item.resume) View.VISIBLE else View.GONE
         if (page.isBrowse) showCaption(item)
-        if (mode == Mode.BROWSE) browseInfo.animate().alpha(if (homeDimmed && (page.isBrowse || page == Page.LIBRARY)) 0.3f else 1f).setDuration(150).start()
+        if (mode == Mode.BROWSE) browseInfo.animate().alpha(if (homeDimmed && (page.isBrowse || page == Page.LIBRARY)) 0.3f else 1f).setDuration(FOCUS_MS).start()
         showArt(item)
     }
 
@@ -1322,7 +1322,7 @@ class MainActivity : Screen() {
         focusedSomething = false
         // The last page's title goes with it; an empty page (no library yet, no catalogs) shows none.
         heroItem = null
-        browseInfo.animate().alpha(0f).setDuration(150).start()
+        browseInfo.exit(FOCUS_MS).alpha(0f).start()
         scroller.scrollTo(0, 0)
         mode = Mode.BROWSE
         main.removeCallbacks(advance)
@@ -1472,7 +1472,7 @@ class MainActivity : Screen() {
                                 ?.title?.let(::markChip)
                             genreStrip.alpha = 0f
                             genreStrip.visibility = View.VISIBLE
-                            genreStrip.animate().alpha(1f).setDuration(180).start()
+                            genreStrip.enter(QUICK_MS).alpha(1f).start()
                         }
                     }
                     // The rest of the first page first, then the addon's next pages when it takes `skip`.
@@ -1968,7 +1968,7 @@ class MainActivity : Screen() {
             if (active == on) return
             active = on
             if (on) peek(true)
-            heading.animate().alpha(if (on) 1f else QUIET).setDuration(200).start()
+            heading.animate().alpha(if (on) 1f else QUIET).setDuration(FOCUS_MS).start()
             cards.forEachIndexed { i, c -> c.dim(if (grid) !on || i != selected else on && i != selected) }
         }
 
@@ -2016,7 +2016,7 @@ class MainActivity : Screen() {
             // The caption sits under the focused card, also where the row stops sliding near its end.
             captionX = (cards[index].left - targetScroll - dp(PAD)).coerceAtLeast(0)
             val beyond = cards.any { it.right - targetScroll > right }
-            moreHint.animate().alpha(if (beyond && mode == Mode.BROWSE && !page.isBrowse) 0.9f else 0f).setDuration(200).start()
+            moreHint.animate().alpha(if (beyond && mode == Mode.BROWSE && !page.isBrowse) 0.9f else 0f).setDuration(FOCUS_MS).start()
             moreHint.translationY = if (wide) dp(CARD_H - WIDE_H + WIDE_H / 2 - CARD_H / 2).toFloat() else 0f
             if (!grid && wideRow != wide) {
                 wideRow = wide
@@ -2058,7 +2058,7 @@ class MainActivity : Screen() {
                         placeCaption()
                         val right = scroller.width - dp(PAD) / 2
                         val beyond = cards.any { it.right - scroller.scrollX > right }
-                        moreHint.animate().alpha(if (beyond && mode == Mode.BROWSE && !page.isBrowse) 0.9f else 0f).setDuration(200).start()
+                        moreHint.animate().alpha(if (beyond && mode == Mode.BROWSE && !page.isBrowse) 0.9f else 0f).setDuration(FOCUS_MS).start()
                     }
                 }
             }
@@ -2168,7 +2168,7 @@ class MainActivity : Screen() {
                 alpha = if (on) 1f else 0f
             }
 
-            fun dim(on: Boolean) = shade.animate().alpha(if (on) DIM else 0f).setDuration(200).start()
+            fun dim(on: Boolean) = shade.animate().alpha(if (on) DIM else 0f).setDuration(FOCUS_MS).start()
 
             /** On screen (or nearly): the poster (the wide art cropped for a title without one, else its name). */
             fun load() {
@@ -2196,7 +2196,7 @@ class MainActivity : Screen() {
                 }) {
                     if (item.live) fitLogo()
                     if (nameMade.isInitialized()) name.visibility = if (wide && !item.live) View.VISIBLE else View.INVISIBLE
-                    if (now) face.alpha = 1f else face.animate().alpha(1f).setDuration(180).start()
+                    if (now) face.alpha = 1f else face.enter(QUICK_MS).alpha(1f).start()
                     if (isFocused) lift(true)
                 }
                 now = false

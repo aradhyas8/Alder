@@ -48,6 +48,7 @@
         <activity android:name=".StreamsActivity" android:screenOrientation="landscape" />
         <activity
             android:name=".PlayerActivity"
+            android:theme="@style/Alder.Player"
             android:screenOrientation="landscape"
             android:configChanges="keyboard|keyboardHidden|navigation|screenSize|smallestScreenSize|screenLayout" />
         <receiver android:name=".Updates$Status" android:exported="false" />
