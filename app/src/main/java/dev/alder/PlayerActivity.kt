@@ -727,7 +727,7 @@ class PlayerActivity : Screen() {
             val resume = known ?: item?.let { Library.resumeAt(it, videoId) } ?: 0L
             if (!prepared) begin(resume)
             // Watched further on the phone since the TV saved its copy: go there once the file has started.
-            else if (known == null) { lateResume = resume; applyLateResume() }
+            else if (known == null && result.isSuccess) { lateResume = resume; applyLateResume() } // a failed fetch knows no newer point
         }
     }
 
