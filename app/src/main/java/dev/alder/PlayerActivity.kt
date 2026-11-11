@@ -723,7 +723,8 @@ class PlayerActivity : Screen() {
             val resume = known ?: item?.let { Library.resumeAt(it, videoId) } ?: 0L
             if (!prepared) begin(resume)
             // Watched further on the phone since the TV saved its copy: go there, unless you've already moved on.
-            else if (known == null && abs(resume - startAt) > RESUME_SLACK && position() < startAt + RESUME_SLACK) {
+            else if (known == null && abs(resume - startAt) > RESUME_SLACK && position() < startAt + RESUME_SLACK &&
+                player.isCurrentMediaItemSeekable) { // a file that can't seek would go to 0:00 instead
                 startAt = resume
                 player.seekTo(resume)
                 lastPosition = resume
@@ -2885,7 +2886,10 @@ class PlayerActivity : Screen() {
         val oldDelay = subDelay
         subDelay = newDelay
         textRenderer?.offsetUs = subDelay * 1000L
-        if (subDelay > oldDelay) {
+        // A seek to the same second drops cues already queued for the old timing. Only where the file can seek: ExoPlayer
+        // takes any seek in a file it can't seek as a seek to 0:00, so Right (subtitle later) restarted the film, which
+        // the 1.2 fix (canSeek) had stopped for scrubbing.
+        if (subDelay > oldDelay && player.isCurrentMediaItemSeekable) {
             player.seekTo(player.currentPosition)
         }
     }
