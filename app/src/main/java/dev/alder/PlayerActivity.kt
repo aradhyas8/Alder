@@ -2043,7 +2043,11 @@ class PlayerActivity : Screen() {
     /** Back from the source list: the picked source at the same second, or the paused one as it was. */
     private fun sourcesClosed(resultCode: Int, data: Intent?) {
         val picked = data?.getStringExtra("sources")?.takeIf { resultCode == RESULT_OK }
-        if (picked == null) { if (playAfterSources) player.play(); return }
+        if (picked == null) {
+            // The list is see-through (Alder.Over), so this screen was only paused and its picture is still there.
+            if (playAfterSources) player.play()
+            return
+        }
         sources = JSONArray(picked).objects().map(Stream::read)
         at = 0
         intent.putExtra("picked", true) // as before: if it fails, say so and offer the list again
