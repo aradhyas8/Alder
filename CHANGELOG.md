@@ -42,6 +42,8 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 
 ### Fixes
 - **Start again from the beginning.** Left and Right during playback do not start some videos again from the beginning. Before, a change to the subtitle timing in a file that cannot skip ahead started the video at 0:00.
+- **Add-on subtitles.** Subtitles from SubDL, OpenSubtitles and other add-ons show correctly. Alder opens zip files and shows letters in all languages correctly, for example Arabic, Polish and Russian. Each subtitle add-on shows its own files in **Audio & subtitles**. Before, files from the first add-on hid the files from other add-ons.
+- **Missing sources.** Alder asks every stream add-on that Stremio asks. Before, Alder did not ask some add-ons, and showed no playable sources. Short videos, for example a 7-minute cartoon, show in the source list. Slow debrid add-ons get 45 seconds to answer, not 20.
 <!-- Spotlight -->
 - **Large files.** Large files, such as 4K remuxes, stop less often to load. On most TVs, Alder now keeps up to 200 MB of the video ready. Before, Alder kept approximately 131 MB, which is only 10 to 17 seconds of a remux. After a stop, Alder waits for 4 seconds of video before it starts again.
 - **Long rows.** Alder releases poster memory for titles far off the screen. Rows stay fast when you move through many titles.
