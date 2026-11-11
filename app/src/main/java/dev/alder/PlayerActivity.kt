@@ -763,8 +763,8 @@ class PlayerActivity : Screen() {
 
     private fun dismissBackdrop() {
         if (::backdropArt.isInitialized && backdropArt.visibility == View.VISIBLE) {
-            backdropArt.animate().alpha(0f).setDuration(350).withEndAction { backdropArt.visibility = View.GONE }
-            backdropShade.animate().alpha(0f).setDuration(350).withEndAction { backdropShade.visibility = View.GONE }
+            backdropArt.exit(PAGE_MS).alpha(0f).withEndAction { backdropArt.visibility = View.GONE }
+            backdropShade.exit(PAGE_MS).alpha(0f).withEndAction { backdropShade.visibility = View.GONE }
         }
     }
 
@@ -1863,7 +1863,7 @@ class PlayerActivity : Screen() {
             shown = true
             view.subtitleView?.setBottomPaddingFraction(0.28f) // keep captions above the seek bar and buttons
             controls.visibility = View.VISIBLE
-            controls.animate().alpha(1f).setDuration(150).start()
+            controls.enter(FOCUS_MS).alpha(1f).start()
             updateProgress()
             (focus ?: playPause).requestFocus()
         } else focus?.requestFocus()
@@ -1877,7 +1877,7 @@ class PlayerActivity : Screen() {
         shown = false
         main.removeCallbacks(hideTask)
         main.removeCallbacks(progressTask)
-        controls.animate().alpha(0f).setDuration(250).withEndAction {
+        controls.exit(ENTER_MS).alpha(0f).withEndAction {
             if (!shown) {
                 controls.visibility = View.GONE
                 view.subtitleView?.setBottomPaddingFraction(0.08f)

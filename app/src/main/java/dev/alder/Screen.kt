@@ -224,7 +224,7 @@ abstract class Screen : Activity() {
 
     /** The left shade is for text over bare art; a screen that puts its text on glass can lift it off the art. */
     protected fun leftShade(on: Boolean) {
-        windowShade?.animate()?.alpha(if (on) 1f else 0f)?.setDuration(260)?.start()
+        windowShade?.enter()?.alpha(if (on) 1f else 0f)?.start()
     }
 
     private fun updateWindowShade() {
@@ -390,7 +390,26 @@ abstract class Screen : Activity() {
         if (on) generateSequence(parent as? android.view.ViewGroup) { it.parent as? android.view.ViewGroup }
             .takeWhile { it !is android.widget.ScrollView && it !is android.widget.HorizontalScrollView && it !is android.widget.AbsListView }
             .forEach { it.clipChildren = false; it.clipToPadding = false }
-        return animate().scaleX(if (on) by else 1f).scaleY(if (on) by else 1f).setDuration(150)
+        return animate().scaleX(if (on) by else 1f).scaleY(if (on) by else 1f).setDuration(FOCUS_MS)
+            .setInterpolator(if (on) SETTLE else EASE_OUT)
+    }
+
+    /** Something arrives (a panel, an overlay, a line of text): [ENTER_MS], easing out. Chain the target values. */
+    protected fun View.enter(ms: Long = ENTER_MS): android.view.ViewPropertyAnimator =
+        animate().setDuration(ms).setInterpolator(EASE_OUT)
+
+    /** Something leaves: [QUICK_MS], easing in, so it gets out of the way faster than it came. */
+    protected fun View.exit(ms: Long = QUICK_MS): android.view.ViewPropertyAnimator =
+        animate().setDuration(ms).setInterpolator(EASE_IN)
+
+    /** A wrong PIN: a short side-to-side shake. */
+    protected fun View.shake() {
+        val d = dp(16).toFloat()
+        animate().translationX(d).setDuration(FOCUS_MS / 3).setInterpolator(EASE_OUT).withEndAction {
+            animate().translationX(-d).setDuration(FOCUS_MS / 2).withEndAction {
+                animate().translationX(0f).setDuration(FOCUS_MS / 3).start()
+            }.start()
+        }.start()
     }
 
     protected fun chip(words: Int, selected: Boolean = false) = chip(getString(words), selected)
@@ -630,7 +649,7 @@ abstract class Screen : Activity() {
             }
         }
         grow(on)
-            .translationZ(if (on) dp(CARD_LIFT).toFloat() else 0f).setDuration(150).start()
+            .translationZ(if (on) dp(CARD_LIFT).toFloat() else 0f).start()
     }
 
     /** The screen's art, behind its glass: what [glassOver] frosts. Screens with art behind them name it. */
@@ -1014,6 +1033,23 @@ abstract class Screen : Activity() {
         const val CARD_GROW = 1.08f
         const val CHIP_GROW = 1.04f // a wide chip grown as much as a card filled the gap to its neighbour
         const val CARD_LIFT = 8
+
+        // Motion (design/DESIGN_SYSTEM.md "Motion"). Screens use these, never a number: things arrive easing out, leave
+        // faster easing in, and focus settles with a small overshoot. Only alpha and transforms move: this TV's GPU
+        // has ~4 ms a frame to spare (issue 17). Android's animation scale (and Remove animations) shortens all of them.
+        const val FOCUS_MS = 150L // focus moves, small state changes
+        const val QUICK_MS = 180L // something leaves
+        const val ENTER_MS = 240L // a panel, overlay or line arrives
+        const val PAGE_MS = 300L // a page's content changes; screens open and close
+        const val IDLE_MS = 400L // the UI dims or comes back
+        const val ART_MS = 600L // a backdrop crossfades
+        const val LIGHTS_MS = 800L // first art after launch: the lights rise
+        const val PUSH_IN_MS = 20_000L // the backdrop's slow push-in
+        const val PUSH_IN = 1.03f
+        const val ARRIVE = 1.04f // a title page's art starts this close and settles back to 1
+        val EASE_OUT: android.animation.TimeInterpolator = android.view.animation.DecelerateInterpolator(1.5f)
+        val EASE_IN: android.animation.TimeInterpolator = android.view.animation.AccelerateInterpolator(1.5f)
+        val SETTLE: android.animation.TimeInterpolator = android.view.animation.OvershootInterpolator(1.2f)
         // Spacing, everywhere rows of pictures appear: between cards, from a row's heading to its cards (plus room for
         // the focused card to grow), and above a heading, so each heading belongs to the row under it.
         const val CARD_GAP = 14

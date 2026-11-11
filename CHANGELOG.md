@@ -28,6 +28,8 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - Add an Alder website card image with the app screen and product text.
 
 ### Easier to use
+<!-- Spotlight -->
+- **Smooth motion.** Screens fade and settle when they open and close. When you select **Play**, the screen dims to black and the video fades up. A title page opens with its picture moving slowly into place. Focus settles with a small bounce. Panels open fast and close faster. To turn off motion, set the TV to **Remove animations** in its accessibility settings.
 - **Gray subtitles.** You can show subtitles in gray. Gray is less bright than white on OLED and Mini LED TVs in a dark room. Select **Settings → Subtitles → Subtitle color → Gray**, or select **Gray** in the player.
 - **Subtitle match.** Alder sends the file name and size of the video to subtitle add-ons. The add-on shows subtitles for that release first, so the timing is correct more frequently.
 - **Alder website.** The site shows the app screens and makes the download and setup steps easy to find.

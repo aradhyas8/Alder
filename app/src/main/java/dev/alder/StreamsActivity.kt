@@ -108,7 +108,7 @@ class StreamsActivity : Screen() {
         val blurStill = intent.getBooleanExtra("blurStill", false)
         Images.load(still ?: backArt, art, resources.displayMetrics.widthPixels, orElse = backArt.takeIf { still != null },
             look = if (blurStill && still != null) Images.blurred else null) {
-            art.animate().alpha(1f).setDuration(250).start()
+            art.enter().alpha(1f).start()
             refrost()
         }
         setContentView(FrameLayout(this).apply {
