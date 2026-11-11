@@ -42,6 +42,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - The README has a **Website** badge and a **Downloads** badge with the total number of GitHub release downloads.
 
 ### Fixes
+- **Watch progress.** **My List** and the watched marks do not erase your progress from other devices. Alder gets your Stremio library first, then saves the change.
 - **Sound after you leave.** A video does not start again when you go to another app while Alder gets a subtitle or a source.
 - **Resume point.** Alder goes to the resume point from your other devices also when a subtitle or the file is slow to start.
 - **Start again from the beginning.** Left and Right during playback do not start some videos again from the beginning. Before, a change to the subtitle timing in a file that cannot skip ahead started the video at 0:00.
