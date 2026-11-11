@@ -255,6 +255,12 @@
     <string name="frame_rate_hint">La TV passa alla frequenza del film così le panoramiche non scattano.</string>
     <string name="audio_output">Uscita audio</string>
     <string name="audio_output_hint">Ricevitore invia Dolby e DTS intatti a una soundbar o a un ricevitore. Altoparlanti TV decodifica il suono qui, e funziona sempre.</string>
+    <string name="video_player">Lettore video</string>
+    <string name="video_player_hint">Un’altra app riproduce il video, per esempio VLC o MX Player. Alder sceglie comunque la fonte e salva dove ti fermi.</string>
+    <string name="video_player_alder">Alder</string>
+    <string name="video_player_other">Un’altra app</string>
+    <string name="player_other_app">In riproduzione in un’altra app. Premi Indietro lì per tornare.</string>
+    <string name="player_no_other_app">Su questa TV non c’è un altro lettore video. Alder riproduce il video.</string>
     <string name="audio_tv_speakers">Altoparlanti TV</string>
     <string name="audio_receiver">Ricevitore</string>
     <string name="clear_dialogue_setting_hint">Mette in risalto le voci sopra musica ed effetti forti con gli altoparlanti della TV.</string>

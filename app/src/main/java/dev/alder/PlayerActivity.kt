@@ -279,6 +279,7 @@ class PlayerActivity : Screen() {
     private var started = false // a picture has shown
     private var startMessage: String? = null
     private var watched = false // any source showed a picture this time: only then is progress saved
+    private var handedOff = false // this source went to another video app (Settings › Video player)
     private var startAt = 0L
     private var prepared = false
     private lateinit var status: android.widget.TextView
@@ -817,6 +818,11 @@ class PlayerActivity : Screen() {
     private fun load(position: Long, message: String? = null) {
         if (sources.isEmpty()) return
         val s = sources[at]
+        if (!isTrailer && !handedOff && Settings.externalPlayer(this)) {
+            if (handOff(s, position)) return
+            // No other video app on this TV: Alder plays it, and says so.
+            return load(position, getString(R.string.player_no_other_app))
+        }
         startAt = position
         started = false
         toldUnseekable = false
@@ -856,6 +862,45 @@ class PlayerActivity : Screen() {
         player.playWhenReady = true
         main.removeCallbacks(startTimeout)
         main.postDelayed(startTimeout, START_WAIT)
+    }
+
+    /**
+     * Settings › Video player › Another app: Alder still picks the source, the resume point and the subtitle, then the
+     * other app plays it. False when no app on the TV opens video. Its answer comes back in [onActivityResult].
+     */
+    private fun handOff(s: Stream, position: Long): Boolean {
+        handedOff = true
+        startAt = position
+        val out = ExternalPlayer.intent(s.url, intent.getStringExtra("name").orEmpty(), s.headers, position, chosenSub?.url)
+        return try {
+            startActivityForResult(out, ExternalPlayer.REQUEST)
+            showLoading(getString(R.string.player_other_app))
+            hideControls(force = true) // Alder's play and seek hints mean nothing while the other app plays
+            true
+        } catch (e: android.content.ActivityNotFoundException) {
+            android.util.Log.i("Alder", "no other video player", e)
+            false
+        }
+    }
+
+    // ponytail: VLC gives no duration for network streams; the title's last known duration stands in, else nothing is saved.
+    @Deprecated("Activity result API")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != ExternalPlayer.REQUEST) return
+        val (position, told) = ExternalPlayer.result(data)
+        val item = item
+        val duration = told.takeIf { it > 0 } ?: item?.optJSONObject("state")?.optLong("duration") ?: 0L
+        android.util.Log.i("Alder", "other player stopped at $position of $duration")
+        if (item != null && position > 0 && duration > 0 && !isLiveType(type) && !(episodic && !plausibleEpisode(duration))) {
+            Library.record(item, videoId, position, duration, (position - startAt).coerceAtLeast(0))
+            val videos = meta?.videos
+            if (videos != null && item.optJSONObject("state")?.optInt("flaggedWatched") == 1) Library.markWatched(item, videos, videoId)
+            Library.stopped(item, nextVideo(onlyAired = false)?.id ?: intent.getStringExtra("nextVideoId"))
+            watched = true
+            push()
+        }
+        finish()
     }
 
     private fun position() = if (started) player.currentPosition else startAt

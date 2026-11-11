@@ -255,6 +255,12 @@
     <string name="frame_rate_hint">El televisor usa la frecuencia de la película para que los paneos no tiemblen.</string>
     <string name="audio_output">Salida de audio</string>
     <string name="audio_output_hint">Receptor envía Dolby y DTS sin cambios a una barra de sonido o receptor. Altavoces del TV decodifica el sonido aquí, lo que siempre funciona.</string>
+    <string name="video_player">Reproductor de video</string>
+    <string name="video_player_hint">Otra app reproduce el video, por ejemplo VLC o MX Player. Alder elige la fuente y guarda dónde te detienes.</string>
+    <string name="video_player_alder">Alder</string>
+    <string name="video_player_other">Otra app</string>
+    <string name="player_other_app">Se reproduce en otra app. Pulsa Atrás allí para volver.</string>
+    <string name="player_no_other_app">No hay otro reproductor de video en este TV. Alder reproduce el video.</string>
     <string name="audio_tv_speakers">Altavoces del TV</string>
     <string name="audio_receiver">Receptor</string>
     <string name="clear_dialogue_setting_hint">Realza las voces sobre la música y los efectos fuertes con los altavoces del TV.</string>
