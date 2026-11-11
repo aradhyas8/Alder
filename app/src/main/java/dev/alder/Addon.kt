@@ -71,9 +71,11 @@ class Addon(val descriptor: JSONObject) {
         val entry = manifest.optJSONArray("resources").items()
             .firstOrNull { (it as? String ?: (it as? JSONObject)?.optString("name")) == resource } ?: return false
         val own = entry as? JSONObject
+        // As stremio-core's is_resource_supported: a resource written out in full uses only its own prefixes (none
+        // means every id), and an empty list also means every id. Reading [] as "no id" left such add-ons unasked.
         val types = (own?.optJSONArray("types") ?: manifest.optJSONArray("types")).strings()
-        val prefixes = (own?.optJSONArray("idPrefixes") ?: manifest.optJSONArray("idPrefixes"))?.strings()
-        return type in types && (prefixes == null || prefixes.any { id.startsWith(it) })
+        val prefixes = (if (own != null) own.optJSONArray("idPrefixes") else manifest.optJSONArray("idPrefixes"))?.strings()
+        return type in types && (prefixes.isNullOrEmpty() || prefixes.any { id.startsWith(it) })
     }
 
     // Catalogs (one [genre] of them with Stremio's `genre` extra) and details are kept on disk as they arrive; the saved*
@@ -156,7 +158,8 @@ class Addon(val descriptor: JSONObject) {
      */
     fun streams(type: String, videoId: String): Streams {
         val all = try {
-            get(false, "stream", type, videoId, strict = true).optJSONArray("streams").objects()
+            // Debrid add-ons searching uncached titles (Comet, MediaFusion, AIOStreams) can take longer than 20 s.
+            JSONObject(Http.get(url(arrayOf("stream", type, videoId)), false, STREAM_WAIT, strict = true)).optJSONArray("streams").objects()
         } catch (e: HttpError) {
             if (e.code == 404) emptyList<JSONObject>() else throw e
         }
@@ -191,7 +194,10 @@ class Addon(val descriptor: JSONObject) {
 
     private fun saved(vararg path: String) = Http.savedAnswer(url(path))?.let { runCatching { JSONObject(it) }.getOrNull() }
 
-    private companion object { val catalogSearchPool = Images.newestFirst(8) }
+    private companion object {
+        val catalogSearchPool by lazy { Images.newestFirst(8) } // lazy: unit tests make Addons without Android
+        const val STREAM_WAIT = 45_000 // ms
+    }
 }
 
 /**
@@ -329,9 +335,10 @@ class Stream(
 ) {
     /**
      * False for addon "actions" dressed up as streams, such as MyTrakt's "Mark Watched" (a 27 KB placeholder file).
-     * They're left out of the list and never picked. Unknown size counts as a video.
+     * They're left out of the list and never picked. Unknown size counts as a video. The line was 50 MB, which also
+     * hid real short videos (a 7-minute cartoon, a 480p anime episode) with no reason given.
      */
-    val isVideo get() = size == 0L || size >= 50L * 1024 * 1024
+    val isVideo get() = size == 0L || size >= 5L * 1024 * 1024
 
     /**
      * The addon's name for it on one line: "Torrentio (2160p)" becomes "Torrentio  ·  2160p". A debrid tag ("[RD+]")
