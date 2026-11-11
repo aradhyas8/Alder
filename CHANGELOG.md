@@ -19,6 +19,8 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 
 ### New
 <!-- Spotlight -->
+- **Bigger text and posters.** Select **Settings → Picture & Sound → Text and poster size → Large**. Text, posters, buttons and panels get bigger on every screen. Rows show fewer posters, and Home shows the story only on the title page.
+<!-- Spotlight -->
 - **Anime and other catalogs.** Catalogs of anime, video channels and other types now show. Each type has its own page in the top bar, for example **Anime**. Before, Alder showed only movie, series and live catalogs. Anime with episodes has its episode list, **Next episode** and **Continue**, as a show does. **My List** shows these titles too.
 <!-- Spotlight -->
 - **Picture size.** You can make the picture fill the screen. In the player, select **Audio & subtitles → Sync & Style → Picture**. **Fit** shows all of the picture. **Zoom** fills the screen and cuts the edges. **Stretch** fills the screen and changes the shape. Alder keeps your choice for all videos.

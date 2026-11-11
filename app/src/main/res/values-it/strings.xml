@@ -255,6 +255,9 @@
     <string name="frame_rate_hint">La TV passa alla frequenza del film così le panoramiche non scattano.</string>
     <string name="audio_output">Uscita audio</string>
     <string name="audio_output_hint">Ricevitore invia Dolby e DTS intatti a una soundbar o a un ricevitore. Altoparlanti TV decodifica il suono qui, e funziona sempre.</string>
+    <string name="ui_size">Dimensione di testo e locandine</string>
+    <string name="ui_size_hint">Ingrandisce testo, locandine e pulsanti in tutte le schermate, per una TV lontana dal tuo posto.</string>
+    <string name="ui_size_normal">Normale</string>
     <string name="audio_tv_speakers">Altoparlanti TV</string>
     <string name="audio_receiver">Ricevitore</string>
     <string name="clear_dialogue_setting_hint">Mette in risalto le voci sopra musica ed effetti forti con gli altoparlanti della TV.</string>

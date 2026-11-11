@@ -251,6 +251,9 @@
     <string name="frame_rate_hint">Der Fernseher übernimmt die Bildrate des Films, damit Schwenks nicht ruckeln.</string>
     <string name="audio_output">Audioausgabe</string>
     <string name="audio_output_hint">Receiver sendet Dolby und DTS unverändert an eine Soundbar oder einen Receiver. TV-Lautsprecher decodiert den Ton hier, was immer funktioniert.</string>
+    <string name="ui_size">Text- und Postergröße</string>
+    <string name="ui_size_hint">Macht Text, Poster und Tasten auf allen Bildschirmen größer, für einen Fernseher weit weg von deinem Platz.</string>
+    <string name="ui_size_normal">Normal</string>
     <string name="audio_tv_speakers">TV-Lautsprecher</string>
     <string name="audio_receiver">Receiver</string>
     <string name="clear_dialogue_setting_hint">Hebt Stimmen über Musik und laute Effekte, wenn die TV-Lautsprecher genutzt werden.</string>

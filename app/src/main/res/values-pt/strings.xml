@@ -255,6 +255,9 @@
     <string name="frame_rate_hint">A TV usa a taxa do filme para que os movimentos de câmera não tremam.</string>
     <string name="audio_output">Saída de áudio</string>
     <string name="audio_output_hint">Receiver envia Dolby e DTS sem alterações para uma soundbar ou receiver. Alto-falantes da TV decodifica o som aqui, o que sempre funciona.</string>
+    <string name="ui_size">Tamanho do texto e dos pôsteres</string>
+    <string name="ui_size_hint">Aumenta o texto, os pôsteres e os botões em todas as telas, para uma TV longe do seu lugar.</string>
+    <string name="ui_size_normal">Normal</string>
     <string name="audio_tv_speakers">Alto-falantes da TV</string>
     <string name="audio_receiver">Receiver</string>
     <string name="clear_dialogue_setting_hint">Realça as vozes acima da música e dos efeitos altos nos alto-falantes da TV.</string>

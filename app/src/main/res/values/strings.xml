@@ -252,6 +252,9 @@
     <string name="frame_rate_hint">The TV switches to the film\'s rate so pans don\'t judder.</string>
     <string name="audio_output">Audio output</string>
     <string name="audio_output_hint">Receiver sends Dolby and DTS untouched to a soundbar or receiver. TV speakers decodes the sound here, which always works.</string>
+    <string name="ui_size">Text and poster size</string>
+    <string name="ui_size_hint">Makes text, posters and buttons bigger on every screen, for a TV far from your seat.</string>
+    <string name="ui_size_normal">Normal</string>
     <string name="audio_tv_speakers">TV speakers</string>
     <string name="audio_receiver">Receiver</string>
     <string name="clear_dialogue_setting_hint">Lifts voices above music and loud effects when using TV speakers.</string>

@@ -107,6 +107,8 @@ object Settings {
     fun alwaysList(c: Context) = prefs(c).getBoolean("alwaysList", false)
     fun matchFrameRate(c: Context) = prefs(c).getBoolean("matchFrameRate", true)
     fun passthrough(c: Context) = prefs(c).getBoolean("passthrough", false)
+    /** Settings › Text and poster size, for this TV: 1 is the House Lights size, more makes every screen bigger. */
+    fun uiScale(c: Context) = prefs(c).getInt("uiScale", 100).coerceIn(100, 115) / 100f
     fun clearDialogue(c: Context) = prefs(c).getBoolean("clearDialogue", false)
     fun setClearDialogue(c: Context, on: Boolean) = prefs(c).edit().putBoolean("clearDialogue", on).apply()
     /** "on", "foreign" (only when audio differs or forced), "off". Migrates old Boolean "subtitles". */
@@ -261,6 +263,9 @@ class SettingsActivity : Screen() {
                 "encode" to getString(R.string.release_encode), "web" to getString(R.string.release_web)), true),
     ) }
     private val pictureAndSound by lazy { listOf(
+        Choice("uiScale", getString(R.string.ui_size), getString(R.string.ui_size_hint),
+            // ponytail: two steps; 130% pushed Home's title logo into the top bar on a 1080p TV.
+            listOf(100 to getString(R.string.ui_size_normal), 115 to getString(R.string.size_large))),
         Choice("hdrPref", getString(R.string.hdr_choice), getString(R.string.hdr_choice_hint),
             listOf("" to on, "dv" to getString(R.string.hdr_dv_first), "hdr10" to getString(R.string.hdr_hdr10_first), "off" to off)),
         Choice("matchFrameRate", getString(R.string.frame_rate), getString(R.string.frame_rate_hint), onOff()),
@@ -304,6 +309,7 @@ class SettingsActivity : Screen() {
     private val choiceRows = mutableSetOf<View>()
     private val refresh = mutableListOf<() -> Unit>()
     private var selectedGroup: Group? = null
+    private var reopenGroup: Group? = null
     private var firstDetail: View? = null
     private var addonValue: TextView? = null
     private val prefs by lazy { getSharedPreferences("settings", MODE_PRIVATE) }
@@ -381,8 +387,19 @@ class SettingsActivity : Screen() {
         window.setBackgroundDrawable(null)
         setContentView(root)
         profileName.text = Profiles.active(this)?.name?.let { getString(R.string.settings_profile_name, it) } ?: ""
-        showGroup(Group.STREAMS)
-        groupViews[Group.STREAMS]?.post { groupViews[Group.STREAMS]?.requestFocus() }
+        // Rebuilt for a new Text and poster size: back on the same page, on the row that changed it.
+        val reopened = savedInstanceState?.getString("group")?.let { name -> Group.entries.firstOrNull { it.name == name } }
+        val start = reopened ?: Group.STREAMS
+        showGroup(start)
+        // Now, not posted: otherwise Android gives first focus to the Streams button, and focus on a page button opens it.
+        groupViews[start]?.requestFocus()
+        if (reopened != null) detailRows.post { firstDetail?.requestFocus() }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        // The page the size was changed on: focus moving during the rebuild can select another one first.
+        (reopenGroup ?: selectedGroup)?.let { outState.putString("group", it.name) }
     }
 
     override fun onResume() {
@@ -684,7 +701,7 @@ class SettingsActivity : Screen() {
             is String -> putString(key(c), value)
             else -> putInt(key(c), value as Int)
         }
-    }.apply()
+    }.apply().also { if (c.key == "uiScale") { reopenGroup = selectedGroup; main.post { recreate() } } } // the new size shows at once
     private fun choice(key: String) = (streaming + pictureAndSound).first { it.key == key }
 
     private fun choiceRow(c: Choice) {

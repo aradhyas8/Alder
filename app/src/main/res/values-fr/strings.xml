@@ -255,6 +255,9 @@
     <string name="frame_rate_hint">Le téléviseur adopte la fréquence du film pour que les panoramiques ne saccadent pas.</string>
     <string name="audio_output">Sortie audio</string>
     <string name="audio_output_hint">Ampli transmet le Dolby et le DTS tels quels à une barre de son ou un ampli. Haut-parleurs TV décode le son ici, ce qui fonctionne toujours.</string>
+    <string name="ui_size">Taille du texte et des affiches</string>
+    <string name="ui_size_hint">Agrandit le texte, les affiches et les boutons sur tous les écrans, pour un téléviseur loin de votre place.</string>
+    <string name="ui_size_normal">Normale</string>
     <string name="audio_tv_speakers">Haut-parleurs TV</string>
     <string name="audio_receiver">Ampli</string>
     <string name="clear_dialogue_setting_hint">Fait ressortir les voix par-dessus la musique et les effets forts sur les haut-parleurs du téléviseur.</string>
