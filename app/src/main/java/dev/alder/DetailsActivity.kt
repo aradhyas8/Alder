@@ -128,6 +128,7 @@ class DetailsActivity : Screen() {
     private val episodic get() = hasEpisodes(type, meta?.videos)
     private var item: JSONObject? = null // the title's library item: progress and whether it's in My List
     private var itemChangedHere = false
+    private var libraryFresh = false // Stremio's own copy of the item has come in, so a save can't overwrite progress
     private var similarRequested = false
     private var imdbTrailers: List<Stream> = emptyList()
     private var trailerRequested = false
@@ -229,6 +230,7 @@ class DetailsActivity : Screen() {
             else if (meta == null) showHero(null)
         }
         background({ Stremio.library(key, listOf(metaId)).firstOrNull() }) { result ->
+            if (result.isSuccess) libraryFresh = true
             if (!itemChangedHere) {
                 item = result.getOrNull() ?: item
                 if (meta != null) showHero(meta)
@@ -529,11 +531,8 @@ class DetailsActivity : Screen() {
         return video.id to video
     }
 
-    private fun toggleList() {
-        itemChangedHere = true
-        val entry = item ?: Library.newItem(metaId, type, meta?.name ?: name, meta?.poster ?: poster)
-        Library.setInList(entry, !Library.inList(item))
-        item = entry
+    private fun toggleList() = withLibraryItem { entry ->
+        Library.setInList(entry, !Library.inList(entry))
         listButton.text = if (Library.inList(entry)) "✓" else "+"
         listButton.contentDescription = getString(if (Library.inList(entry)) R.string.action_remove_from_list else R.string.action_add_to_list)
         val snapshot = JSONObject(entry.toString())
@@ -752,11 +751,21 @@ class DetailsActivity : Screen() {
         }.start()
     }
 
-    private fun ensureLibraryItem(): JSONObject {
-        itemChangedHere = true
-        val entry = item ?: Library.newItem(metaId, type, meta?.name ?: name, meta?.poster ?: poster)
-        item = entry
-        return entry
+    /** Runs [then] with the title's library item. Waits for Stremio's copy first: saving a new or disk-cached item
+     *  before it arrives would overwrite watch progress from other devices. Does nothing when Stremio can't be reached. */
+    private fun withLibraryItem(then: (JSONObject) -> Unit) {
+        if (libraryFresh) {
+            itemChangedHere = true
+            val entry = item ?: Library.newItem(metaId, type, meta?.name ?: name, meta?.poster ?: poster)
+            item = entry
+            return then(entry)
+        }
+        background({ Stremio.library(key, listOf(metaId)).firstOrNull() }) { result ->
+            if (result.isFailure || isFinishing) return@background
+            if (!libraryFresh && !itemChangedHere) item = result.getOrNull() ?: item
+            libraryFresh = true
+            withLibraryItem(then)
+        }
     }
 
     private fun saveAndRefresh(focusEpisodeId: String? = null, focusSeason: Int? = null) {
@@ -804,8 +813,7 @@ class DetailsActivity : Screen() {
         }
     }
 
-    private fun markEpisodeWatched(video: Video, watched: Boolean) {
-        val entry = ensureLibraryItem()
+    private fun markEpisodeWatched(video: Video, watched: Boolean) = withLibraryItem { entry ->
         val videos = meta?.videos.orEmpty()
         val s = entry.state
         if (watched) {
@@ -831,8 +839,7 @@ class DetailsActivity : Screen() {
         saveAndRefresh(focusEpisodeId = video.id)
     }
 
-    private fun markPreviousEpisodesWatched(video: Video, prior: List<Video>) {
-        val entry = ensureLibraryItem()
+    private fun markPreviousEpisodesWatched(video: Video, prior: List<Video>) = withLibraryItem { entry ->
         val videos = meta?.videos.orEmpty()
         val s = entry.state
         Library.markEpisodesWatched(entry, videos, prior.map { it.id })
@@ -859,8 +866,7 @@ class DetailsActivity : Screen() {
         }
     }
 
-    private fun markSeasonWatched(season: Int, watched: Boolean) {
-        val entry = ensureLibraryItem()
+    private fun markSeasonWatched(season: Int, watched: Boolean) = withLibraryItem { entry ->
         val videos = meta?.videos.orEmpty()
         val seasonVideos = videos.filter { it.season == season }
         val seasonIds = seasonVideos.map { it.id }.toSet()

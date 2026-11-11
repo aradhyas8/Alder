@@ -42,6 +42,11 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - The README has a **Website** badge and a **Downloads** badge with the total number of GitHub release downloads.
 
 ### Fixes
+- **Profile PIN.** Another app cannot open a profile that has a PIN. Alder asks for the PIN first.
+- **Sign-in and backups.** Android does not copy profiles, sign-ins and PINs to a new TV.
+- **Watch progress.** **My List** and the watched marks do not erase your progress from other devices. Alder gets your Stremio library first, then saves the change.
+- **Sound after you leave.** A video does not start again when you go to another app while Alder gets a subtitle or a source. When you come back, the video starts. Before, Alder sometimes went to the next source.
+- **Resume point.** Alder goes to the resume point from your other devices also when a subtitle or the file is slow to start.
 - **Start again from the beginning.** Left and Right during playback do not start some videos again from the beginning. Before, a change to the subtitle timing in a file that cannot skip ahead started the video at 0:00.
 - **Add-on subtitles.** Subtitles from SubDL, OpenSubtitles and other add-ons show correctly. Alder opens zip files and shows letters in all languages correctly, for example Arabic, Polish and Russian. Each subtitle add-on shows its own files in **Audio & subtitles**. Before, files from the first add-on hid the files from other add-ons.
 - **Missing sources.** Alder asks every stream add-on that Stremio asks. Before, Alder did not ask some add-ons, and showed no playable sources. Short videos, for example a 7-minute cartoon, show in the source list. Slow debrid add-ons get 45 seconds to answer, not 20.
