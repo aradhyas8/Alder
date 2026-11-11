@@ -527,4 +527,20 @@
     <string name="profiles_watchly_steps">"1.  Inquadra con il telefono di %1$s per aprire Watchly\n2.  Collega lì l’account Stremio di %1$s\n3.  Installalo sull’account Stremio di %1$s\n\nPoi i consigli di %1$s appariranno nella Home. Puoi finire più tardi."</string>
     <string name="profiles_all_set">Tutto pronto</string>
     <string name="profiles_ready">Il profilo di %1$s è pronto. Puoi aggiungere altri add-on più tardi in Impostazioni.</string>
+    <string name="setup_check">Controlla configurazione</string>
+    <string name="setup_check_hint">Verifica che i tuoi add-on possano riprodurre video su questa TV.</string>
+    <string name="setup_checking">Controllo dei tuoi add-on</string>
+    <string name="setup_checking_desc">Alder chiede a ogni add-on di streaming un film noto, per vedere se qualcosa si puÃ² riprodurre su questa TV.</string>
+    <string name="setup_account">Accesso a Stremio come %1$s</string>
+    <string name="setup_account_apple">Accesso a Stremio con Apple (%1$s)</string>
+    <string name="setup_problem">Non si puÃ² ancora riprodurre nulla</string>
+    <string name="setup_no_addons">I tuoi add-on mostrano titoli, ma nessuno trova video. Per questo, lâ€™account ha bisogno di un add-on di streaming.</string>
+    <string name="setup_other_account">Gli add-on appartengono a un account Stremio. Se un altro dispositivo mostra add-on che qui non ci sono, quel dispositivo usa un altro account.</string>
+    <string name="setup_scan_addons">Scansiona con il telefono per aggiungere un add-on di streaming</string>
+    <string name="setup_scan_addons_steps">Installane uno in Stremio lÃ¬, con lâ€™accesso a questo account. Poi seleziona Riprova.</string>
+    <string name="setup_use_other_account">Usa un altro account</string>
+    <string name="setup_nothing_played">Alder ha chiesto ai tuoi add-on un film noto. Niente di ciÃ² che hanno trovato si puÃ² riprodurre su questa TV.</string>
+    <string name="setup_ready">Pronto per la riproduzione</string>
+    <string name="setup_ready_desc">%1$s ha trovato video per un film di prova. I titoli che scegli si possono riprodurre su questa TV.</string>
+    <string name="setup_done">Fatto</string>
 </resources>

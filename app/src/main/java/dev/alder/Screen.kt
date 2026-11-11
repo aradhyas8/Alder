@@ -295,6 +295,53 @@ abstract class Screen : Activity() {
         return bmp
     }
 
+    /**
+     * A QR code for [addon]'s settings page, to set it up on a phone: a debrid service when it found [torrentsOnly], a new
+     * key when it refused this one. It opens a fresh setup (see [Addon.configureUrl]); null if the address is too long
+     * for a code.
+     */
+    protected fun setupCode(addon: Addon, torrentsOnly: Boolean): View? = addon.configureUrl?.let { page ->
+        setupCode(page, getString(R.string.streams_scan, addon.name),
+            getString(if (torrentsOnly) R.string.streams_scan_debrid else R.string.streams_scan_key))
+    }
+
+    /** A QR code for [page] with what to do there: [title] in bold, then [steps]. Null if the address is too long. */
+    protected fun setupCode(page: String, title: String, steps: String): View? {
+        val code = runCatching { qrBitmap(page, dp(112)) }.getOrNull() ?: return null
+        return LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12), dp(14), dp(12), 0)
+            addView(ImageView(context).apply {
+                setImageBitmap(code); background = rounded(TEXT, 8); setPadding(dp(4), dp(4), dp(4), dp(4))
+            }, wrap())
+            addView(column(Gravity.START,
+                text(title, BODY, bold = true).onArt(),
+                text(steps, SMALL, color = TEXT_2).onArt().marginTop(6),
+            ), LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(16) })
+        }
+    }
+
+    /** [noSourceReasons] in the viewer's language. */
+    internal val sourceWords by lazy { object : SourceWords() {
+        override fun failed(names: String) = getString(R.string.no_sources_failed, names)
+        override fun torrentsOnly(names: String) = getString(R.string.no_sources_torrents, names)
+        override fun linksOnly(names: String) = getString(R.string.no_sources_links, names)
+        override fun unplayable(count: Int) = plural(R.plurals.no_sources_unplayable, count)
+        override fun none() = getString(R.string.no_sources_none)
+        override fun reason(e: Throwable) = when (val english = failureReason(e)) {
+            "key or sign-in refused" -> getString(R.string.failure_refused)
+            "too many requests" -> getString(R.string.failure_too_many)
+            "having problems" -> getString(R.string.failure_server)
+            "timed out" -> getString(R.string.failure_timeout)
+            "address not found" -> getString(R.string.failure_no_address)
+            "connection refused" -> getString(R.string.failure_connection)
+            "secure connection failed" -> getString(R.string.failure_secure)
+            "not a source list" -> getString(R.string.failure_not_sources)
+            "error" -> getString(R.string.failure_error)
+            else -> english // the add-on's own words ("HTTP 400")
+        }
+    } }
+
     protected fun rounded(color: Int, radiusDp: Int) = GradientDrawable().apply { setColor(color); cornerRadius = dp(radiusDp).toFloat() }
 
     /** House Lights' single glass recipe; focus brightens the face (no rim: dots are the only indicator). */

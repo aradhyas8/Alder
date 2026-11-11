@@ -527,4 +527,20 @@
     <string name="profiles_watchly_steps">"1.  Escanea con el teléfono de %1$s para abrir Watchly\n2.  Conecta allí la cuenta de Stremio de %1$s\n3.  Instálalo en la cuenta de Stremio de %1$s\n\nLas recomendaciones de %1$s aparecerán en Inicio. Puedes terminar esto más tarde."</string>
     <string name="profiles_all_set">Todo listo</string>
     <string name="profiles_ready">El perfil de %1$s está listo. Puedes añadir más complementos después en Configuración.</string>
+    <string name="setup_check">Comprobar configuraciÃ³n</string>
+    <string name="setup_check_hint">Comprueba que tus complementos pueden reproducir vÃ­deo en esta TV.</string>
+    <string name="setup_checking">Comprobando tus complementos</string>
+    <string name="setup_checking_desc">Alder pide a cada complemento de streaming una pelÃ­cula conocida, para ver que algo se puede reproducir en esta TV.</string>
+    <string name="setup_account">SesiÃ³n de Stremio iniciada como %1$s</string>
+    <string name="setup_account_apple">SesiÃ³n de Stremio iniciada con Apple (%1$s)</string>
+    <string name="setup_problem">TodavÃ­a no se puede reproducir nada</string>
+    <string name="setup_no_addons">Tus complementos muestran tÃ­tulos, pero ninguno encuentra vÃ­deo. Para eso, la cuenta necesita un complemento de streaming.</string>
+    <string name="setup_other_account">Los complementos pertenecen a una cuenta de Stremio. Si otro dispositivo muestra complementos que no estÃ¡n aquÃ­, ese dispositivo usa otra cuenta.</string>
+    <string name="setup_scan_addons">Escanea con el telÃ©fono para aÃ±adir un complemento de streaming</string>
+    <string name="setup_scan_addons_steps">Instala uno en Stremio allÃ­, con la sesiÃ³n de esta cuenta. DespuÃ©s selecciona Reintentar.</string>
+    <string name="setup_use_other_account">Usar otra cuenta</string>
+    <string name="setup_nothing_played">Alder pidiÃ³ a tus complementos una pelÃ­cula conocida. Nada de lo que encontraron se puede reproducir en esta TV.</string>
+    <string name="setup_ready">Listo para reproducir</string>
+    <string name="setup_ready_desc">%1$s encontrÃ³ vÃ­deo para una pelÃ­cula de prueba. Los tÃ­tulos que elijas se pueden reproducir en esta TV.</string>
+    <string name="setup_done">Hecho</string>
 </resources>

@@ -518,6 +518,9 @@ class SettingsActivity : Screen() {
                 actionRow(getString(R.string.my_addons), "…", getString(R.string.my_addons_hint)) {
                     if (authKey != null) startActivity(Intent(this, AddonsActivity::class.java))
                 }.also { addonValue = it }
+                actionRow(getString(R.string.setup_check), "", getString(R.string.setup_check_hint)) {
+                    if (authKey != null) startActivity(Intent(this, ProfilesActivity::class.java).putExtra("check", true))
+                }
                 actionRow(getString(R.string.reload_addons), "", getString(R.string.reload_addons_hint)) {
                     val key = authKey ?: return@actionRow
                     addonValue?.text = getString(R.string.reloading)
