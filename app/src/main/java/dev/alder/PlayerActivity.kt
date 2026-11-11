@@ -292,6 +292,7 @@ class PlayerActivity : Screen() {
     private var addonSubs: List<Subtitle> = emptyList()
     private var refreshOptionsSubtitles: (() -> Unit)? = null
     private var chosenSub: Subtitle? = null
+    private val readySubs = mutableMapOf<String, SubtitleFiles.Ready?>() // add-on subtitle link -> local UTF-8 file
     private var selectAddonSub = false
     // The languages to start with: what was picked in Audio & subtitles for this title before (the next episode, a
     // resume), else the profile's Settings. Picks in the menu change them, are kept for the title, and hold when the
@@ -646,14 +647,15 @@ class PlayerActivity : Screen() {
         var subsAsked = 0
         var subsShown = 0
         fun askSubs(stream: Stream?) = (++subsAsked).let { round -> background({
-            // Every language: the profile's subtitle language and English first, three files each in the addon's order,
+            // Every language: the profile's subtitle language and English first, three files from each add-on in its order,
             // then one file for each other language by name, so the list stays short enough for a remote.
             val all = Stremio.addons(key).filter { it.serves("subtitles", type, videoId) }
                 .flatMap { a -> runCatching { a.subtitles(type, videoId, stream) }
                     .onFailure { android.util.Log.w("Alder", "subtitles from ${a.name} failed", it) }.getOrDefault(emptyList()) }
             all.groupBy { Languages.code(it.lang) ?: it.lang }.entries
                 .sortedWith(compareBy({ it.key != wantSub }, { it.key != "en" }, { Languages.name(it.key) }))
-                .flatMap { (code, files) -> files.take(if (code == wantSub || code == "en") 3 else 1) }
+                // The limit is per add-on: with one limit for all, OpenSubtitles' files filled it and SubDL's never showed.
+                .flatMap { (code, files) -> files.groupBy { it.addon }.values.flatMap { it.take(if (code == wantSub || code == "en") 3 else 1) } }
         }) { r ->
             if (round < subsShown || isFinishing || isDestroyed) return@background
             subsShown = round
@@ -824,6 +826,17 @@ class PlayerActivity : Screen() {
             // No other video app on this TV: Alder plays it, and says so.
             return load(position, getString(R.string.player_no_other_app))
         }
+        // An add-on subtitle is fetched and made ready first (unpacked, UTF-8): see SubtitleFiles. Once per file.
+        chosenSub?.let { sub ->
+            if (sub.url !in readySubs) {
+                background({ SubtitleFiles.prepare(java.io.File(cacheDir, "subtitles"), sub) }) { r ->
+                    r.exceptionOrNull()?.let { android.util.Log.w("Alder", "subtitle from ${sub.addon} not prepared", it) }
+                    readySubs[sub.url] = r.getOrNull()
+                    if (!isFinishing && chosenSub === sub) load(position, message)
+                }
+                return
+            }
+        }
         startAt = position
         started = false
         toldUnseekable = false
@@ -851,7 +864,9 @@ class PlayerActivity : Screen() {
         val http = DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true).setDefaultRequestProperties(s.headers)
         val item = MediaItem.Builder().setUri(s.url).apply { if (asHls) setMimeType(MimeTypes.APPLICATION_M3U8) }
             .setSubtitleConfigurations(listOfNotNull(chosenSub?.let {
-                MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(it.url)).setMimeType(it.mimeType)
+                val ready = readySubs[it.url] // null: not prepared, so the add-on's own link as before
+                MediaItem.SubtitleConfiguration.Builder(ready?.file?.let(android.net.Uri::fromFile) ?: android.net.Uri.parse(it.url))
+                    .setMimeType(ready?.mimeType ?: it.mimeType)
                     .setLanguage(it.lang).setLabel(it.addon).setId(ADDON_SUB).build()
             })).build()
         // Files with no index (.ts, raw audio, some .avi) seek by their bitrate instead of not at all: ExoPlayer turns

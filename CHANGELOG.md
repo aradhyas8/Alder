@@ -40,6 +40,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - **Alder website.** The site shows the app screens and makes the download and setup steps easy to find.
 
 ### Fixes
+- **Add-on subtitles.** Subtitles from SubDL, OpenSubtitles and other add-ons show correctly. Alder opens zip files and shows letters in all languages correctly, for example Arabic, Polish and Russian. Each subtitle add-on shows its own files in **Audio & subtitles**. Before, files from the first add-on hid the files from other add-ons.
 <!-- Spotlight -->
 - **Large files.** Large files, such as 4K remuxes, stop less often to load. On most TVs, Alder now keeps up to 200 MB of the video ready. Before, Alder kept approximately 131 MB, which is only 10 to 17 seconds of a remux. After a stop, Alder waits for 4 seconds of video before it starts again.
 - **Long rows.** Alder releases poster memory for titles far off the screen. Rows stay fast when you move through many titles.
