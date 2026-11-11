@@ -385,8 +385,14 @@ class StreamsActivity : Screen() {
             }
             alpha = if (s.height in 1..719) 0.48f else 1f
             setOnClickListener {
+                val chosen = JSONArray(listOf(s.toJson())).toString()
+                // Opened from the player (Change stream): it's still there, paused, and plays this from the same second.
+                if (intent.getBooleanExtra("fromPlayer", false)) {
+                    setResult(RESULT_OK, Intent().putExtra("sources", chosen))
+                    return@setOnClickListener finish()
+                }
                 startActivity(Intent(this@StreamsActivity, PlayerActivity::class.java).putExtras(intent)
-                    .putExtra("sources", JSONArray(listOf(s.toJson())).toString()).putExtra("picked", true))
+                    .putExtra("sources", chosen).putExtra("picked", true))
             }
         }
     }

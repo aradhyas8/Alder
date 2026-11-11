@@ -51,7 +51,9 @@
         <activity android:name=".SettingsActivity" android:screenOrientation="landscape" />
         <activity android:name=".AddonsActivity" android:screenOrientation="landscape" />
         <activity android:name=".DetailsActivity" android:screenOrientation="landscape" />
-        <activity android:name=".StreamsActivity" android:screenOrientation="landscape" />
+        <!-- See-through so the player under it (Change stream) is only paused, not stopped: a stopped player loses its
+             picture until Play. No fixed orientation: Android 8.0 refuses one on a see-through screen. -->
+        <activity android:name=".StreamsActivity" android:theme="@style/Alder.Over" />
         <activity
             android:name=".PlayerActivity"
             android:theme="@style/Alder.Player"

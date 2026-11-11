@@ -7,6 +7,12 @@
         <item name="android:windowAnimationStyle">@style/Alder.Screens</item>
     </style>
 
+    <!-- A screen drawn over another without stopping it (the source list over the player). Its own art covers it. -->
+    <style name="Alder.Over">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+    </style>
+
     <!-- The player: the screen behind dims to black before the video fades up. -->
     <style name="Alder.Player">
         <item name="android:windowAnimationStyle">@style/Alder.Screens.Player</item>
