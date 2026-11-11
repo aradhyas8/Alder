@@ -491,7 +491,7 @@ class PlayerActivity : Screen() {
                     // ExoPlayer's own retries already took about 6 s: each of ours gets a fresh START_WAIT, or the
                     // start timeout would move on to the next source before the second retry ran.
                     main.removeCallbacks(startTimeout)
-                    main.postDelayed(startTimeout, RETRY_WAIT + START_WAIT)
+                    if (!stopped) main.postDelayed(startTimeout, RETRY_WAIT + START_WAIT)
                     main.postDelayed({ if (!isFinishing) player.prepare() }, RETRY_WAIT)
                     return
                 }
@@ -888,7 +888,7 @@ class PlayerActivity : Screen() {
         player.prepare()
         player.playWhenReady = play && !stopped
         main.removeCallbacks(startTimeout)
-        main.postDelayed(startTimeout, START_WAIT)
+        if (!stopped) main.postDelayed(startTimeout, START_WAIT) // else onStart starts it
     }
 
     /**
@@ -1020,6 +1020,12 @@ class PlayerActivity : Screen() {
         stopped = false
         if (prepared) {
             lastPosition = player.currentPosition
+            // Left before the picture showed: nothing was seen, so it goes on, with a fresh START_WAIT.
+            if (!started && !handedOff && !isTrailer) {
+                player.play()
+                main.removeCallbacks(startTimeout)
+                main.postDelayed(startTimeout, START_WAIT)
+            }
             if (!isTrailer) {
                 main.postDelayed(tickTask, TICK)
                 main.post(skipTask)
@@ -3022,6 +3028,8 @@ class PlayerActivity : Screen() {
         main.removeCallbacks(progressTask)
         main.removeCallbacks(skipTask)
         main.removeCallbacks(loadingTask)
+        // A paused source in the background shows no picture: timing it out would skip a good source.
+        main.removeCallbacks(startTimeout)
         player.pause()
         if (isTrailer || !watched || player.isCurrentMediaItemLive || isLiveType(type) || episodic && !plausibleEpisode(player.duration)) return
         record()
