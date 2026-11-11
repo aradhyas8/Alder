@@ -41,6 +41,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - The README has a **Website** badge and a **Downloads** badge with the total number of GitHub release downloads.
 
 ### Fixes
+- **Start again from the beginning.** Left and Right during playback do not start some videos again from the beginning. Before, a change to the subtitle timing in a file that cannot skip ahead started the video at 0:00.
 - **Add-on subtitles.** Subtitles from SubDL, OpenSubtitles and other add-ons show correctly. Alder opens zip files and shows letters in all languages correctly, for example Arabic, Polish and Russian. Each subtitle add-on shows its own files in **Audio & subtitles**. Before, files from the first add-on hid the files from other add-ons.
 - **Missing sources.** Alder asks every stream add-on that Stremio asks. Before, Alder did not ask some add-ons, and showed no playable sources. Short videos, for example a 7-minute cartoon, show in the source list. Slow debrid add-ons get 45 seconds to answer, not 20.
 <!-- Spotlight -->
