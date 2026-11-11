@@ -19,7 +19,7 @@ export default {
 
     const gh = (path, init = {}) => fetch("https://api.github.com" + path, {
       ...init,
-      headers: { Authorization: `Bearer ${env.GITHUB_TOKEN}`, Accept: "application/vnd.github+json",
+      headers: { Authorization: `Bearer ${env.GITHUB_TOKEN.trim()}`, Accept: "application/vnd.github+json",
         "User-Agent": "alder-crash-worker", "Content-Type": "application/json" },
     });
     const q = encodeURIComponent(`repo:${REPO} is:issue is:open label:crash in:title "${title.replaceAll('"', "")}"`);
@@ -27,6 +27,7 @@ export default {
     const res = same
       ? await gh(`/repos/${REPO}/issues/${same.number}/comments`, { method: "POST", body: JSON.stringify({ body: `Again on ${version}:\n\n${body}` }) })
       : await gh(`/repos/${REPO}/issues`, { method: "POST", body: JSON.stringify({ title, body, labels: ["crash"] }) });
-    return new Response(res.ok ? "ok" : "failed", { status: res.ok ? 200 : 502 });
+    // GitHub's status on failure (401 bad token, 403/404 token can't write issues on this repo); never its body.
+    return new Response(res.ok ? "ok" : `github ${res.status}`, { status: res.ok ? 200 : 502 });
   },
 };

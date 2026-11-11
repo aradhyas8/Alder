@@ -55,8 +55,8 @@ internal object Crashes {
         c.getSharedPreferences("app", Context.MODE_PRIVATE).edit().putLong("crashSent", lastTime(c)).apply()
     }
 
-    // The crash worker's address (crash-worker/README.md); empty hides Send report until it is deployed.
-    private const val ENDPOINT = ""
+    // The crash worker (crash-worker/README.md). Empty hides Send report.
+    private const val ENDPOINT = "https://alder-crash.alder-tv.workers.dev/"
 
     /** Version, build, Android and device: enough to repeat a report, and nothing about the viewer. */
     fun describe(c: Context): String {
