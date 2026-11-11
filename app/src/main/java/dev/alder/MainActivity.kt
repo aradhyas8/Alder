@@ -1156,7 +1156,7 @@ class MainActivity : Screen() {
             // until the block clears the top bar's words (they end well above its 76 dp). showHero gives them back for
             // the next title.
             addOnLayoutChangeListener { _, _, top, _, _, _, _, _, _ ->
-                if (page == Page.HOME || page == Page.LIBRARY) return@addOnLayoutChangeListener
+                if (page == Page.LIBRARY) return@addOnLayoutChangeListener
                 val lines = heroAbout.maxLines
                 if (top < dp(HEADER_H - 12) && lines > 0) heroAbout.post { heroAbout.setLines(lines - 1) }
             }

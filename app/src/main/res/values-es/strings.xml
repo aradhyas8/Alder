@@ -255,6 +255,9 @@
     <string name="frame_rate_hint">El televisor usa la frecuencia de la película para que los paneos no tiemblen.</string>
     <string name="audio_output">Salida de audio</string>
     <string name="audio_output_hint">Receptor envía Dolby y DTS sin cambios a una barra de sonido o receptor. Altavoces del TV decodifica el sonido aquí, lo que siempre funciona.</string>
+    <string name="ui_size">Tamaño de texto y pósteres</string>
+    <string name="ui_size_hint">Agranda el texto, los pósteres y los botones en todas las pantallas, para un TV lejos de tu asiento.</string>
+    <string name="ui_size_normal">Normal</string>
     <string name="video_player">Reproductor de video</string>
     <string name="video_player_hint">Elige la app que reproduce tus videos. Con otra app, Alder elige la fuente y guarda dónde te detienes.</string>
     <string name="video_player_alder">Alder</string>

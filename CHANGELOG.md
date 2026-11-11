@@ -19,6 +19,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 
 ### New
 <!-- Spotlight -->
+- **Bigger text and posters.** Select **Settings → Picture & Sound → Text and poster size → Large**. Text, posters, buttons and panels get bigger on every screen. Rows show fewer posters, and Home shows the story only on the title page.
 - **Play in another app.** Select **Settings → Streams → Video player**, then select a video app on your TV, for example VLC or Just Player. Alder opens that app when you select **Play**. Alder still selects the source, the resume point and the subtitle. When you press Back in the other app, Alder saves where you stopped. If you remove that app, Android asks which app to use.
 <!-- Spotlight -->
 - **Anime and other catalogs.** Catalogs of anime, video channels and other types now show. Each type has its own page in the top bar, for example **Anime**. Before, Alder showed only movie, series and live catalogs. Anime with episodes has its episode list, **Next episode** and **Continue**, as a show does. **My List** shows these titles too.

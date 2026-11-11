@@ -252,6 +252,9 @@
     <string name="frame_rate_hint">The TV switches to the film\'s rate so pans don\'t judder.</string>
     <string name="audio_output">Audio output</string>
     <string name="audio_output_hint">Receiver sends Dolby and DTS untouched to a soundbar or receiver. TV speakers decodes the sound here, which always works.</string>
+    <string name="ui_size">Text and poster size</string>
+    <string name="ui_size_hint">Makes text, posters and buttons bigger on every screen, for a TV far from your seat.</string>
+    <string name="ui_size_normal">Normal</string>
     <string name="video_player">Video player</string>
     <string name="video_player_hint">Choose the app that plays your videos. With another app, Alder still picks the source and saves where you stop.</string>
     <string name="video_player_alder">Alder</string>

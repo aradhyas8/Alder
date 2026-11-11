@@ -106,16 +106,26 @@ abstract class Screen : Activity() {
     /** The Stremio account of the profile in use. */
     protected val authKey: String? get() = Profiles.active(this)?.authKey
 
-    /** Settings › Language › App language, for TVs without Android 13's per-app language page (it applies it itself). */
+    /** The Settings › Text and poster size this screen was built with; a different one rebuilds it (see onResume). */
+    private var builtScale = 1f
+
+    /**
+     * Settings › Language › App language, for TVs without Android 13's per-app language page (it applies it itself),
+     * and Settings › Text and poster size: the screen's density grows, so text, posters, glass and spacing all grow
+     * together and keep the House Lights proportions (rows show fewer posters, each one bigger).
+     */
     override fun attachBaseContext(newBase: Context) {
-        if (android.os.Build.VERSION.SDK_INT >= 33) return super.attachBaseContext(newBase)
         val config = android.content.res.Configuration(newBase.resources.configuration)
-        val lang = Settings.appLanguage(newBase)
-        @Suppress("DEPRECATION") val locale = if (lang.isEmpty()) config.locale else java.util.Locale.forLanguageTag(lang)
-        java.util.Locale.setDefault(locale) // language names and dates follow it too
-        if (lang.isEmpty()) return super.attachBaseContext(newBase)
-        config.setLocale(locale)
-        super.attachBaseContext(newBase.createConfigurationContext(config))
+        var changed = false
+        if (android.os.Build.VERSION.SDK_INT < 33) {
+            val lang = Settings.appLanguage(newBase)
+            @Suppress("DEPRECATION") val locale = if (lang.isEmpty()) config.locale else java.util.Locale.forLanguageTag(lang)
+            java.util.Locale.setDefault(locale) // language names and dates follow it too
+            if (lang.isNotEmpty()) { config.setLocale(locale); changed = true }
+        }
+        builtScale = Settings.uiScale(newBase)
+        if (builtScale != 1f) { config.densityDpi = (config.densityDpi * builtScale).toInt(); changed = true }
+        super.attachBaseContext(if (changed) newBase.createConfigurationContext(config) else newBase)
     }
 
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
@@ -162,6 +172,7 @@ abstract class Screen : Activity() {
 
     override fun onResume() {
         super.onResume()
+        if (Settings.uiScale(this) != builtScale) return recreate() // the size changed while this screen was behind
         val release = pendingInstall ?: return
         pendingInstall = null
         if (Updates.canInstall(this)) installUpdate(release)

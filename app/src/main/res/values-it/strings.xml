@@ -255,6 +255,9 @@
     <string name="frame_rate_hint">La TV passa alla frequenza del film così le panoramiche non scattano.</string>
     <string name="audio_output">Uscita audio</string>
     <string name="audio_output_hint">Ricevitore invia Dolby e DTS intatti a una soundbar o a un ricevitore. Altoparlanti TV decodifica il suono qui, e funziona sempre.</string>
+    <string name="ui_size">Dimensione di testo e locandine</string>
+    <string name="ui_size_hint">Ingrandisce testo, locandine e pulsanti in tutte le schermate, per una TV lontana dal tuo posto.</string>
+    <string name="ui_size_normal">Normale</string>
     <string name="video_player">Lettore video</string>
     <string name="video_player_hint">Scegli l’app che riproduce i tuoi video. Con un’altra app, Alder sceglie comunque la fonte e salva dove ti fermi.</string>
     <string name="video_player_alder">Alder</string>
