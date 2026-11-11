@@ -161,13 +161,18 @@ class DetailsActivity : Screen() {
         }
         setWindowed(root, heroArt)
 
-        (initialArt ?: poster)?.let { Images.load(it, heroArt, artWidth, urgent = true) { heroArt.alpha = 1f; refrost() } }
+        // The art arrives: a touch close, settling back as the page opens (a transform only, no redraw of the art).
+        (initialArt ?: poster)?.let { Images.load(it, heroArt, artWidth, urgent = true) {
+            heroArt.alpha = 1f; heroArt.scaleX = ARRIVE; heroArt.scaleY = ARRIVE
+            heroArt.enter(ART_MS).scaleX(1f).scaleY(1f).start()
+            refrost()
+        } }
 
         fun show(m: Meta) {
             meta = m
             val art = m.background ?: initialArt ?: poster
             if (heroArt.tag != art) Images.load(art, heroArt, artWidth, urgent = true) {
-                heroArt.animate().alpha(1f).setDuration(250).start()
+                heroArt.enter().alpha(1f).start()
                 refrost()
             }
             richCast = m.castMembers
@@ -728,9 +733,9 @@ class DetailsActivity : Screen() {
         guide.visibility = View.VISIBLE
         guide.alpha = 0f
         guide.translationY = dp(28).toFloat()
-        guide.animate().alpha(1f).translationY(0f).setDuration(260).start()
+        guide.enter().alpha(1f).translationY(0f).start()
         // The film steps back behind the guide, so the chips and panel read over a bright backdrop.
-        heroArt.animate().alpha(GUIDE_ART).setDuration(260).withEndAction { refrost() }.start()
+        heroArt.animate().alpha(GUIDE_ART).setDuration(ENTER_MS).withEndAction { refrost() }.start()
         leftShade(false) // the episode list sits on glass: the art can run to the left edge as it does on the right
         val currentId = playTarget(meta)?.first
         (episodeRows.firstOrNull { it.tag == currentId } ?: episodeRows.firstOrNull())?.requestFocus()
@@ -738,9 +743,9 @@ class DetailsActivity : Screen() {
 
     private fun hideGuide() {
         guideOpen = false
-        heroArt.animate().alpha(1f).setDuration(220).withEndAction { refrost() }.start()
+        heroArt.enter().alpha(1f).withEndAction { refrost() }.start()
         leftShade(true)
-        guide.animate().alpha(0f).translationY(dp(24).toFloat()).setDuration(220).withEndAction {
+        guide.exit().alpha(0f).translationY(dp(24).toFloat()).withEndAction {
             guide.visibility = View.GONE
             hero.visibility = View.VISIBLE
             if (::playButton.isInitialized) playButton.requestFocus()
@@ -1025,7 +1030,7 @@ class DetailsActivity : Screen() {
                 charView?.let { card.addView(it, LinearLayout.LayoutParams(dp(82), -2).apply { topMargin = dp(2) }) }
 
                 card.setOnFocusChangeListener { _, focused ->
-                    card.animate().scaleX(if (focused) 1.08f else 1f).scaleY(if (focused) 1.08f else 1f).setDuration(120).start()
+                    card.grow(focused).start()
                     ring.visibility = if (focused) View.VISIBLE else View.INVISIBLE
                     nameView.setTextColor(if (focused) 0xFFFBF8F5.toInt() else TEXT)
                     charView?.setTextColor(if (focused) TEXT else TEXT_2)
@@ -1062,7 +1067,7 @@ class DetailsActivity : Screen() {
         root.addView(infoOverlay, FrameLayout.LayoutParams(-1, -1))
         infoOverlay.alpha = 0f
         infoOverlay.translationY = dp(20).toFloat()
-        infoOverlay.animate().alpha(1f).translationY(0f).setDuration(220).start()
+        infoOverlay.enter().alpha(1f).translationY(0f).start()
 
         if (focusCast && infoCastCards.isNotEmpty()) {
             infoCastCards.first().requestFocus()
@@ -1075,7 +1080,7 @@ class DetailsActivity : Screen() {
         infoOpen = false
         if (::infoOverlay.isInitialized) {
             val closing = infoOverlay
-            closing.animate().alpha(0f).translationY(dp(20).toFloat()).setDuration(180).withEndAction {
+            closing.exit().alpha(0f).translationY(dp(20).toFloat()).withEndAction {
                 root.removeView(closing)
                 if (!infoOpen) {
                     hero.visibility = View.VISIBLE
@@ -1190,13 +1195,13 @@ class DetailsActivity : Screen() {
         similarOverlay.visibility = View.VISIBLE
         similarOverlay.alpha = 0f
         similarOverlay.translationY = dp(20).toFloat()
-        similarOverlay.animate().alpha(1f).translationY(0f).setDuration(220).start()
+        similarOverlay.enter().alpha(1f).translationY(0f).start()
         similarFirst?.requestFocus()
     }
 
     private fun hideSimilar() {
         similarOpen = false
-        similarOverlay.animate().alpha(0f).translationY(dp(20).toFloat()).setDuration(180).withEndAction {
+        similarOverlay.exit().alpha(0f).translationY(dp(20).toFloat()).withEndAction {
             similarOverlay.visibility = View.GONE
             hero.visibility = View.VISIBLE
             playButton.requestFocus()
@@ -1461,14 +1466,14 @@ class DetailsActivity : Screen() {
         filmographyOverlay.visibility = View.VISIBLE
         filmographyOverlay.alpha = 0f
         filmographyOverlay.translationY = dp(20).toFloat()
-        filmographyOverlay.animate().alpha(1f).translationY(0f).setDuration(220).start()
+        filmographyOverlay.enter().alpha(1f).translationY(0f).start()
         filmographyFirst?.requestFocus()
     }
 
     private fun hideFilmography() {
         if (!filmographyOpen) return
         filmographyOpen = false
-        filmographyOverlay.animate().alpha(0f).translationY(dp(20).toFloat()).setDuration(180).withEndAction {
+        filmographyOverlay.exit().alpha(0f).translationY(dp(20).toFloat()).withEndAction {
             filmographyOverlay.visibility = View.GONE
             if (infoOpen) {
                 infoOverlay.visibility = View.VISIBLE

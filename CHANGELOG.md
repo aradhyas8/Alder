@@ -19,6 +19,9 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 
 ### New
 <!-- Spotlight -->
+- **Bigger text and posters.** Select **Settings → Picture & Sound → Text and poster size → Large**. Text, posters, buttons and panels get bigger on every screen. Rows show fewer posters, and Home shows the story only on the title page.
+- **Play in another app.** Select **Settings → Streams → Video player**, then select a video app on your TV, for example VLC or Just Player. Alder opens that app when you select **Play**. Alder still selects the source, the resume point and the subtitle. When you press Back in the other app, Alder saves where you stopped. If you remove that app, Android asks which app to use.
+<!-- Spotlight -->
 - **Anime and other catalogs.** Catalogs of anime, video channels and other types now show. Each type has its own page in the top bar, for example **Anime**. Before, Alder showed only movie, series and live catalogs. Anime with episodes has its episode list, **Next episode** and **Continue**, as a show does. **My List** shows these titles too.
 <!-- Spotlight -->
 - **Picture size.** You can make the picture fill the screen. In the player, select **Audio & subtitles → Sync & Style → Picture**. **Fit** shows all of the picture. **Zoom** fills the screen and cuts the edges. **Stretch** fills the screen and changes the shape. Alder keeps your choice for all videos.
@@ -30,6 +33,8 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - **Send report.** When Alder stops, it saves the error on your TV. The next time Home opens, Alder asks to send a report. Select **Send report** or **No**. The report has the error, the Alder version and the TV model. It does not have your account details. To send it later, select **Settings → About → Send report**.
 
 ### Easier to use
+<!-- Spotlight -->
+- **Smooth motion.** Screens fade and settle when they open and close. When you select **Play**, the screen dims to black and the video fades up. A title page opens with its picture moving slowly into place. Focus settles with a small bounce. Panels open fast and close faster. To turn off motion, set the TV to **Remove animations** in its accessibility settings.
 - **Gray subtitles.** You can show subtitles in gray. Gray is less bright than white on OLED and Mini LED TVs in a dark room. Select **Settings → Subtitles → Subtitle color → Gray**, or select **Gray** in the player.
 - **Subtitle match.** Alder sends the file name and size of the video to subtitle add-ons. The add-on shows subtitles for that release first, so the timing is correct more frequently.
 - **Alder website.** The site shows the app screens and makes the download and setup steps easy to find.

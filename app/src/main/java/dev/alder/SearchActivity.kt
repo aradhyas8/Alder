@@ -628,7 +628,7 @@ class SearchActivity : Screen() {
                 scroller.clipToPadding = true
                 resultsScroll.clipChildren = true
                 resultsScroll.clipToPadding = true
-                shade.animate().alpha(if (has) 0f else 0.5f).setDuration(150).start()
+                shade.animate().alpha(if (has) 0f else 0.5f).setDuration(FOCUS_MS).start()
                 if (has) {
                     // The focused row snaps to the pane's top, as on Home: scrolling just far enough left Shows cut off.
                     // Rows above it draw nothing: the pane didn't clip them, and they sat over the title's words.
@@ -643,7 +643,7 @@ class SearchActivity : Screen() {
                     val row = parent as ViewGroup
                     val target = (left - row.paddingStart).coerceIn(0, (row.width - scroller.width).coerceAtLeast(0))
                     scroller.smoothScrollTo(target, 0)
-                    for (i in 0 until row.childCount) row.getChildAt(i).let { it.animate().alpha(if (it.left < target + row.paddingStart - 1) 0f else 1f).setDuration(150).start() }
+                    for (i in 0 until row.childCount) row.getChildAt(i).let { it.animate().alpha(if (it.left < target + row.paddingStart - 1) 0f else 1f).setDuration(FOCUS_MS).start() }
                     caption.post {
                         caption.translationX = (left - target).toFloat()
                             .coerceIn(0f, (scroller.width - dp(48) - caption.width).coerceAtLeast(0).toFloat())
@@ -686,7 +686,7 @@ class SearchActivity : Screen() {
                     refrost()
                 }
             }) {
-                if (focused === meta) { art.animate().alpha(1f).setDuration(300).start(); refrost() }
+                if (focused === meta) { art.enter(PAGE_MS).alpha(1f).start(); refrost() }
             }
         } else if (url == null) {
             art.tag = null

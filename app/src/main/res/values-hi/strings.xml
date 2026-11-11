@@ -251,6 +251,14 @@
     <string name="frame_rate_hint">टीवी फ़िल्म के रेट पर चला जाता है ताकि कैमरा घूमने पर झटके न लगें।</string>
     <string name="audio_output">ऑडियो आउटपुट</string>
     <string name="audio_output_hint">रिसीवर Dolby और DTS को बिना बदले साउंडबार या रिसीवर तक भेजता है। टीवी स्पीकर आवाज़ को यहीं डिकोड करता है, जो हमेशा काम करता है।</string>
+    <string name="ui_size">टेक्स्ट और पोस्टर का आकार</string>
+    <string name="ui_size_hint">हर स्क्रीन पर टेक्स्ट, पोस्टर और बटन बड़े करता है, जब टीवी आपकी सीट से दूर हो।</string>
+    <string name="ui_size_normal">सामान्य</string>
+    <string name="video_player">वीडियो प्लेयर</string>
+    <string name="video_player_hint">चुनें कि कौन-सा ऐप आपके वीडियो चलाए। दूसरे ऐप के साथ भी Alder स्रोत चुनता है और जहाँ आप रुकते हैं वह सहेजता है।</string>
+    <string name="video_player_alder">Alder</string>
+    <string name="player_other_app">दूसरे ऐप में चल रहा है। लौटने के लिए वहाँ Back दबाएँ।</string>
+    <string name="player_no_other_app">इस टीवी पर कोई दूसरा वीडियो प्लेयर नहीं है। Alder वीडियो चलाता है।</string>
     <string name="audio_tv_speakers">टीवी स्पीकर</string>
     <string name="audio_receiver">रिसीवर</string>
     <string name="clear_dialogue_setting_hint">टीवी स्पीकर पर संगीत और तेज़ इफ़ेक्ट के ऊपर आवाज़ें उभारता है।</string>
