@@ -610,6 +610,10 @@ class SettingsActivity : Screen() {
                     choose("Alder", listOf(getString(R.string.action_ok)), getString(R.string.about_desc)) {}
                 }
                 actionRow(getString(R.string.whats_new), getString(R.string.version, Updates.mine(this)), getString(R.string.whats_new_hint)) { whatsNew() }
+                // Only while a crash waits to be sent: answered "No" on Home, or the send failed.
+                if (Crashes.sendable(this)) actionRow(getString(R.string.report_send), "", getString(R.string.report_send_hint)) {
+                    sendReport { showGroup(Group.ABOUT) }
+                }
                 var found: Updates.Release? = null
                 val value = actionRow(getString(R.string.updates), getString(R.string.updates_checking), getString(R.string.updates_hint)) {
                     found?.let(::installUpdate) ?: showGroup(Group.ABOUT)

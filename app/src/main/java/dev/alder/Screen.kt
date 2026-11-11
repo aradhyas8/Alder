@@ -569,6 +569,18 @@ abstract class Screen : Activity() {
         typeInstead.requestFocus()
     }
 
+    /**
+     * Sends the saved crash (Crashes.send) and says whether it went. Home asks after a crash; Settings › About offers it
+     * until it is sent. Off the main thread: the worker files a GitHub issue, which takes a second or two.
+     */
+    protected fun sendReport(done: () -> Unit = {}) = background({ Crashes.send(applicationContext) }) { result ->
+        if (isFinishing) return@background
+        choose(getString(if (result.isSuccess) R.string.report_sent_title else R.string.report_failed_title),
+            listOf(getString(R.string.action_ok)),
+            getString(if (result.isSuccess) R.string.report_sent_desc else R.string.report_failed_desc)) {}
+        done()
+    }
+
     /** Null animates loading; for countdowns set progress to fraction × max as time changes. */
     protected fun ring(fraction: Float? = null): ProgressBar = object : ProgressBar(this, null,
         // A countdown needs a style that keeps its progress; the default one is indeterminate-only and reads 0.

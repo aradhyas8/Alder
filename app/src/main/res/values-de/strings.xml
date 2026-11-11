@@ -350,6 +350,15 @@
     <string name="updates_install">%1$s installieren  ›</string>
     <string name="updates_check_failed">Prüfung fehlgeschlagen · Erneut versuchen  ›</string>
     <string name="updates_up_to_date">Aktuell</string>
+    <string name="report_send">Bericht senden</string>
+    <string name="report_no">Nein</string>
+    <string name="report_send_hint">Sendet den Fehler vom letzten Absturz von Alder, mit der Alder-Version und dem Fernsehermodell. Keine Kontodaten.</string>
+    <string name="report_crashed_title">Alder ist beim letzten Mal abgestürzt</string>
+    <string name="report_crashed_desc">Einen Bericht senden, damit der Fehler behoben wird? Er enthält den Fehler und das Fernsehermodell, nicht dein Konto.</string>
+    <string name="report_sent_title">Bericht gesendet</string>
+    <string name="report_sent_desc">Danke. Das hilft, den Fehler zu beheben.</string>
+    <string name="report_failed_title">Bericht konnte nicht gesendet werden</string>
+    <string name="report_failed_desc">Prüfe die Internetverbindung. Um es erneut zu versuchen, wähle Einstellungen › Info › Bericht senden.</string>
     <string name="this_profile">Dieses Profil</string>
     <string name="nothing_hidden">Nichts ausgeblendet</string>
     <string name="nothing_hidden_desc">Titel, die du aus Weiterschauen entfernst, erscheinen hier.</string>

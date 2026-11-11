@@ -350,6 +350,15 @@
     <string name="updates_install">%1$s इंस्टॉल करें  ›</string>
     <string name="updates_check_failed">जाँच नहीं हो सकी · फिर से कोशिश करें  ›</string>
     <string name="updates_up_to_date">अप टू डेट</string>
+    <string name="report_send">रिपोर्ट भेजें</string>
+    <string name="report_no">नहीं</string>
+    <string name="report_send_hint">Alder पिछली बार रुकने की गड़बड़ी, Alder वर्शन और टीवी मॉडल के साथ भेजता है। इसमें खाते की कोई जानकारी नहीं है।</string>
+    <string name="report_crashed_title">Alder पिछली बार रुक गया था</string>
+    <string name="report_crashed_desc">इसे ठीक करने में मदद के लिए रिपोर्ट भेजें? इसमें गड़बड़ी और टीवी मॉडल है, आपका खाता नहीं।</string>
+    <string name="report_sent_title">रिपोर्ट भेजी गई</string>
+    <string name="report_sent_desc">धन्यवाद। इससे समस्या ठीक करने में मदद मिलती है।</string>
+    <string name="report_failed_title">रिपोर्ट नहीं भेजी जा सकी</string>
+    <string name="report_failed_desc">इंटरनेट कनेक्शन जाँचें। फिर से कोशिश करने के लिए सेटिंग › जानकारी › रिपोर्ट भेजें चुनें।</string>
     <string name="this_profile">यह प्रोफ़ाइल</string>
     <string name="nothing_hidden">कुछ भी छिपा नहीं है</string>
     <string name="nothing_hidden_desc">देखना जारी रखें से हटाए गए टाइटल यहाँ दिखते हैं।</string>

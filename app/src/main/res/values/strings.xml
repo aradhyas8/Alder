@@ -351,6 +351,15 @@
     <string name="updates_install">Install %1$s  ›</string>
     <string name="updates_check_failed">Couldn\'t check · Try again  ›</string>
     <string name="updates_up_to_date">Up to date</string>
+    <string name="report_send">Send report</string>
+    <string name="report_no">No</string>
+    <string name="report_send_hint">Sends the error from the last time Alder stopped, with the Alder version and the TV model. It has no account details.</string>
+    <string name="report_crashed_title">Alder stopped last time</string>
+    <string name="report_crashed_desc">Send a report to help fix it? It has the error and the TV model, not your account.</string>
+    <string name="report_sent_title">Report sent</string>
+    <string name="report_sent_desc">Thank you. It helps fix the problem.</string>
+    <string name="report_failed_title">Couldn\'t send the report</string>
+    <string name="report_failed_desc">Check the internet connection. To try again, select Settings › About › Send report.</string>
     <string name="this_profile">This profile</string>
     <string name="nothing_hidden">Nothing is hidden</string>
     <string name="nothing_hidden_desc">Titles you remove from Continue Watching show here.</string>
