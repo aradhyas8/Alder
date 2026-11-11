@@ -255,6 +255,11 @@
     <string name="frame_rate_hint">Le téléviseur adopte la fréquence du film pour que les panoramiques ne saccadent pas.</string>
     <string name="audio_output">Sortie audio</string>
     <string name="audio_output_hint">Ampli transmet le Dolby et le DTS tels quels à une barre de son ou un ampli. Haut-parleurs TV décode le son ici, ce qui fonctionne toujours.</string>
+    <string name="video_player">Lecteur vidéo</string>
+    <string name="video_player_hint">Choisissez l’app qui lit vos vidéos. Avec une autre app, Alder choisit toujours la source et enregistre l’endroit où vous vous arrêtez.</string>
+    <string name="video_player_alder">Alder</string>
+    <string name="player_other_app">Lecture dans une autre app. Appuyez sur Retour dans celle-ci pour revenir.</string>
+    <string name="player_no_other_app">Aucun autre lecteur vidéo sur ce téléviseur. Alder lit la vidéo.</string>
     <string name="audio_tv_speakers">Haut-parleurs TV</string>
     <string name="audio_receiver">Ampli</string>
     <string name="clear_dialogue_setting_hint">Fait ressortir les voix par-dessus la musique et les effets forts sur les haut-parleurs du téléviseur.</string>

@@ -107,6 +107,8 @@ object Settings {
     fun alwaysList(c: Context) = prefs(c).getBoolean("alwaysList", false)
     fun matchFrameRate(c: Context) = prefs(c).getBoolean("matchFrameRate", true)
     fun passthrough(c: Context) = prefs(c).getBoolean("passthrough", false)
+    /** Settings › Video player: null plays in Alder, else the package of the video app each source goes to. */
+    fun externalPlayer(c: Context) = prefs(c).getString("videoPlayer", "").orEmpty().ifEmpty { null }
     fun clearDialogue(c: Context) = prefs(c).getBoolean("clearDialogue", false)
     fun setClearDialogue(c: Context, on: Boolean) = prefs(c).edit().putBoolean("clearDialogue", on).apply()
     /** "on", "foreign" (only when audio differs or forced), "off". Migrates old Boolean "subtitles". */
@@ -252,6 +254,9 @@ class SettingsActivity : Screen() {
     private val streaming by lazy { listOf(
         Choice("alwaysList", getString(R.string.play_press), getString(R.string.play_press_hint),
             listOf(false to getString(R.string.play_best_source), true to getString(R.string.play_show_sources))),
+        // Alder, then each video app on this TV by its own name.
+        Choice("videoPlayer", getString(R.string.video_player), getString(R.string.video_player_hint),
+            listOf("" to getString(R.string.video_player_alder)) + ExternalPlayer.installed(this)),
         Choice("maxHeight", getString(R.string.max_quality), getString(R.string.max_quality_hint),
             listOf(0 to getString(R.string.no_limit), 2160 to "4K", 1080 to "1080p", 720 to "720p")),
         Choice("maxSizeGb", getString(R.string.max_size), getString(R.string.max_size_hint),
