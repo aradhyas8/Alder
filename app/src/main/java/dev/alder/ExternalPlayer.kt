@@ -11,9 +11,23 @@ import android.net.Uri
 internal object ExternalPlayer {
     const val REQUEST = 41
 
-    fun intent(url: String, title: String, headers: Map<String, String>, resumeMs: Long, subtitle: String?) =
+    /** The video apps on this TV that open a web link, as (package, name), by name. Alder itself is not one. */
+    fun installed(c: android.content.Context): List<Pair<String, String>> {
+        val probe = Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse("https://example.com/video.mkv"), "video/*")
+        val pm = c.packageManager
+        @Suppress("DEPRECATION")
+        return pm.queryIntentActivities(probe, 0)
+            // Android TV answers with a "None" placeholder (frameworkpackagestubs) when nothing real would.
+            .filterNot { it.activityInfo.name.contains("Stub") || it.activityInfo.packageName == c.packageName }
+            .map { it.activityInfo.packageName to it.loadLabel(pm).toString() }
+            .distinctBy { it.first }.sortedBy { it.second.lowercase() }
+    }
+
+    /** [app] is the package from Settings › Video player; null lets Android ask which app. */
+    fun intent(url: String, title: String, headers: Map<String, String>, resumeMs: Long, subtitle: String?, app: String?) =
         Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(Uri.parse(url), "video/*")
+            app?.let { setPackage(it) }
             putExtra("title", title); putExtra(Intent.EXTRA_TITLE, title); putExtra("forcename", title) // Vimu
             if (headers.isNotEmpty()) putExtra("headers", headers.flatMap { listOf(it.key, it.value) }.toTypedArray()) // MX, Just Player
             if (resumeMs > 0) {

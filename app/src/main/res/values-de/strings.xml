@@ -252,9 +252,8 @@
     <string name="audio_output">Audioausgabe</string>
     <string name="audio_output_hint">Receiver sendet Dolby und DTS unverändert an eine Soundbar oder einen Receiver. TV-Lautsprecher decodiert den Ton hier, was immer funktioniert.</string>
     <string name="video_player">Videoplayer</string>
-    <string name="video_player_hint">Eine andere App spielt das Video ab, zum Beispiel VLC oder MX Player. Alder wählt weiterhin die Quelle und speichert, wo du aufhörst.</string>
+    <string name="video_player_hint">Wähle die App, die deine Videos abspielt. Mit einer anderen App wählt Alder weiterhin die Quelle und speichert, wo du aufhörst.</string>
     <string name="video_player_alder">Alder</string>
-    <string name="video_player_other">Andere App</string>
     <string name="player_other_app">Läuft in einer anderen App. Drücke dort Zurück, um zurückzukehren.</string>
     <string name="player_no_other_app">Auf diesem Fernseher ist kein anderer Videoplayer. Alder spielt das Video ab.</string>
     <string name="audio_tv_speakers">TV-Lautsprecher</string>

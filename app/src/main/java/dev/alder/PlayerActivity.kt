@@ -818,8 +818,9 @@ class PlayerActivity : Screen() {
     private fun load(position: Long, message: String? = null) {
         if (sources.isEmpty()) return
         val s = sources[at]
-        if (!isTrailer && !handedOff && Settings.externalPlayer(this)) {
-            if (handOff(s, position)) return
+        val app = Settings.externalPlayer(this)
+        if (!isTrailer && !handedOff && app != null) {
+            if (handOff(s, position, app)) return
             // No other video app on this TV: Alder plays it, and says so.
             return load(position, getString(R.string.player_no_other_app))
         }
@@ -865,13 +866,15 @@ class PlayerActivity : Screen() {
     }
 
     /**
-     * Settings › Video player › Another app: Alder still picks the source, the resume point and the subtitle, then the
+     * Settings › Video player › a video app: Alder still picks the source, the resume point and the subtitle, then the
      * other app plays it. False when no app on the TV opens video. Its answer comes back in [onActivityResult].
      */
-    private fun handOff(s: Stream, position: Long): Boolean {
+    private fun handOff(s: Stream, position: Long, app: String): Boolean {
         handedOff = true
         startAt = position
-        val out = ExternalPlayer.intent(s.url, intent.getStringExtra("name").orEmpty(), s.headers, position, chosenSub?.url)
+        // The chosen app, or Android's Open with list if it was uninstalled since.
+        val pick = app.takeIf { a -> ExternalPlayer.installed(this).any { it.first == a } }
+        val out = ExternalPlayer.intent(s.url, intent.getStringExtra("name").orEmpty(), s.headers, position, chosenSub?.url, pick)
         return try {
             startActivityForResult(out, ExternalPlayer.REQUEST)
             showLoading(getString(R.string.player_other_app))

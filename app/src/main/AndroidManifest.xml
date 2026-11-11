@@ -12,6 +12,11 @@
 
     <queries>
         <intent><action android:name="android.speech.action.RECOGNIZE_SPEECH" /></intent>
+        <!-- Settings › Video player lists the video apps on this TV (Android 11+ hides other apps without this). -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" android:mimeType="video/*" />
+        </intent>
     </queries>
 
     <application
