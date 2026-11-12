@@ -283,6 +283,11 @@ class PlayerActivity : Screen() {
     private var startAt = 0L
     private var prepared = false
     private var stopped = false // Alder is behind another app: a late load must not start the sound
+    // The current source's link (Stream.open), the source it belongs to, and the one still opening (a torrent's engine).
+    private var opened: Opened? = null
+    private var openedFor: Stream? = null
+    private var opening: Stream? = null
+    private var startWait = START_WAIT
     // Stremio's resume point when it differs from the TV's copy; used once the picture shows and the file can seek.
     private var lateResume: Long? = null
     private lateinit var status: android.widget.TextView
@@ -491,7 +496,7 @@ class PlayerActivity : Screen() {
                     // ExoPlayer's own retries already took about 6 s: each of ours gets a fresh START_WAIT, or the
                     // start timeout would move on to the next source before the second retry ran.
                     main.removeCallbacks(startTimeout)
-                    if (!stopped) main.postDelayed(startTimeout, RETRY_WAIT + START_WAIT)
+                    if (!stopped) main.postDelayed(startTimeout, RETRY_WAIT + startWait)
                     main.postDelayed({ if (!isFinishing) player.prepare() }, RETRY_WAIT)
                     return
                 }
@@ -831,9 +836,21 @@ class PlayerActivity : Screen() {
     private fun load(position: Long, message: String? = null, play: Boolean = true) {
         if (sources.isEmpty()) return
         val s = sources[at]
+        // The source's link first (Stream.open). A link is ready at once; a torrent's engine starts on another thread,
+        // then load runs again. A new source lets the last one go.
+        if (openedFor !== s) {
+            opened?.close()
+            opened = null
+            openedFor = null
+            if (!s.opensAtOnce) return openSource(s, position, message, play)
+            opened = s.open(this)
+            openedFor = s
+        }
+        val src = opened!!
+        startWait = src.startWait ?: START_WAIT
         val app = Settings.externalPlayer(this)
         if (!isTrailer && !handedOff && app != null) {
-            if (handOff(s, position, app)) return
+            if (handOff(src, position, app)) return
             // No other video app on this TV: Alder plays it, and says so.
             return load(position, getString(R.string.player_no_other_app), play)
         }
@@ -861,19 +878,18 @@ class PlayerActivity : Screen() {
         updateMarkers()
         refreshBadges()
         showControls(null)
-        val sourceUrl = s.url
-        val sourceHeaders = s.headers
         background({
-            MkvChapters.fetch(sourceUrl, sourceHeaders)
+            MkvChapters.fetch(src.url, src.headers)
         }) { r ->
             val chaps = r.getOrNull()
-            if (!chaps.isNullOrEmpty() && sources.getOrNull(at)?.url == sourceUrl) {
+            if (!chaps.isNullOrEmpty() && sources.getOrNull(at) === s) {
                 mkvChapters = chaps
                 reconcileSegments()
             }
         }
-        val http = DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true).setDefaultRequestProperties(s.headers)
-        val item = MediaItem.Builder().setUri(s.url).apply { if (asHls) setMimeType(MimeTypes.APPLICATION_M3U8) }
+        val http = DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true).setDefaultRequestProperties(src.headers)
+            .setReadTimeoutMs(src.readTimeoutMs)
+        val item = MediaItem.Builder().setUri(src.url).apply { if (asHls) setMimeType(MimeTypes.APPLICATION_M3U8) }
             .setSubtitleConfigurations(listOfNotNull(chosenSub?.let {
                 val ready = readySubs[it.url] // null: not prepared, so the add-on's own link as before
                 MediaItem.SubtitleConfiguration.Builder(ready?.file?.let(android.net.Uri::fromFile) ?: android.net.Uri.parse(it.url))
@@ -888,14 +904,34 @@ class PlayerActivity : Screen() {
         player.prepare()
         player.playWhenReady = play && !stopped
         main.removeCallbacks(startTimeout)
-        if (!stopped) main.postDelayed(startTimeout, START_WAIT) // else onStart starts it
+        if (!stopped) main.postDelayed(startTimeout, startWait) // else onStart starts it
+    }
+
+    /** Opens [s] off the main thread (a torrent finds peers and its file), then plays it; a failure moves on. */
+    private fun openSource(s: Stream, position: Long, message: String?, play: Boolean) {
+        main.removeCallbacks(startTimeout)
+        showLoading(message ?: getString(R.string.player_starting, s.label))
+        if (opening === s) return
+        opening = s
+        background({ s.open(applicationContext) }) { r ->
+            if (opening === s) opening = null
+            val o = r.getOrNull()
+            if (isFinishing || isDestroyed || sources.getOrNull(at) !== s) return@background run { o?.close() }
+            if (o == null) {
+                android.util.Log.w("Alder", "source ${at + 1}/${sources.size} didn't open", r.exceptionOrNull())
+                return@background next("didn't open")
+            }
+            opened = o
+            openedFor = s
+            load(position, message, play)
+        }
     }
 
     /**
      * Settings › Video player › a video app: Alder still picks the source, the resume point and the subtitle, then the
      * other app plays it. False when no app on the TV opens video. Its answer comes back in [onActivityResult].
      */
-    private fun handOff(s: Stream, position: Long, app: String): Boolean {
+    private fun handOff(s: Opened, position: Long, app: String): Boolean {
         handedOff = true
         startAt = position
         // The chosen app, or Android's Open with list if it was uninstalled since.
@@ -1024,7 +1060,7 @@ class PlayerActivity : Screen() {
             if (!started && !handedOff && !isTrailer) {
                 player.play()
                 main.removeCallbacks(startTimeout)
-                main.postDelayed(startTimeout, START_WAIT)
+                main.postDelayed(startTimeout, startWait)
             }
             if (!isTrailer) {
                 main.postDelayed(tickTask, TICK)
@@ -3043,6 +3079,8 @@ class PlayerActivity : Screen() {
         resolvingStreams?.cancel()
         resolvingStreams = null
         main.removeCallbacks(startTimeout)
+        opened?.close()
+        opened = null
         main.removeCallbacks(loadingTask)
         if (::status.isInitialized) player.release()
         super.onDestroy()
