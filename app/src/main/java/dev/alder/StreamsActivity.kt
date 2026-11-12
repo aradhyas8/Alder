@@ -26,6 +26,7 @@ class StreamsActivity : Screen() {
 
     private lateinit var art: ImageView
     private lateinit var addonText: android.widget.TextView
+    private val asAddonWrites by lazy { Settings.addonText(this) }
     override val backdrop get() = art
     // Audio language chips above the list: All, then each language the sources name. A pick lasts while the page is open.
     private lateinit var languageStrip: HorizontalScrollView
@@ -87,7 +88,10 @@ class StreamsActivity : Screen() {
             addView(rows)
         }
         // The focused source as its add-on wrote it: whatever the row's columns leave out is still here.
-        addonText = text("", SMALL, color = TEXT_3).onArt().apply { maxLines = 2; ellipsize = TextUtils.TruncateAt.END }
+        addonText = text("", SMALL, color = TEXT_3).onArt().apply {
+            maxLines = 2; ellipsize = TextUtils.TruncateAt.END
+            if (asAddonWrites) visibility = View.GONE // each row says it already
+        }
         val help = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
             addView(text("OK", 9f, bold = true, color = BASE).apply {
@@ -132,7 +136,7 @@ class StreamsActivity : Screen() {
                 addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
                 addView(addonText, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6); marginStart = dp(12); marginEnd = dp(12) })
                 addView(help, LinearLayout.LayoutParams(-1, dp(34)))
-            }, FrameLayout.LayoutParams(resources.displayMetrics.widthPixels * 62 / 100, -1).apply {
+            }, FrameLayout.LayoutParams(resources.displayMetrics.widthPixels * (if (asAddonWrites) 80 else 62) / 100, -1).apply {
                 setMargins(dp(PAD), dp(27), 0, dp(27))
             })
             addView(TextClock(this@StreamsActivity).apply {
@@ -203,7 +207,7 @@ class StreamsActivity : Screen() {
                 } else {
                     val best = eligible.firstOrNull { it in shown }
                     shown.forEach { stream -> rows.addView(streamRow(stream, providers[stream].orEmpty(), stream === best),
-                        LinearLayout.LayoutParams(-1, dp(ROW_H)).apply { bottomMargin = dp(2) }) }
+                        LinearLayout.LayoutParams(-1, if (asAddonWrites) -2 else dp(ROW_H)).apply { bottomMargin = dp(2) }) }
                     // Other add-ons can still give nothing (torrents without a debrid service, a refused key): say so
                     // under the list, or the viewer only sees that those add-ons are missing.
                     hiddenSourceReasons(names, failures, torrents, sourceWords)
@@ -346,12 +350,55 @@ class StreamsActivity : Screen() {
 
     private fun streamRow(s: Stream, addon: String, best: Boolean): View {
         val quality = text(if (s.height > 0) "${s.height}p" else getString(R.string.streams_auto), BODY, bold = true).onArt()
-        val detail = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        if (best) detail.addView(text(getString(R.string.streams_best_match).uppercase(), 9f, bold = true, color = BASE).apply {
-            letterSpacing = 0.04f
-            background = rounded(TUNGSTEN, 3)
-            setPadding(dp(5), dp(2), dp(5), dp(2))
-        }, wrap().apply { marginEnd = dp(7) })
+        val detail = if (asAddonWrites) addonRowText(s, best) else LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        if (!asAddonWrites) sourceFacts(detail, s, addon, best)
+        return LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12), if (asAddonWrites) dp(7) else 0, dp(12), if (asAddonWrites) dp(7) else 0)
+            if (asAddonWrites) minimumHeight = dp(ROW_H)
+            addView(quality, LinearLayout.LayoutParams(dp(QUALITY_W), -2))
+            addView(detail, LinearLayout.LayoutParams(0, -2, 1f))
+            addView(text(sourceSize(s.size), BODY, bold = true).onArt().apply { gravity = Gravity.END },
+                LinearLayout.LayoutParams(dp(72), -2))
+            rowFocus(8) { focused ->
+                if (focused) addonText.text = addonWords(s)
+                alpha = if (!focused && s.height in 1..719) 0.48f else 1f
+                elevation = if (focused) dp(5).toFloat() else 0f
+            }
+            alpha = if (s.height in 1..719) 0.48f else 1f
+            setOnClickListener {
+                val chosen = JSONArray(listOf(s.toJson())).toString()
+                // Opened from the player (Change stream): it's still there, paused, and plays this from the same second.
+                if (intent.getBooleanExtra("fromPlayer", false)) {
+                    setResult(RESULT_OK, Intent().putExtra("sources", chosen))
+                    return@setOnClickListener finish()
+                }
+                startActivity(Intent(this@StreamsActivity, PlayerActivity::class.java).putExtras(intent)
+                    .putExtra("sources", chosen).putExtra("picked", true))
+            }
+        }
+    }
+
+    /** Settings › Source list › As the add-on writes it: the add-on's own lines, as Stremio shows them. */
+    private fun addonRowText(s: Stream, best: Boolean) = column(Gravity.START).apply {
+        val name = LinearLayout(context).apply { gravity = Gravity.CENTER_VERTICAL }
+        if (best) name.addView(bestTag(), wrap().apply { marginEnd = dp(7) })
+        name.addView(text(s.title.lines().map(String::trim).filter(String::isNotEmpty).joinToString(" "), SMALL, bold = true, color = TEXT_2)
+            .onArt().apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END })
+        addView(name)
+        addView(text(s.description.lines().map(String::trim).filter(String::isNotEmpty).joinToString("\n"), SMALL, color = TEXT)
+            .onArt().apply { maxLines = 3; ellipsize = TextUtils.TruncateAt.END }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(2) })
+    }
+
+    private fun bestTag() = text(getString(R.string.streams_best_match).uppercase(), 9f, bold = true, color = BASE).apply {
+        letterSpacing = 0.04f
+        background = rounded(TUNGSTEN, 3)
+        setPadding(dp(5), dp(2), dp(5), dp(2))
+    }
+
+    /** Settings › Source list › Clean: Alder's columns, read from the add-on's names (see Stream). */
+    private fun sourceFacts(detail: LinearLayout, s: Stream, addon: String, best: Boolean) {
+        if (best) detail.addView(bestTag(), wrap().apply { marginEnd = dp(7) })
         detail.addView(text(sourceSummary(s), BODY, bold = true, color = TEXT_2).onArt().apply {
             maxLines = 1; ellipsize = TextUtils.TruncateAt.END; maxWidth = dp(if (best) 190 else 215)
         }, wrap().apply { marginEnd = dp(6) })
@@ -382,30 +429,6 @@ class StreamsActivity : Screen() {
         detail.addView(text(provider, SMALL, color = TEXT_3).onArt().apply {
             maxLines = 1; ellipsize = TextUtils.TruncateAt.END
         }, LinearLayout.LayoutParams(0, -2, 1f))
-        return LinearLayout(this).apply {
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(12), 0, dp(12), 0)
-            addView(quality, LinearLayout.LayoutParams(dp(QUALITY_W), -2))
-            addView(detail, LinearLayout.LayoutParams(0, -2, 1f))
-            addView(text(sourceSize(s.size), BODY, bold = true).onArt().apply { gravity = Gravity.END },
-                LinearLayout.LayoutParams(dp(72), -2))
-            rowFocus(8) { focused ->
-                if (focused) addonText.text = addonWords(s)
-                alpha = if (!focused && s.height in 1..719) 0.48f else 1f
-                elevation = if (focused) dp(5).toFloat() else 0f
-            }
-            alpha = if (s.height in 1..719) 0.48f else 1f
-            setOnClickListener {
-                val chosen = JSONArray(listOf(s.toJson())).toString()
-                // Opened from the player (Change stream): it's still there, paused, and plays this from the same second.
-                if (intent.getBooleanExtra("fromPlayer", false)) {
-                    setResult(RESULT_OK, Intent().putExtra("sources", chosen))
-                    return@setOnClickListener finish()
-                }
-                startActivity(Intent(this@StreamsActivity, PlayerActivity::class.java).putExtras(intent)
-                    .putExtra("sources", chosen).putExtra("picked", true))
-            }
-        }
     }
 
     private fun presetName(): String {
