@@ -29,6 +29,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 
 /**
@@ -179,8 +180,8 @@ abstract class Screen : Activity() {
     }
 
     /** Runs [work] off the main thread and hands its result back on it, unless the screen is gone. */
-    protected fun <T> background(work: () -> T, done: (Result<T>) -> Unit) {
-        pool.execute {
+    protected fun <T> background(work: () -> T, executor: Executor = pool, done: (Result<T>) -> Unit) {
+        executor.execute {
             val result = runCatching(work)
             main.post { if (!isDestroyed) done(result) }
         }
