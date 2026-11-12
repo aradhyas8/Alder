@@ -35,6 +35,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - **Send report.** When Alder stops, it saves the error on your TV. The next time Home opens, Alder asks to send a report. Select **Send report** or **No**. The report has the error, the Alder version and the TV model. It does not have your account details. To send it later, select **Settings → About → Send report**.
 
 ### Easier to use
+- **Source list as your add-on writes it.** Select **Settings → Streams → Source list → As the add-on writes it**. The source list gets wider and shows the text of each add-on, as Stremio does. If you set a format in AIOStreams, you see that format. **Clean** keeps the short rows of Alder.
 - **More facts in the source list.** The source list shows the size of more sources, the audio as format and channels (for example **DD+ 5.1**), and the number of seeders for P2P sources (**👤 52**). **⏳** after a debrid service shows that the service must download the source before it plays. Below the list, Alder shows the full text that the add-on wrote for the selected source.
 - **Change stream keeps your video.** When you select **Change stream**, the video stops and stays behind the source list. Press Back to continue from the same picture without a new load. Select a different source to play it from the same second.
 <!-- Spotlight -->

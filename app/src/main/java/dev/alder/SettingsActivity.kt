@@ -105,6 +105,8 @@ object Settings {
         prefs(c).edit().putString(key, json.toString()).apply()
     }
     fun alwaysList(c: Context) = prefs(c).getBoolean("alwaysList", false)
+    /** Settings › Source list: true shows each source as its add-on wrote it, in a wider list. */
+    fun addonText(c: Context) = prefs(c).getBoolean("addonText", false)
     fun matchFrameRate(c: Context) = prefs(c).getBoolean("matchFrameRate", true)
     fun passthrough(c: Context) = prefs(c).getBoolean("passthrough", false)
     /** Settings › Text and poster size, for this TV: 1 is the House Lights size, more makes every screen bigger. */
@@ -256,6 +258,8 @@ class SettingsActivity : Screen() {
     private val streaming by lazy { listOf(
         Choice("alwaysList", getString(R.string.play_press), getString(R.string.play_press_hint),
             listOf(false to getString(R.string.play_best_source), true to getString(R.string.play_show_sources))),
+        Choice("addonText", getString(R.string.source_list), getString(R.string.source_list_hint),
+            listOf(false to getString(R.string.source_list_clean), true to getString(R.string.source_list_addon))),
         // Alder, then each video app on this TV by its own name.
         Choice("videoPlayer", getString(R.string.video_player), getString(R.string.video_player_hint),
             listOf("" to getString(R.string.video_player_alder)) + ExternalPlayer.installed(this)),

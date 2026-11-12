@@ -232,6 +232,10 @@
     <string name="play_press_hint">चलाएँ और जारी रखें क्या करते हैं। OK दबाकर रखने पर हमेशा सभी स्रोत दिखते हैं।</string>
     <string name="play_best_source">सबसे अच्छा स्रोत</string>
     <string name="play_show_sources">स्रोत दिखाएँ</string>
+    <string name="source_list">स्रोत सूची</string>
+    <string name="source_list_hint">हर स्रोत कैसे दिखे। ऐड-ऑन का टेक्स्ट वही दिखाता है जो आपका ऐड-ऑन लिखता है, Stremio की तरह चौड़ी सूची में।</string>
+    <string name="source_list_clean">साफ़</string>
+    <string name="source_list_addon">जैसा ऐड-ऑन लिखता है</string>
     <string name="max_quality">सबसे ऊँची क्वालिटी</string>
     <string name="max_quality_hint">स्रोत चुनते समय इससे ऊपर की रिलीज़ छोड़ दी जाती हैं।</string>
     <string name="no_limit">कोई सीमा नहीं</string>
