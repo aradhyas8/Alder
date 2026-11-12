@@ -19,6 +19,8 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 
 ### New
 <!-- Spotlight -->
+- **P2P sources.** Alder can play torrents from your add-ons without a debrid account. Sources with the **P2P** label are at the end of the source list. When no other source plays, Alder tries a P2P source. Seek, pause and Back work as with other sources. P2P sources are available on Android 7 and later.
+<!-- Spotlight -->
 - **Bigger text and posters.** Select **Settings → Picture & Sound → Text and poster size → Large**. Text, posters, buttons and panels get bigger on every screen. Rows show fewer posters, and Home shows the story only on the title page.
 - **Play in another app.** Select **Settings → Streams → Video player**, then select a video app on your TV, for example VLC or Just Player. Alder opens that app when you select **Play**. Alder still selects the source, the resume point and the subtitle. When you press Back in the other app, Alder saves where you stopped. If you remove that app, Android asks which app to use.
 <!-- Spotlight -->

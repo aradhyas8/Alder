@@ -240,7 +240,7 @@ class StreamsActivity : Screen() {
             }
 
             addons.forEachIndexed { i, addon ->
-                background({ addon.streams(type, videoId) }) { streams ->
+                background({ addon.streams(type, videoId, allowTorrents = supportsTorrentPlayback) }) { streams ->
                     streams.exceptionOrNull()?.let { e ->
                         failures[i] = e
                         android.util.Log.w("Alder", "streams from ${addon.name} failed", e)
@@ -352,7 +352,8 @@ class StreamsActivity : Screen() {
             maxLines = 1; ellipsize = TextUtils.TruncateAt.END; maxWidth = dp(if (best) 145 else 170)
         }, wrap().apply { marginEnd = dp(6) })
         // The debrid service first ("RD ⚡": cached on Real-Debrid, starts at once), then the release's own tags.
-        (listOfNotNull(s.debrid?.tag) + s.tags.filter { it !in listOf("BluRay", "WEB") }.take(if (best) 1 else 2)).forEach { tag ->
+        val sourceTag = if (s.torrent != null) getString(R.string.streams_tag_p2p) else s.debrid?.tag
+        (listOfNotNull(sourceTag) + s.tags.filter { it !in listOf("BluRay", "WEB") }.take(if (best) 1 else 2)).forEach { tag ->
             val words = when (tag) {
                 "Multi audio" -> getString(R.string.streams_tag_multi_audio)
                 "Dub" -> getString(R.string.streams_tag_dub)

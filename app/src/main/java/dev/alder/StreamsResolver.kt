@@ -25,7 +25,9 @@ object StreamsResolver {
         val tv = Device.of(context)
         val prefer = preference(context)
         val lower = maxHeight > 0
-        return streams.sortedWith(compareByDescending<Stream> { if (lower) it.height else 0 }
+        // P2P after every direct or debrid source: peers start slower and can't be checked first.
+        return streams.sortedWith(compareBy<Stream> { it.torrent != null }
+            .thenByDescending { if (lower) it.height else 0 }
             .thenByDescending { file != null && it.filename == file }
             .thenByDescending { binge != null && it.bingeGroup == binge }
             .thenBy { it.awkward }
