@@ -386,8 +386,9 @@ class StreamsActivity : Screen() {
         name.addView(text(s.title.lines().map(String::trim).filter(String::isNotEmpty).joinToString(" "), SMALL, bold = true, color = TEXT_2)
             .onArt().apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END })
         addView(name)
-        addView(text(s.description.lines().map(String::trim).filter(String::isNotEmpty).joinToString("\n"), SMALL, color = TEXT)
-            .onArt().apply { maxLines = 3; ellipsize = TextUtils.TruncateAt.END }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(2) })
+        // Every line the add-on wrote, run together: AIOStreams puts one fact per line, which fit three sources a screen.
+        addView(text(s.description.lines().map(String::trim).filter(String::isNotEmpty).joinToString("  ·  "), SMALL, color = TEXT)
+            .onArt().apply { maxLines = 2; ellipsize = TextUtils.TruncateAt.END }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(2) })
     }
 
     private fun bestTag() = text(getString(R.string.streams_best_match).uppercase(), 9f, bold = true, color = BASE).apply {
