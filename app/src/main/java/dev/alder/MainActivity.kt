@@ -260,7 +260,6 @@ class MainActivity : Screen() {
     private lateinit var moreHint: ImageView
     private lateinit var nextRowHint: TextView
     private lateinit var cardCaption: TextView
-    private var captionX = 0 // px from the left margin to the focused card, where its caption goes
     private var browseRowTop = 0
     private var browseRowH = 0
 
@@ -1239,6 +1238,8 @@ class MainActivity : Screen() {
     }
 
     private fun placeCaption() {
+        if (cardCaption.visibility != View.VISIBLE) return
+        val captionX = (currentFocus as? Row.Card)?.captionOffset ?: 0
         cardCaption.translationX = minOf(captionX, cardCaption.rootView.width - 2 * dp(PAD) - cardCaption.width).coerceAtLeast(0).toFloat()
         clearHint()
     }
@@ -1246,10 +1247,8 @@ class MainActivity : Screen() {
     /** The next row's name and the caption share one line: a long caption that reaches the name hides it. */
     private fun clearHint() {
         if (nextRowHint.text.isEmpty() || cardCaption.visibility != View.VISIBLE) return
-        nextRowHint.post {
-            val captionEnd = cardCaption.left + cardCaption.translationX + cardCaption.width
-            nextRowHint.visibility = if (captionEnd + dp(SECTION_GAP) > nextRowHint.left) View.INVISIBLE else View.VISIBLE
-        }
+        val captionEnd = cardCaption.left + cardCaption.translationX + cardCaption.width
+        nextRowHint.visibility = if (captionEnd + dp(SECTION_GAP) > nextRowHint.left) View.INVISIBLE else View.VISIBLE
     }
 
     /** One quiet line for a title in progress: the episode and its name (or, for a film, its facts), then the time left. */
@@ -1868,7 +1867,7 @@ class MainActivity : Screen() {
         visible.forEachIndexed { i, row -> row.peek(i <= active) }
         nextRowHint.text = visible.getOrNull(active + 1)?.let { "▾  ${it.title.uppercase()}" } ?: ""
         nextRowHint.visibility = if (nextRowHint.text.isEmpty()) View.GONE else View.VISIBLE
-        clearHint()
+        nextRowHint.post(::clearHint)
     }
 
     private val focusTop = Runnable {
@@ -1942,8 +1941,9 @@ class MainActivity : Screen() {
             isHorizontalScrollBarEnabled = false
             addView(strip)
             addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> showVisibleCards() }
-            setOnScrollChangeListener { _, _, _, _, _ ->
+            setOnScrollChangeListener { view, _, _, _, _ ->
                 showVisibleCards()
+                if (view.hasFocus()) placeCaption()
                 loadRest(this@Row)
             }
         }
@@ -2013,8 +2013,6 @@ class MainActivity : Screen() {
             val right = scroller.width - dp(PAD) / 2
             showVisibleCards()
             loadRest(this@Row)
-            // The caption sits under the focused card, also where the row stops sliding near its end.
-            captionX = (cards[index].left - targetScroll - dp(PAD)).coerceAtLeast(0)
             val beyond = cards.any { it.right - targetScroll > right }
             moreHint.animate().alpha(if (beyond && mode == Mode.BROWSE && !page.isBrowse) 0.9f else 0f).setDuration(FOCUS_MS).start()
             moreHint.translationY = if (wide) dp(CARD_H - WIDE_H + WIDE_H / 2 - CARD_H / 2).toFloat() else 0f
@@ -2066,6 +2064,8 @@ class MainActivity : Screen() {
 
         /** One title: its poster (the name only when there's none), or in a wide row its art with name, time left and progress. */
         inner class Card(val item: Item, val index: Int) : FrameLayout(this@MainActivity) {
+            val captionOffset get() = left - this@Row.scroller.scrollX - dp(PAD)
+
             // Fading, a card that may overlap itself is drawn into a layer of its own first: an extra pass for every
             // card fading in or out. Fading each part on its own looks the same over 150 ms.
             override fun hasOverlappingRendering() = false
