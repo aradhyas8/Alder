@@ -26,14 +26,17 @@ object StreamsResolver {
         val prefer = preference(context)
         val lower = maxHeight > 0
         // P2P after every direct or debrid source: peers start slower and can't be checked first.
+        // A P2P source its add-on says nobody shares (👤 0) can't start: after every other.
         return streams.sortedWith(compareBy<Stream> { it.torrent != null }
+            .thenBy { it.torrent != null && it.seeders == 0 }
             .thenByDescending { if (lower) it.height else 0 }
             .thenByDescending { file != null && it.filename == file }
             .thenByDescending { binge != null && it.bingeGroup == binge }
             .thenBy { it.awkward }
             .thenBy { it.dolbyVisionOnly && !tv.dolbyVision }
             .thenByDescending { it.fit(tv) }
-            .thenByDescending(prefer))
+            .thenByDescending(prefer)
+            .thenByDescending { if (it.torrent != null) it.seeders ?: 0 else 0 })
     }
 
     fun preference(context: Context): (Stream) -> Int {

@@ -366,6 +366,9 @@ class Stream(
     /** True when [open] is instant (a link), so the player needn't wait for it on another thread. */
     val opensAtOnce get() = torrent == null
 
+    /** Peers sharing it, as the add-on writes them ("👤 52"); null when it doesn't say. Matters only for P2P. */
+    val seeders: Int? = seedersIn("$title\n$description")
+
     // What the release is, read from its file name and the addon's labels (AIOStreams writes "2160p", "DV", "HEVC"
     // into them; the file name says it for every addon). ponytail: name matching, not the file's real tracks.
     private val words = "$filename $title $description".lowercase()
@@ -436,7 +439,8 @@ class Stream(
                 json.text("description") ?: json.text("title") ?: "",
                 url.orEmpty(),
                 if (torrent != null) emptyMap() else headers?.keys()?.asSequence()?.associateWith { headers.getString(it) }.orEmpty(),
-                hints?.optLong("videoSize") ?: 0L,
+                // Torrentio and most others write the size only in their text ("💾 4.35 GB"), not in videoSize.
+                hints?.optLong("videoSize")?.takeIf { it > 0 } ?: sizeIn("${json.text("description") ?: json.text("title")}\n${json.text("name")}"),
                 hints?.text("filename"),
                 hints?.text("bingeGroup"),
                 torrent,
@@ -506,8 +510,40 @@ private val languageWords = mapOf("english" to "en", "eng" to "en", "hindi" to "
 
 /** A debrid service ([short] as add-ons tag it, "RD"); [cached]: ready to start at once, null when the add-on doesn't say. */
 class Debrid(val name: String, val short: String, val cached: Boolean?) {
-    /** The source list's tag: "RD ⚡" when cached. */
-    val tag get() = if (cached == true) "$short ⚡" else short
+    /** The source list's tag: "RD ⚡" when cached (starts at once), "RD ⏳" when the service must download it first. */
+    val tag get() = when (cached) { true -> "$short ⚡"; false -> "$short ⏳"; null -> short }
+}
+
+private val sizeText = Regex("(\\d+(?:[.,]\\d+)?)\\s*(GB|GiB|MB|MiB)\\b(?!/)", RegexOption.IGNORE_CASE)
+
+/** A file size from an add-on's text, the one after 💾 first: "💾 4.35 GB" is 4_350_000_000. 0 when none. */
+internal fun sizeIn(text: String): Long {
+    val m = text.substringAfter("💾", "").let(sizeText::find) ?: sizeText.find(text) ?: return 0
+    val n = m.groupValues[1].replace(',', '.').toDoubleOrNull() ?: return 0
+    return (n * if (m.groupValues[2].startsWith("G", ignoreCase = true)) 1e9 else 1e6).toLong()
+}
+
+/** Seeders from an add-on's text: Torrentio writes "👤 52", others "👥 52". */
+internal fun seedersIn(text: String): Int? = Regex("(?:👤|👥)\\s*(\\d+)").find(text)?.groupValues?.get(1)?.toIntOrNull()
+
+/** The audio as a viewer reads it: "Atmos 7.1", "DD+ 5.1", "AAC 2.0"; null when the names don't say. */
+internal fun audioSummary(words: String): String? {
+    val format = when {
+        "atmos" in words -> "Atmos"
+        "truehd" in words -> "TrueHD"
+        Regex("dts.?x\\b").containsMatchIn(words) -> "DTS:X"
+        Regex("dts.?hd").containsMatchIn(words) -> "DTS-HD"
+        Regex("\\bdts").containsMatchIn(words) -> "DTS"
+        Regex("\\b(ddp|dd\\+|e-?ac-?3)").containsMatchIn(words) -> "DD+"
+        Regex("\\b(dd|ac-?3)(?![a-z])").containsMatchIn(words) -> "DD"
+        Regex("\\baac").containsMatchIn(words) -> "AAC"
+        Regex("\\bflac").containsMatchIn(words) -> "FLAC"
+        Regex("\\bopus\\b").containsMatchIn(words) -> "Opus"
+        else -> null
+    }
+    val channels = Regex("(?<!\\d)([1257])[ ._]([01])(?![\\d])").find(words)?.let { "${it.groupValues[1]}.${it.groupValues[2]}" }
+        ?: "2.0".takeIf { "stereo" in words } ?: "Mono".takeIf { Regex("\\bmono\\b").containsMatchIn(words) }
+    return listOfNotNull(format, channels).joinToString(" ").ifEmpty { null }
 }
 
 private val debridServices = listOf(

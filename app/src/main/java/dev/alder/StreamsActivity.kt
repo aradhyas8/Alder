@@ -25,6 +25,7 @@ class StreamsActivity : Screen() {
     private val pick by lazy { intent.getBooleanExtra("pick", false) || Settings.alwaysList(this) }
 
     private lateinit var art: ImageView
+    private lateinit var addonText: android.widget.TextView
     override val backdrop get() = art
     // Audio language chips above the list: All, then each language the sources name. A pick lasts while the page is open.
     private lateinit var languageStrip: HorizontalScrollView
@@ -85,6 +86,8 @@ class StreamsActivity : Screen() {
             setPadding(dp(2), dp(2), dp(2), dp(2))
             addView(rows)
         }
+        // The focused source as its add-on wrote it: whatever the row's columns leave out is still here.
+        addonText = text("", SMALL, color = TEXT_3).onArt().apply { maxLines = 2; ellipsize = TextUtils.TruncateAt.END }
         val help = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
             addView(text("OK", 9f, bold = true, color = BASE).apply {
@@ -127,6 +130,7 @@ class StreamsActivity : Screen() {
                 addView(languageStrip, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
                 addView(cols, LinearLayout.LayoutParams(-1, -2))
                 addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+                addView(addonText, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6); marginStart = dp(12); marginEnd = dp(12) })
                 addView(help, LinearLayout.LayoutParams(-1, dp(34)))
             }, FrameLayout.LayoutParams(resources.displayMetrics.widthPixels * 62 / 100, -1).apply {
                 setMargins(dp(PAD), dp(27), 0, dp(27))
@@ -349,11 +353,13 @@ class StreamsActivity : Screen() {
             setPadding(dp(5), dp(2), dp(5), dp(2))
         }, wrap().apply { marginEnd = dp(7) })
         detail.addView(text(sourceSummary(s), BODY, bold = true, color = TEXT_2).onArt().apply {
-            maxLines = 1; ellipsize = TextUtils.TruncateAt.END; maxWidth = dp(if (best) 145 else 170)
+            maxLines = 1; ellipsize = TextUtils.TruncateAt.END; maxWidth = dp(if (best) 190 else 215)
         }, wrap().apply { marginEnd = dp(6) })
         // The debrid service first ("RD ⚡": cached on Real-Debrid, starts at once), then the release's own tags.
         val sourceTag = if (s.torrent != null) getString(R.string.streams_tag_p2p) else s.debrid?.tag
-        (listOfNotNull(sourceTag) + s.tags.filter { it !in listOf("BluRay", "WEB") }.take(if (best) 1 else 2)).forEach { tag ->
+        // Release and audio are in the summary already; seeders follow P2P, as they say whether it will start.
+        val shared = listOf("BluRay", "WEB", "Atmos", "TrueHD", "DTS-HD")
+        (listOfNotNull(sourceTag) + s.tags.filter { it !in shared }.take(if (best) 1 else 2)).forEach { tag ->
             val words = when (tag) {
                 "Multi audio" -> getString(R.string.streams_tag_multi_audio)
                 "Dub" -> getString(R.string.streams_tag_dub)
@@ -368,6 +374,9 @@ class StreamsActivity : Screen() {
                 setPadding(dp(4), dp(1), dp(4), dp(1))
             }, wrap().apply { marginEnd = dp(5) })
         }
+        if (s.torrent != null) s.seeders?.let { n ->
+            detail.addView(text("👤 $n", SMALL, bold = true, color = TEXT_2).onArt(), wrap().apply { marginEnd = dp(6) })
+        }
         val provider = s.title.lineSequence().firstOrNull().orEmpty().substringBefore('(')
             .replace(Regex("^\\[[^]]+]\\s*"), "").trim().takeIf { it.isNotBlank() && !it.matches(Regex("\\d+p")) } ?: addon
         detail.addView(text(provider, SMALL, color = TEXT_3).onArt().apply {
@@ -381,6 +390,7 @@ class StreamsActivity : Screen() {
             addView(text(sourceSize(s.size), BODY, bold = true).onArt().apply { gravity = Gravity.END },
                 LinearLayout.LayoutParams(dp(72), -2))
             rowFocus(8) { focused ->
+                if (focused) addonText.text = addonWords(s)
                 alpha = if (!focused && s.height in 1..719) 0.48f else 1f
                 elevation = if (focused) dp(5).toFloat() else 0f
             }
@@ -441,6 +451,11 @@ class StreamsActivity : Screen() {
     }
 }
 
+/** A source's own words on one run: "Torrentio 4k  —  Night of the Living Dead 1968 2160p BluRay  ·  👤 52 💾 4.35 GB ⚙️ YTS". */
+internal fun addonWords(s: Stream): String = listOf(s.title, s.description)
+    .map { it.lines().map(String::trim).filter(String::isNotEmpty).joinToString("  ·  ") }
+    .filter(String::isNotEmpty).joinToString("  —  ")
+
 internal fun sourceSize(size: Long): String = when {
     size <= 0 -> "—"
     size >= 1_000_000_000 -> String.format(Locale.US, "%.1f GB", size / 1_000_000_000.0)
@@ -462,14 +477,7 @@ internal fun sourceSummary(s: Stream): String {
         Regex("avc|[xh].?264").containsMatchIn(words) -> "AVC"
         else -> null
     }
-    val audio = when {
-        "atmos" in words -> "Atmos"
-        Regex("\\b(dd|ac3|eac3|e-ac3)[ ._-]?5[ ._-]?1\\b").containsMatchIn(words) -> "DD 5.1"
-        Regex("\\b5[ ._-]?1\\b").containsMatchIn(words) -> "5.1"
-        Regex("\\b2[ ._-]?0\\b|stereo").containsMatchIn(words) -> "2.0"
-        else -> null
-    }
-    return listOfNotNull(release, codec, audio).joinToString(" · ")
+    return listOfNotNull(release, codec, audioSummary(words)).joinToString(" · ")
 }
 
 /**
