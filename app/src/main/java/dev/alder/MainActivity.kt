@@ -422,6 +422,9 @@ class MainActivity : Screen() {
             // Rows snap into place (below) instead of scrolling just far enough, which left them cut off.
             override fun computeScrollDeltaToGetChildRectOnScreen(rect: Rect) = 0
 
+            override fun requestChildRectangleOnScreen(child: View, rectangle: Rect, immediate: Boolean): Boolean =
+                if (page == Page.LIBRARY) false else super.requestChildRectangleOnScreen(child, rectangle, immediate)
+
             // The remote moves focus, and focus moves the rows; this never scrolls on its own. Otherwise Down on the
             // last row scrolled it away into the empty space below.
             override fun executeKeyEvent(event: KeyEvent) = false
@@ -2298,12 +2301,13 @@ class MainActivity : Screen() {
             private val progress = item.progress.takeIf { it > 0f && !continueRow && !grid }?.let { progressBar(it) }
 
             init {
+                if (grid) setBackgroundColor(0xFF28221E.toInt())
                 outlineProvider = object : android.view.ViewOutlineProvider() {
                     override fun getOutline(view: View, outline: android.graphics.Outline) =
                         outline.setRoundRect(0, 0, view.width, view.height, dp(if (grid) 6 else RADIUS).toFloat())
                 }
                 clipToOutline = true
-                setBackgroundColor(BASE)
+                if (!grid) setBackgroundColor(BASE)
                 face.addView(image, LayoutParams(-1, -1))
                 // A dark foot under the words or the progress bar; a plain poster needs none.
                 if ((wide && !item.live) || progress != null) face.addView(View(context).apply {
@@ -2508,7 +2512,7 @@ class MainActivity : Screen() {
             v != null && isRecentlyAired(v.released)
         } else false
         return Item(
-            id, type, item.optString("name"), item.text("poster"),
+            id, type, item.text("name")?.takeIf { it.isNotBlank() } ?: id, item.text("poster"),
             null, Images.logoFor(id), "", emptyList(), videoId, progress,
             resume = offset > 0, timeLeft = timeLeft(duration, offset), resumeAt = offset, nextEpisodePending = pending,
             finished = libraryFinished(item),
