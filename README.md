@@ -68,8 +68,8 @@ Alder can also show Continue Watching on the Google TV home screen, skip intros 
 | Skip intro | ✅ | ❌ |
 | Continue Watching on the Google TV home | ✅ | ❌ |
 | Finding and configuring add-ons | In Stremio on your phone or computer, synced to the TV | On the TV, or on your phone or computer, synced to the TV |
-| Torrent streaming | ❌ Debrid only | ✅ |
-| App size | **About 5 MB** | Much larger, with a streaming server |
+| Torrent streaming | ✅ P2P sources on Android 7 or newer, after debrid ones | ✅ |
+| App size | **About 24 MB** (5 MB without the P2P engine) | Much larger, with a streaming server |
 | Built for | **A TV and a remote** | Shared with desktop and web |
 
 ## How it fits with Stremio
@@ -81,10 +81,12 @@ You keep using Stremio. Alder is the part you sit in front of.
 
 Alder has no add-on store. Setting up add-ons means typing and web forms, which is easier on a phone than with a remote.
 
+On Android 7 or newer, sources marked **P2P** play torrents from your add-ons. Alder tries them after debrid and direct sources. P2P playback connects your TV to torrent peers, which can see its public IP address.
+
 ## Requirements
 
 - Android TV, Google TV, or Fire TV running **Android 6.0 (Marshmallow, Fire OS 6) or newer**
-- A Stremio account with **debrid** stream add-ons (for example AIOStreams with Real-Debrid), set up in Stremio on your phone or computer
+- A Stremio account with stream add-ons, set up in Stremio on your phone or computer
 - A way to sideload an APK: the *Downloader* app, a USB drive with a file manager, or `adb`
 
 ## Install
@@ -126,3 +128,5 @@ Alder is not affiliated with Stremio.
 Copyright (C) 2026 aradhyas8
 
 Alder is free software, released under the [GNU General Public License v3.0](LICENSE).
+
+P2P playback uses [Nuvio Engine v0.1.6 source](https://github.com/NuvioMedia/nuvio-engine/tree/v0.1.6) under GPL-3.0-or-later. The APK includes the [engine and dependency licenses](app/src/main/assets/licenses/nuvio-engine).

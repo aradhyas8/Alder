@@ -232,6 +232,10 @@
     <string name="play_press_hint">Cosa fanno Riproduci e Riprendi. Tenere premuto OK mostra sempre tutte le fonti.</string>
     <string name="play_best_source">Fonte migliore</string>
     <string name="play_show_sources">Mostra le fonti</string>
+    <string name="source_list">Elenco delle fonti</string>
+    <string name="source_list_hint">Come appare ogni fonte. Il testo del componente mostra ciò che scrive il tuo componente aggiuntivo, in un elenco più largo, come in Stremio.</string>
+    <string name="source_list_clean">Pulito</string>
+    <string name="source_list_addon">Come lo scrive il componente</string>
     <string name="max_quality">Qualità massima</string>
     <string name="max_quality_hint">Le versioni sopra questa vengono saltate nella scelta della fonte.</string>
     <string name="no_limit">Nessun limite</string>

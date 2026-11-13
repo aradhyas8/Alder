@@ -228,6 +228,10 @@
     <string name="play_press_hint">Was Abspielen und Fortsetzen tun. OK gedrückt halten zeigt immer alle Quellen.</string>
     <string name="play_best_source">Beste Quelle</string>
     <string name="play_show_sources">Quellen zeigen</string>
+    <string name="source_list">Quellenliste</string>
+    <string name="source_list_hint">Wie jede Quelle angezeigt wird. Der Text des Add-ons zeigt, was dein Add-on schreibt, in einer breiteren Liste wie in Stremio.</string>
+    <string name="source_list_clean">Übersichtlich</string>
+    <string name="source_list_addon">Wie das Add-on schreibt</string>
     <string name="max_quality">Höchste Qualität</string>
     <string name="max_quality_hint">Versionen darüber werden bei der Quellenwahl übersprungen.</string>
     <string name="no_limit">Keine Grenze</string>

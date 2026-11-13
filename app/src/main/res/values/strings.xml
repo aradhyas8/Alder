@@ -132,6 +132,7 @@
     <string name="player_loading_percent">Loading · %1$d%%</string>
     <string name="player_starting">Starting · %1$s</string>
     <string name="player_starting_stream">Starting stream…</string>
+    <string name="streams_tag_p2p" translatable="false">P2P</string>
     <string name="player_source_failed_next">That source failed · trying the next one</string>
     <string name="player_source_failed_choose">That source failed · choose another source</string>
     <string name="player_keeps_buffering">Keeps buffering</string>
@@ -230,6 +231,10 @@
     <string name="play_press_hint">What Play and Resume do. Holding OK always shows every source.</string>
     <string name="play_best_source">Best source</string>
     <string name="play_show_sources">Show sources</string>
+    <string name="source_list">Source list</string>
+    <string name="source_list_hint">How each source reads. The add-on\'s text shows what your add-on wrote, in a wider list, as in Stremio.</string>
+    <string name="source_list_clean">Clean</string>
+    <string name="source_list_addon">As the add-on writes it</string>
     <string name="max_quality">Highest quality</string>
     <string name="max_quality_hint">Releases above this are skipped when picking a source.</string>
     <string name="no_limit">No limit</string>

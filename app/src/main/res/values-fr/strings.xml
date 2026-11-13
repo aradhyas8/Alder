@@ -232,6 +232,10 @@
     <string name="play_press_hint">Ce que font Lecture et Reprendre. Maintenir OK affiche toujours toutes les sources.</string>
     <string name="play_best_source">Meilleure source</string>
     <string name="play_show_sources">Afficher les sources</string>
+    <string name="source_list">Liste des sources</string>
+    <string name="source_list_hint">Comment chaque source s’affiche. Le texte de l’extension montre ce que votre extension écrit, dans une liste plus large, comme dans Stremio.</string>
+    <string name="source_list_clean">Épurée</string>
+    <string name="source_list_addon">Comme l’écrit l’extension</string>
     <string name="max_quality">Qualité maximale</string>
     <string name="max_quality_hint">Les versions au-dessus sont ignorées lors du choix d’une source.</string>
     <string name="no_limit">Aucune limite</string>

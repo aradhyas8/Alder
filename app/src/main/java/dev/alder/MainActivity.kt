@@ -2081,7 +2081,7 @@ class MainActivity : Screen() {
         nextRowHint.text = next?.let { "⌄  ${it.title}" } ?: ""
         if (page.polishedRail) next?.let { it.items.getOrNull(it.selected)?.let(::warm) }
         nextRowHint.visibility = if (nextRowHint.text.isEmpty()) View.GONE else View.VISIBLE
-        clearHint()
+        nextRowHint.post(::clearHint)
     }
 
     private val focusTop = Runnable {
@@ -2166,9 +2166,9 @@ class MainActivity : Screen() {
             addView(strip)
             if (polishedRail) strip.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> showVisibleCards() }
             addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> showVisibleCards() }
-            setOnScrollChangeListener { _, _, _, _, _ ->
-                if (hasFocus()) placeCaption()
+            setOnScrollChangeListener { view, _, _, _, _ ->
                 showVisibleCards()
+                if (view.hasFocus()) placeCaption()
                 loadRest(this@Row)
             }
         }
@@ -2289,6 +2289,7 @@ class MainActivity : Screen() {
 
         /** One title: its poster (the name only when there's none), or in a wide row its art with name, time left and progress. */
         inner class Card(val item: Item, val index: Int) : FrameLayout(this@MainActivity) {
+
             // Fading, a card that may overlap itself is drawn into a layer of its own first: an extra pass for every
             // card fading in or out. Fading each part on its own looks the same over 150 ms.
             override fun hasOverlappingRendering() = false

@@ -232,6 +232,10 @@
     <string name="play_press_hint">O que Assistir e Continuar fazem. Segurar OK sempre mostra todas as fontes.</string>
     <string name="play_best_source">Melhor fonte</string>
     <string name="play_show_sources">Mostrar fontes</string>
+    <string name="source_list">Lista de fontes</string>
+    <string name="source_list_hint">Como cada fonte aparece. O texto do complemento mostra o que o seu complemento escreve, numa lista mais larga, como no Stremio.</string>
+    <string name="source_list_clean">Limpa</string>
+    <string name="source_list_addon">Como o complemento escreve</string>
     <string name="max_quality">Qualidade máxima</string>
     <string name="max_quality_hint">Versões acima desta são ignoradas ao escolher uma fonte.</string>
     <string name="no_limit">Sem limite</string>

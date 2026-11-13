@@ -232,6 +232,10 @@
     <string name="play_press_hint">Qué hacen Reproducir y Reanudar. Mantener OK siempre muestra todas las fuentes.</string>
     <string name="play_best_source">La mejor fuente</string>
     <string name="play_show_sources">Mostrar fuentes</string>
+    <string name="source_list">Lista de fuentes</string>
+    <string name="source_list_hint">Cómo se muestra cada fuente. El texto del complemento muestra lo que escribe tu complemento, en una lista más ancha, como en Stremio.</string>
+    <string name="source_list_clean">Limpia</string>
+    <string name="source_list_addon">Como lo escribe el complemento</string>
     <string name="max_quality">Calidad máxima</string>
     <string name="max_quality_hint">Las versiones por encima de esta se omiten al elegir una fuente.</string>
     <string name="no_limit">Sin límite</string>
