@@ -44,7 +44,6 @@
     <string name="tab_my_list">मेरी सूची</string>
     <string name="nav_profile">प्रोफ़ाइल</string>
     <string name="nav_search">खोजें</string>
-    <string name="home_hold_ok">विकल्पों के लिए OK दबाकर रखें</string>
     <string name="updates_ready">Alder %1$s तैयार है</string>
     <string name="updates_ready_desc">अभी इंस्टॉल करें? इसमें एक मिनट लगता है, और आपकी प्रोफ़ाइलें और सेटिंग बनी रहती हैं।</string>
     <string name="action_later">बाद में</string>
@@ -55,8 +54,6 @@
     <string name="action_play">चलाएँ</string>
     <string name="action_resume">जारी रखें</string>
     <string name="new_episode">नया एपिसोड</string>
-    <string name="added_when">%1$s जोड़ा गया</string>
-    <string name="added_recently">हाल ही में</string>
     <string name="stopped_at">%1$s पर रुका</string>
     <string name="time_left_hours">%1$d घं %2$d मि बाकी</string>
     <string name="time_left_minutes">%1$d मि बाकी</string>
@@ -75,7 +72,6 @@
     <string name="list_sort_recent">हाल में जोड़े गए</string>
     <string name="list_sort_name">A–Z</string>
     <string name="list_sort_unwatched">पहले बिना देखे</string>
-    <string name="list_row_position">पंक्ति %1$d / %2$d</string>
     <plurals name="list_title_count">
         <item quantity="one">%1$d टाइटल</item>
         <item quantity="other">%1$d टाइटल</item>

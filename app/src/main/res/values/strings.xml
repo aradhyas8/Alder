@@ -45,7 +45,6 @@
     <string name="tab_my_list">My List</string>
     <string name="nav_profile">Profile</string>
     <string name="nav_search">Search</string>
-    <string name="home_hold_ok">Hold OK for options</string>
     <string name="updates_ready">Alder %1$s is ready</string>
     <string name="updates_ready_desc">Install it now? It takes a minute, and your profiles and settings stay.</string>
     <string name="action_later">Later</string>
@@ -56,8 +55,6 @@
     <string name="action_play">Play</string>
     <string name="action_resume">Resume</string>
     <string name="new_episode">New episode</string>
-    <string name="added_when">Added %1$s</string>
-    <string name="added_recently">recently</string>
     <string name="stopped_at">Stopped at %1$s</string>
     <string name="time_left_hours">%1$dh %2$dm left</string>
     <string name="time_left_minutes">%1$d min left</string>
@@ -77,7 +74,6 @@
     <string name="list_sort_recent">Recently added</string>
     <string name="list_sort_name">A–Z</string>
     <string name="list_sort_unwatched">Unwatched first</string>
-    <string name="list_row_position">Row %1$d of %2$d</string>
     <plurals name="list_title_count">
         <item quantity="one">%1$d title</item>
         <item quantity="other">%1$d titles</item>

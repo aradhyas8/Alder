@@ -46,7 +46,6 @@
     <string name="tab_my_list">Minha lista</string>
     <string name="nav_profile">Perfil</string>
     <string name="nav_search">Buscar</string>
-    <string name="home_hold_ok">Segure OK para ver opções</string>
     <string name="updates_ready">O Alder %1$s está pronto</string>
     <string name="updates_ready_desc">Instalar agora? Leva um minuto, e seus perfis e configurações continuam.</string>
     <string name="action_later">Mais tarde</string>
@@ -57,8 +56,6 @@
     <string name="action_play">Assistir</string>
     <string name="action_resume">Continuar</string>
     <string name="new_episode">Novo episódio</string>
-    <string name="added_when">Adicionado %1$s</string>
-    <string name="added_recently">recentemente</string>
     <string name="stopped_at">Parou em %1$s</string>
     <string name="time_left_hours">Faltam %1$d h %2$d min</string>
     <string name="time_left_minutes">Faltam %1$d min</string>
@@ -78,7 +75,6 @@
     <string name="list_sort_recent">Adicionados recentemente</string>
     <string name="list_sort_name">A–Z</string>
     <string name="list_sort_unwatched">Não assistidos primeiro</string>
-    <string name="list_row_position">Fileira %1$d de %2$d</string>
     <plurals name="list_title_count">
         <item quantity="one">%1$d título</item>
         <item quantity="many">%1$d títulos</item>

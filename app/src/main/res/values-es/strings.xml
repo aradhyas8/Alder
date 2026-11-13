@@ -46,7 +46,6 @@
     <string name="tab_my_list">Mi lista</string>
     <string name="nav_profile">Perfil</string>
     <string name="nav_search">Buscar</string>
-    <string name="home_hold_ok">Mantén OK para ver opciones</string>
     <string name="updates_ready">Alder %1$s está listo</string>
     <string name="updates_ready_desc">¿Instalar ahora? Tarda un minuto y tus perfiles y ajustes se conservan.</string>
     <string name="action_later">Más tarde</string>
@@ -57,8 +56,6 @@
     <string name="action_play">Reproducir</string>
     <string name="action_resume">Reanudar</string>
     <string name="new_episode">Nuevo episodio</string>
-    <string name="added_when">Añadido %1$s</string>
-    <string name="added_recently">recientemente</string>
     <string name="stopped_at">Detenido en %1$s</string>
     <string name="time_left_hours">Quedan %1$d h %2$d min</string>
     <string name="time_left_minutes">Quedan %1$d min</string>
@@ -78,7 +75,6 @@
     <string name="list_sort_recent">Añadidos recientemente</string>
     <string name="list_sort_name">A–Z</string>
     <string name="list_sort_unwatched">Sin ver primero</string>
-    <string name="list_row_position">Fila %1$d de %2$d</string>
     <plurals name="list_title_count">
         <item quantity="one">%1$d título</item>
         <item quantity="many">%1$d títulos</item>

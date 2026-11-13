@@ -202,11 +202,9 @@ class ScreenDesignTest {
         assertEquals((46 until 64).toSet(), order.toSet())
     }
 
-    @Test fun myListKeepsTheLastPartialRow() {
-        assertEquals(0, listRowCount(0, 6))
-        assertEquals(1, listRowCount(6, 6))
-        assertEquals(2, listRowCount(7, 6))
-        assertEquals(4, listRowCount(24, 6))
+    @Test fun libraryPostersFitSixAcrossAndTwoRowsWithAPeek() {
+        assertEquals(246, libraryPosterWidth(1728, 852, 24, 16, 32))
+        assertEquals(130, libraryPosterWidth(880, 620, 20, 12, 24))
     }
 
     @Test fun eachCatalogRowKeepsItsOwnPlace() {
