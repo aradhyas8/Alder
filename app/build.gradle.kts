@@ -17,6 +17,7 @@ android {
         targetSdk = 36
         versionCode = 7
         versionName = "1.3.1"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // TVs are ARM; the x86 builds of ffmpeg's native code would only add size.
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
     }
@@ -107,6 +108,7 @@ dependencies {
     // Software audio for what TVs can't decode themselves (DTS, TrueHD), so those files still have sound.
     implementation("org.jellyfin.media3:media3-ffmpeg-decoder:$media3+1")
     testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test:runner:1.5.2")
     // Android's org.json is a stub in local unit tests; the real one lets tests parse add-on and IMDb responses.
     testImplementation("org.json:json:20240303")
 }

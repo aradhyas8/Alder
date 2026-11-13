@@ -47,7 +47,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 
 ### Fixes
 - The caption moves with the selected card when you press Left or Right.
-- **Profile PIN.** Another app cannot open a profile that has a PIN. Alder asks for the PIN first.
+- **Profile PIN.** Alder checks the PIN before it opens a protected profile from the TV home screen or another app. The profile screen hides art from protected watch history.
 - **Sign-in and backups.** Android does not copy profiles, sign-ins and PINs to a new TV.
 - **Watch progress.** **My List** and the watched marks do not erase your progress from other devices. Alder gets your Stremio library first, then saves the change.
 - **Sound after you leave.** A video does not start again when you go to another app while Alder gets a subtitle or a source. When you come back, the video starts. Before, Alder sometimes went to the next source.

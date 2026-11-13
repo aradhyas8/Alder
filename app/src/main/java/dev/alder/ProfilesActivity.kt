@@ -20,7 +20,7 @@ import android.widget.TextView
 
 // Profile picker, Stremio sign-in, and setting up Watchly.
 // The app starts here; with a single profile it goes straight on to Home.
-class ProfilesActivity : Screen() {
+open class ProfilesActivity : Screen() {
     // The sign-in code being waited on; anything else stops its polling loop.
     private var waitingCode: String? = null
     private var signingIn = false
@@ -31,10 +31,13 @@ class ProfilesActivity : Screen() {
     private var nameInput: EditText? = null
     // Where Back goes from the profile menu's screens (PIN, rename); null elsewhere.
     private var backTo: (() -> Unit)? = null
+    private var returnProfile: Profile? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val profiles = Profiles.all(this)
+        val internalPicker = this is ProfilePickerActivity
+        if (internalPicker) returnProfile = Profiles.active(this)
         // Home found this profile signed out: straight to its sign-in, the profile and its settings kept.
         // The activity is exported, so the extra is untrusted: enter() still asks for the PIN, and a profile that
         // isn't signed out just opens.
@@ -42,7 +45,7 @@ class ProfilesActivity : Screen() {
         when {
             again != null -> enter(again)
             profiles.isEmpty() -> showName()
-            profiles.size == 1 && !intent.getBooleanExtra("pick", false) -> enter(profiles[0])
+            profiles.size == 1 && !internalPicker -> enter(profiles[0])
             else -> showPicker()
         }
     }
@@ -89,14 +92,16 @@ class ProfilesActivity : Screen() {
 
     private fun showPicker() {
         // Opened from inside a profile (Switch profile, Manage profiles): Back returns to it instead of leaving Alder.
-        val current = Profiles.active(this)?.takeIf { intent.getBooleanExtra("pick", false) }
-        backTo = current?.let { { openHome(it) } }
+        val profiles = Profiles.all(this)
+        val current = returnProfile?.let { previous ->
+            profiles.firstOrNull { it.id == previous.id && it.authKey == previous.authKey }
+        }
+        backTo = current?.let { { if (Profiles.signedOut(this, it.id)) enter(it) else openHome(it) } }
         nameInput = null
         // Left a sign-in: stop its polling, or approving the abandoned code would still change the profile.
         signingIn = false
         waitingCode = null
         val generation = ++pickerGeneration
-        val profiles = Profiles.all(this)
         val art = onboardingBackdrop(false).apply { alpha = 0.42f }
         var selected = profiles.firstOrNull { it.id == Profiles.active(this)?.id } ?: profiles.first()
         // Top-aligned, so Add (no "last watched" line) sits level with the portraits; padding above for the 10% lift.
@@ -128,6 +133,7 @@ class ProfilesActivity : Screen() {
                 setOnClickListener { enter(p) }
                 setOnLongClickListener { showMenu(p); true }
             }, LinearLayout.LayoutParams(dp(124), -2).apply { marginStart = dp(10); marginEnd = dp(10) })
+            if (p.pin != null) return@forEach
             background({
                 val items = Stremio.savedLibrary(p.authKey) ?: Stremio.library(p.authKey)
                 Library.continueWatching(items).firstOrNull()
@@ -342,6 +348,7 @@ class ProfilesActivity : Screen() {
         choose(getString(R.string.profiles_remove_title, p.name), listOf(getString(R.string.action_cancel), getString(R.string.action_remove)),
             getString(R.string.profiles_remove_desc, p.name)) { i ->
             if (i == 0) return@choose
+            if (returnProfile?.id == p.id) returnProfile = null
             Profiles.remove(this, p.id)
             background({ Http.forget() }) {}
             // Best effort; the TV forgets the profile either way. A sign-in another profile still uses stays signed in.
@@ -588,7 +595,7 @@ class ProfilesActivity : Screen() {
         // Dim, as the doc asks: the copy and code sit over it. A darkening filter, not alpha: the window has no
         // background, so a see-through backdrop would show the last frame instead of darkening.
         if (useLastFilm) setColorFilter(android.graphics.Color.argb(166, 14, 12, 10), android.graphics.PorterDuff.Mode.SRC_ATOP)
-        if (useLastFilm) Profiles.active(this@ProfilesActivity)?.let { profile ->
+        if (useLastFilm) Profiles.active(this@ProfilesActivity)?.takeIf { it.pin == null }?.let { profile ->
             background({ Stremio.savedLibrary(profile.authKey)?.let(Library::continueWatching)?.firstOrNull()?.optString("_id") }) { result ->
                 result.getOrNull()?.let(Images::backgroundFor)?.let { url -> Images.load(url, this, resources.displayMetrics.widthPixels) }
             }
@@ -737,3 +744,6 @@ class ProfilesActivity : Screen() {
         const val KEY_H = 25 // dp a key row on the name step, so Continue fits under the colours
     }
 }
+
+/** The picker opened from an already authorized Alder screen. */
+class ProfilePickerActivity : ProfilesActivity()

@@ -743,7 +743,7 @@ class MainActivity : Screen() {
     }
 
     private fun switchProfile() {
-        startActivity(Intent(this, ProfilesActivity::class.java).putExtra("pick", true)
+        startActivity(Intent(this, ProfilePickerActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
         finish()
     }
