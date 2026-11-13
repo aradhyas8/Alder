@@ -561,11 +561,11 @@ class SettingsActivity : Screen() {
             }
             Group.PROFILE -> {
                 actionRow(getString(R.string.menu_switch_profile), "", getString(R.string.switch_profile_hint)) {
-                    startActivity(Intent(this, ProfilesActivity::class.java).putExtra("pick", true)
+                    startActivity(Intent(this, ProfilePickerActivity::class.java)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
                 }
                 actionRow(getString(R.string.manage_profiles), "", getString(R.string.manage_profiles_hint)) {
-                    startActivity(Intent(this, ProfilesActivity::class.java).putExtra("pick", true)
+                    startActivity(Intent(this, ProfilePickerActivity::class.java)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
                 }
                 var hiddenValue: TextView? = null
