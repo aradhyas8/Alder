@@ -452,7 +452,7 @@ class MainActivity : Screen() {
             addView(topShade, FrameLayout.LayoutParams(-1, dp(HEADER_H + 180)))
             listShade = View(context).apply {
                 background = GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                    intArrayOf(0xFF2C211B.toInt(), 0xFF171412.toInt(), BASE))
+                    intArrayOf(0xDC2C211B.toInt(), 0xB3171412.toInt(), 0xE60E0C0A.toInt()))
                 visibility = View.GONE
             }
             addView(listShade, FrameLayout.LayoutParams(-1, -1))
@@ -974,6 +974,7 @@ class MainActivity : Screen() {
     private fun showArt(item: Item, ready: (() -> Unit)? = null) {
         main.removeCallbacks(artTask)
         val settledBrowse = page.polishedRail && mode == Mode.BROWSE
+        val libraryGrid = page == Page.LIBRARY
         if (item.live && item.art == null && item.poster == null) return run { if (item.settled) clearArt(); ready?.invoke() }
         val (url, look) = backdropOf(item) ?: run { if (settledBrowse) resetArt(); return }
         if (url == art.tag) return run { ready?.invoke() }
@@ -995,13 +996,13 @@ class MainActivity : Screen() {
                 // Once the new art covers it, the old one lets go: otherwise the GPU paints a hidden full screen every frame.
                 art.enter(if (settledBrowse) HOME_ART_MS else if (artBack.drawable == null) LIGHTS_MS else ART_MS).alpha(1f).withEndAction {
                     artBack.setImageDrawable(null)
-                    art.animate().scaleX(PUSH_IN).scaleY(PUSH_IN).setDuration(PUSH_IN_MS).start()
+                    if (!libraryGrid) art.animate().scaleX(PUSH_IN).scaleY(PUSH_IN).setDuration(PUSH_IN_MS).start()
                 }.start()
                 refrost()
                 ready?.invoke()
             }
         }
-        val delay = if (settledBrowse) 0L else artDelay(held, cached, ready != null)
+        val delay = if (settledBrowse || libraryGrid) 0L else artDelay(held, cached, ready != null)
         if (delay == 0L) artTask.run() else main.postDelayed(artTask, delay)
     }
 
@@ -1208,9 +1209,22 @@ class MainActivity : Screen() {
 
     /** The focused title: its art across the screen, and logo, facts (and time left) and description top left. */
     private fun showHero(item: Item) {
-        if (page == Page.LIBRARY) return
         val changed = heroItem !== item
         heroItem = item
+        if (page == Page.LIBRARY) {
+            if (changed) {
+                cancelBrowseHero()
+                if (art.drawable == null) art.tag = null
+                heroTask = Runnable {
+                    heroTask = null
+                    if (page == Page.LIBRARY && heroItem === item && !isDestroyed) {
+                        fill(item)
+                        if (item.settled) showLibraryArt(item)
+                    }
+                }.also { main.postDelayed(it, HOME_HERO_WAIT) }
+            } else if (heroTask == null) showLibraryArt(item)
+            return
+        }
         if (page.isBrowse) showCaption(item)
         if (page.polishedRail && changed) {
             main.removeCallbacks(artTask)
@@ -1220,6 +1234,11 @@ class MainActivity : Screen() {
         } else if (heroTask == null) {
             renderHero(item)
         }
+    }
+
+    private fun showLibraryArt(item: Item) {
+        if (backdropOf(item) != null) showArt(item)
+        else if (item.settled) clearArt()
     }
 
     private fun cancelBrowseHero() {
@@ -1391,7 +1410,7 @@ class MainActivity : Screen() {
      */
     private fun showPage(p: Page, quick: Boolean = true) {
         cancelBrowseHero()
-        if (page.polishedRail || p.polishedRail || p == Page.LIBRARY) resetArt()
+        if (page.polishedRail || p.polishedRail || page == Page.LIBRARY || p == Page.LIBRARY) resetArt()
         dimHome(false)
         if (p != page) {
             genre = null // a genre belongs to the page it was picked on
@@ -1913,6 +1932,9 @@ class MainActivity : Screen() {
         val build = ++listBuild
         listCount.text = resources.getQuantityString(R.plurals.list_title_count, items.size, items.size)
         if (items.isEmpty()) {
+            cancelBrowseHero()
+            heroItem = null
+            resetArt()
             val message = when {
                 all.isEmpty() && listFilter == ListFilter.ALL -> R.string.list_empty
                 listFilter == ListFilter.MOVIES -> R.string.list_empty_movies
@@ -1927,6 +1949,7 @@ class MainActivity : Screen() {
         slot.addView(column)
         val restore = items.indexOfFirst { "card:${it.id}" == focusTag }.takeIf { it >= 0 }
             ?: removedIndex?.coerceIn(items.indices) ?: 0.takeIf { focusTag != null }
+        if (restore == null) showHero(items.first())
         val previousFocus = currentFocus
         items.chunked(LIST_COLUMNS).forEachIndexed { index, cards ->
             fun add() {
@@ -2512,7 +2535,7 @@ class MainActivity : Screen() {
             v != null && isRecentlyAired(v.released)
         } else false
         return Item(
-            id, type, item.text("name")?.takeIf { it.isNotBlank() } ?: id, item.text("poster"),
+            id, type, item.text("name")?.takeIf { it.isNotBlank() } ?: getString(R.string.addons_unavailable), item.text("poster"),
             null, Images.logoFor(id), "", emptyList(), videoId, progress,
             resume = offset > 0, timeLeft = timeLeft(duration, offset), resumeAt = offset, nextEpisodePending = pending,
             finished = libraryFinished(item),

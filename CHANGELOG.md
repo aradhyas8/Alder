@@ -35,6 +35,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 ### Easier to use
 - **My List.** Two full rows of posters show at once. Move down to see more titles. The title shows while Alder gets the poster.
 - The filters, sort menu and title count show above the posters.
+- **My List art.** A dark picture of the selected title shows behind the posters.
 - Empty poster slots have a dark background while Alder gets the images.
 - Alder asks for confirmation before it removes a title from **My List**.
 - **Movies.** Select a genre in **Jump to** to go to its shelf. Select **Top** to go to the first shelf.
