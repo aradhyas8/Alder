@@ -118,6 +118,14 @@ class ScreenDesignTest {
         assertEquals(emptyList<String>(), settledGenres(names, names.associateWith { false }))
     }
 
+    @Test fun genreShortcutsKeepEachAddOnQueryValue() {
+        assertEquals("Sci-Fi", genreLabel("science fiction"))
+        assertEquals("Sci-Fi", genreLabel(" sci-fi "))
+        assertEquals("Science Fiction", genreOption(listOf("Drama", "Science Fiction"), "Sci-Fi"))
+        assertEquals("sci-fi", genreOption(listOf("sci-fi"), "Sci-Fi"))
+        assertEquals(null, genreOption(listOf("Fantasy"), "Sci-Fi"))
+    }
+
     @Test fun catalogRowsHaveShortNames() {
         assertEquals("For you", shortRowName("Top Picks for You"))
         assertEquals("Popular", shortRowName("Trending Now"))
