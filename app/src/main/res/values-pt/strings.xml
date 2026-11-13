@@ -544,6 +544,6 @@
     <string name="profiles_all_set">Tudo pronto</string>
     <string name="profiles_ready">O perfil de %1$s está pronto. Você pode adicionar mais complementos depois em Configurações.</string>
     <string name="time_left_under_minute">Falta menos de 1 min</string>
-    <string name="shows_jump_to">Ir para</string>
-    <string name="shows_jump_top">Topo</string>
+    <string name="catalog_jump_to">Ir para</string>
+    <string name="catalog_jump_top">Topo</string>
 </resources>

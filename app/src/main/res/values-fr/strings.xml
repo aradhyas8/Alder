@@ -544,6 +544,6 @@
     <string name="profiles_all_set">Tout est prêt</string>
     <string name="profiles_ready">Le profil de %1$s est prêt. Vous pourrez ajouter d’autres extensions plus tard dans Paramètres.</string>
     <string name="time_left_under_minute">Moins de 1 min restante</string>
-    <string name="shows_jump_to">Aller à</string>
-    <string name="shows_jump_top">Haut</string>
+    <string name="catalog_jump_to">Aller à</string>
+    <string name="catalog_jump_top">Haut</string>
 </resources>

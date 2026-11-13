@@ -537,6 +537,6 @@
     <string name="profiles_all_set">Alles bereit</string>
     <string name="profiles_ready">Das Profil von %1$s ist bereit. Weitere Add-ons kannst du später in den Einstellungen hinzufügen.</string>
     <string name="time_left_under_minute">Weniger als 1 Min.</string>
-    <string name="shows_jump_to">Springen zu</string>
-    <string name="shows_jump_top">Nach oben</string>
+    <string name="catalog_jump_to">Springen zu</string>
+    <string name="catalog_jump_top">Nach oben</string>
 </resources>

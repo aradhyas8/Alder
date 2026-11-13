@@ -234,7 +234,8 @@ class MainActivity : Screen() {
     private val navItems = mutableMapOf<Page, TextView>()
     private var page = Page.HOME
     private val Page.isCatalog get() = this == Page.SHOWS || this == Page.MOVIES || type != null
-    private val Page.polishedRail get() = this == Page.HOME || this == Page.SHOWS
+    private val Page.hasGenreShortcuts get() = this == Page.SHOWS || this == Page.MOVIES
+    private val Page.polishedRail get() = this == Page.HOME || hasGenreShortcuts
     private var held = false
     /** One row of cards under the focused title's art: every page but My List's grid. */
     private val Page.isBrowse get() = this == Page.HOME || isCatalog || this == Page.LIVE
@@ -565,21 +566,21 @@ class MainActivity : Screen() {
             }
             return homeSections + combined
         }
-        val shows = p == Page.SHOWS
+        val genreShortcuts = p.hasGenreShortcuts
         val genres = catalogGenres(shelves.flatMap { it.first.genres }
-            .map { if (shows) genreLabel(it) else it })
+            .map { if (genreShortcuts) genreLabel(it) else it })
         return if (!p.isCatalog) shelves.map { Triple(it.second.title, listOf(it), null as String?) } else {
             val merged = shelves.groupBy { (_, shelf) ->
-                if (shows && shelf.rank > 2) genres.firstOrNull { it.equals(genreLabel(shelf.title), true) } ?: shelf.title
+                if (genreShortcuts && shelf.rank > 2) genres.firstOrNull { it.equals(genreLabel(shelf.title), true) } ?: shelf.title
                 else shortRowName(shelf.title, genres)
             }.map { (name, list) -> Triple(name, list, null as String?) }
             val genreShelves = genres.take(GENRE_ROWS).filter { g -> merged.none { it.first.equals(g, true) } }
                 .mapNotNull { g ->
-                    val sources = if (shows) shelves.filter { genreOption(it.first.genres, g) != null }
+                    val sources = if (genreShortcuts) shelves.filter { genreOption(it.first.genres, g) != null }
                         else listOfNotNull(shelves.firstOrNull { g in it.first.genres })
                     sources.takeIf { it.isNotEmpty() }?.let { Triple(g, it, g as String?) }
                 }
-            if (shows) merged.take(2) + genreShelves + merged.drop(2) else merged + genreShelves
+            if (genreShortcuts) merged.take(2) + genreShelves + merged.drop(2) else merged + genreShelves
         }
     }
 
@@ -596,7 +597,7 @@ class MainActivity : Screen() {
         for (p in listOf(Page.SHOWS, Page.MOVIES)) {
             val shelves = catalogs.mapNotNull { c -> shelf(c)?.takeIf { it.page == p }?.let { c to it } }.sortedBy { it.second.rank }
             sections(p, shelves).forEachIndexed { i, (title, sources, picked) ->
-                if (p == Page.SHOWS && picked != null) return@forEachIndexed
+                if (p.hasGenreShortcuts && picked != null) return@forEachIndexed
                 val key = catalogAnswerKey(p.label, title, picked, sources.map { (c, _) ->
                     "${c.addon.transportUrl}/${c.type}/${c.id}"
                 })
@@ -1556,13 +1557,13 @@ class MainActivity : Screen() {
                 content.addView(text(none, BODY, color = TEXT_3)
                     .apply { setPadding(dp(PAD), 0, dp(PAD), 0) })
             }
-            val genres = catalogGenres(catalogs.flatMap { it.genres }.map { if (p == Page.SHOWS) genreLabel(it) else it })
+            val genres = catalogGenres(catalogs.flatMap { it.genres }.map { if (p.hasGenreShortcuts) genreLabel(it) else it })
             val hiddenRows = Settings.hiddenRows(this@MainActivity)
             val sections = sections(p, shelves, featuredHome).filterNot { it.first in hiddenRows }
             val genreNames = (if (p.isCatalog) sections.take(nextCatalogSection(sections.size, 0)).map { it.first }.filter { name -> genres.any { it.equals(name, true) } }
                 else emptyList()).toMutableList()
             val genreResults = mutableMapOf<String, Boolean>()
-            if (p.isCatalog && p != Page.SHOWS && genreNames.isEmpty()) {
+            if (p.isCatalog && !p.hasGenreShortcuts && genreNames.isEmpty()) {
                 showGenreChips(emptyList())
                 genreStrip.visibility = View.VISIBLE
             }
@@ -1573,7 +1574,7 @@ class MainActivity : Screen() {
                 val (title, sources, picked) = section
                 if (p.isCatalog && genres.any { it.equals(title, true) } && title !in genreNames) genreNames += title
                 val rowCatalogs = sources.map { it.first }
-                val genreFallback = p == Page.SHOWS && picked != null
+                val genreFallback = p.hasGenreShortcuts && picked != null
                 val slot = slot()
                 val key = catalogAnswerKey(p.label, title, picked, rowCatalogs.map { c ->
                     "${c.addon.transportUrl}/${c.type}/${c.id}"
@@ -1597,9 +1598,9 @@ class MainActivity : Screen() {
                     if (completed == rowCatalogs.size && title in genreNames) {
                         genreResults[title] = items.isNotEmpty()
                         // Resolve empty rows before showing chips; off-screen row views arrive later.
-                        val readyGenres = if (p == Page.SHOWS) genreNames.filter { genreResults[it] == true }
+                        val readyGenres = if (p.hasGenreShortcuts) genreNames.filter { genreResults[it] == true }
                             else settledGenres(genreNames, genreResults)
-                        readyGenres?.takeIf { p != Page.SHOWS || it.isNotEmpty() &&
+                        readyGenres?.takeIf { !p.hasGenreShortcuts || it.isNotEmpty() &&
                             genreChips.keys.filterNotNull() != it }?.let { ready ->
                             val wasVisible = genreStrip.visibility == View.VISIBLE
                             showGenreChips(ready)
@@ -1821,7 +1822,7 @@ class MainActivity : Screen() {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(PAD), dp(2), dp(PAD), dp(2))
         }
-        if (page == Page.SHOWS) line.addView(text(R.string.shows_jump_to, SMALL, bold = true).onArt(), wrap().apply {
+        if (page.hasGenreShortcuts) line.addView(text(R.string.catalog_jump_to, SMALL, bold = true).onArt(), wrap().apply {
             marginEnd = dp(10)
         })
         (listOf<String?>(null) + names).forEach { value ->
@@ -1839,13 +1840,13 @@ class MainActivity : Screen() {
         if (hadFocus) (genreChips[focusedGenre] ?: genreChips[null])?.requestFocus()
     }
 
-    private fun genreStartLabel() = getString(if (page == Page.SHOWS) R.string.shows_jump_top else R.string.filter_all)
+    private fun genreStartLabel() = getString(if (page.hasGenreShortcuts) R.string.catalog_jump_top else R.string.filter_all)
 
     private fun markChip(rowTitle: String) {
         val open = rowTitle.takeIf { it in genreChips }
         genre = open // Back and Down from the top bar return to this chip
         genreChips.forEach { (value, chip) ->
-            val selected = if (page == Page.SHOWS && value == null) rowTitle == firstRow()?.title else value == open
+            val selected = if (page.hasGenreShortcuts && value == null) rowTitle == firstRow()?.title else value == open
             chip.select(value ?: genreStartLabel(), selected)
         }
     }
@@ -2356,7 +2357,7 @@ class MainActivity : Screen() {
             }
 
             fun dim(on: Boolean) = shade.animate()
-                .alpha(if (!on) 0f else if (continueRow || page == Page.SHOWS) CONTINUE_DIM else DIM).setDuration(FOCUS_MS).start()
+                .alpha(if (!on) 0f else if (continueRow || page.hasGenreShortcuts) CONTINUE_DIM else DIM).setDuration(FOCUS_MS).start()
 
             /** On screen (or nearly): the poster (the wide art cropped for a title without one, else its name). */
             fun load() {
@@ -2365,7 +2366,7 @@ class MainActivity : Screen() {
                 val pick = if (item.live) item.poster ?: item.art else if (wide) item.art ?: item.poster?.takeIf { item.settled } else item.poster ?: item.art
                 if (pick == null || (!item.live && wide && item.art == null)) fill(item)
                 val url = pick ?: run {
-                    if (item.settled || item.live || page == Page.SHOWS) {
+                    if (item.settled || item.live || page.hasGenreShortcuts) {
                         if (item.live) face.background = glass(RADIUS)
                         name.visibility = View.VISIBLE
                         face.alpha = 1f
@@ -2376,7 +2377,7 @@ class MainActivity : Screen() {
                 shown = url
                 face.animate().cancel()
                 face.alpha = 0f
-                if (page == Page.SHOWS && !Images.cached(url, (dp(cardW) * CARD_GROW).toInt())) {
+                if (page.hasGenreShortcuts && !Images.cached(url, (dp(cardW) * CARD_GROW).toInt())) {
                     name.visibility = View.VISIBLE
                     face.alpha = 1f
                 }
