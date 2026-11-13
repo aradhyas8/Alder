@@ -32,6 +32,7 @@ object Settings {
             if (tag.isEmpty()) android.os.LocaleList.getEmptyLocaleList() else android.os.LocaleList.forLanguageTags(tag)
     }
     fun maxHeight(c: Context) = prefs(c).getInt("maxHeight", 0) // 0: no limit
+    fun displayHeight(c: Context) = prefs(c).getInt("displayHeight", 0) // 0: auto
     fun maxSizeGb(c: Context) = prefs(c).getInt("maxSizeGb", 0) // 0: no limit
     /** "": as the addon orders them, "dv" or "hdr10": that first, "off": plain releases only. */
     fun hdrPref(c: Context): String {
@@ -272,6 +273,8 @@ class SettingsActivity : Screen() {
                 "encode" to getString(R.string.release_encode), "web" to getString(R.string.release_web)), true),
     ) }
     private val pictureAndSound by lazy { listOf(
+        Choice("displayHeight", getString(R.string.display_resolution), getString(R.string.display_resolution_hint),
+            listOf(0 to getString(R.string.streams_auto), 1080 to "1080p", 2160 to "4K")),
         Choice("uiScale", getString(R.string.ui_size), getString(R.string.ui_size_hint),
             // ponytail: two steps; 130% pushed Home's title logo into the top bar on a 1080p TV.
             listOf(100 to getString(R.string.ui_size_normal), 115 to getString(R.string.size_large))),

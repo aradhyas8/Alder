@@ -547,4 +547,6 @@
     <string name="time_left_under_minute">Meno di 1 min</string>
     <string name="catalog_jump_to">Vai a</string>
     <string name="catalog_jump_top">Inizio</string>
+    <string name="display_resolution">Risoluzione dello schermo</string>
+    <string name="display_resolution_hint">Scegli la risoluzione del TV che Alder usa per selezionare una sorgente. Scegli 4K se il tuo dispositivo indica 1080p ma trasmette in 4K.</string>
 </resources>

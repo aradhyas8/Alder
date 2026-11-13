@@ -62,6 +62,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - **Shows art.** The title and art change together when you stop on a poster.
 - **Home art.** The title and art change together when you stop on a poster. Pictures that are ready fade directly into each other. Alder shows episode numbers when they are available.
 - **Resume.** **Continue Watching** and the title page use the same resume point. The title page shows where you stopped.
+- **4K source selection.** If Alder selects 1080p on a 4K TV, select **4K** under **Picture & Sound → Display resolution**. With **Best picture**, Alder gives 4K priority when the other preferences are equal.
 - The caption moves with the selected card when you press Left or Right.
 - **Profile PIN.** Another app cannot open a profile that has a PIN. Alder asks for the PIN first.
 - **Sign-in and backups.** Android does not copy profiles, sign-ins and PINs to a new TV.

@@ -540,4 +540,6 @@
     <string name="time_left_under_minute">Weniger als 1 Min.</string>
     <string name="catalog_jump_to">Springen zu</string>
     <string name="catalog_jump_top">Nach oben</string>
+    <string name="display_resolution">Bildschirmauflösung</string>
+    <string name="display_resolution_hint">Wähle die TV-Auflösung, die Alder für die Quellenauswahl verwendet. Wähle 4K, wenn deine TV-Box 1080p meldet, aber 4K ausgibt.</string>
 </resources>

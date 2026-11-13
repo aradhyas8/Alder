@@ -432,7 +432,8 @@ class Stream(
     fun playableOn(tv: Device): Boolean = (!hevc || tv.hevc) && (!av1 || tv.av1)
 
     /** How well it suits this TV, higher first: nothing above the screen's resolution, HDR only on an HDR screen. */
-    fun fit(tv: Device): Int = (if (height > tv.height) 0 else 2) + (if (hdr || dolbyVision) (if (tv.hdr) 0 else -1) else 0)
+    fun fit(tv: Device, displayHeight: Int): Int = (if (height > displayHeight) 0 else 2) +
+        (if ((hdr || dolbyVision) && !tv.hdr) -1 else 0)
 
     fun toJson(): JSONObject = JSONObject().put("name", title).put("description", description).put("url", url)
         .put("headers", JSONObject(headers)).put("size", size).put("filename", filename).put("binge", bingeGroup)

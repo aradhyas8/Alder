@@ -540,4 +540,6 @@
     <string name="time_left_under_minute">1 मिनट से कम बाकी</string>
     <string name="catalog_jump_to">यहाँ जाएँ</string>
     <string name="catalog_jump_top">ऊपर</string>
+    <string name="display_resolution">स्क्रीन का रिज़ॉल्यूशन</string>
+    <string name="display_resolution_hint">वह टीवी रिज़ॉल्यूशन चुनें जिसके आधार पर Alder स्रोत चुनता है। अगर आपका बॉक्स 1080p बताता है लेकिन 4K आउटपुट देता है, तो 4K चुनें।</string>
 </resources>
