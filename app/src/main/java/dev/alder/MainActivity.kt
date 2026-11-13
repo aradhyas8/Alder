@@ -448,7 +448,12 @@ class MainActivity : Screen() {
             addView(cardCaption, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.START).apply {
                 leftMargin = dp(PAD); bottomMargin = dp(CAPTION_BOTTOM)
             })
-            nextRowHint = caps("").apply { visibility = View.GONE }
+            nextRowHint = text("", SMALL, color = TEXT_2).onArt().apply {
+                visibility = View.GONE
+                maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
+                maxWidth = artW / 2 - dp(PAD)
+            }
             addView(nextRowHint, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.END).apply {
                 rightMargin = dp(PAD); bottomMargin = dp(CAPTION_BOTTOM + 5)
             })
@@ -1944,7 +1949,7 @@ class MainActivity : Screen() {
         // Rows below the active one keep their names hidden: one peeking in at the bottom sat under the caption.
         // The hint on the right names the next row instead.
         visible.forEachIndexed { i, row -> row.peek(i <= active) }
-        nextRowHint.text = visible.getOrNull(active + 1)?.let { "▾  ${it.title.uppercase()}" } ?: ""
+        nextRowHint.text = visible.getOrNull(active + 1)?.let { "▾  ${it.title}" } ?: ""
         nextRowHint.visibility = if (nextRowHint.text.isEmpty()) View.GONE else View.VISIBLE
         clearHint()
     }
@@ -1980,6 +1985,8 @@ class MainActivity : Screen() {
                             val grid: Boolean = false, val continueRow: Boolean = false) {
         val cardW = if (grid) LIST_W else if (wide) WIDE_W else CARD_W
         val cardH = if (grid) LIST_H else if (wide) WIDE_H else CARD_H
+        private val homeRail = page == Page.HOME
+        private val railClip = Rect()
         val items = first.toMutableList()
         val cards = items.mapIndexed { i, item -> Card(item, i) }.toMutableList()
         private var fetching = false
@@ -2020,6 +2027,7 @@ class MainActivity : Screen() {
         }.apply {
             isHorizontalScrollBarEnabled = false
             addView(strip)
+            if (homeRail) strip.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> showVisibleCards() }
             addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> showVisibleCards() }
             setOnScrollChangeListener { _, _, _, _, _ ->
                 if (hasFocus()) placeCaption()
@@ -2029,7 +2037,7 @@ class MainActivity : Screen() {
         }
         // The row the remote is in has a bright title; the next one, peeking in below, is a quiet hint.
         // One line, always: the row band is measured for one, and a second would push the cards off the screen.
-        private val heading = caps(title).onArt().apply {
+        private val heading = (if (homeRail) text(title, SMALL, bold = true) else caps(title)).onArt().apply {
             setPadding(dp(PAD), 0, dp(PAD), 0)
             maxLines = 1; ellipsize = TextUtils.TruncateAt.END
             maxWidth = dp(PAD + HERO_W) // a long "Because you watched…" stops at the hero's width
@@ -2057,7 +2065,14 @@ class MainActivity : Screen() {
 
         private fun showVisibleCards() {
             val x = scroller.scrollX
-            cards.forEach { it.show(it.isFocused || (it.right - x > dp(PAD) && it.left - x < scroller.width)) }
+            val width = scroller.width
+            // Leave a clear poster peek while the rail scrolls. At the end its own padding sets the right inset.
+            val edge = if (homeRail && x < strip.width - width) (width - dp(PAD)).coerceAtLeast(0) else width
+            if (homeRail && (edge != railClip.right || scroller.height != railClip.bottom)) {
+                railClip.set(0, 0, edge, scroller.height)
+                scroller.clipBounds = railClip
+            }
+            cards.forEach { it.show(it.isFocused || (it.right - x > dp(PAD) && it.left - x < edge)) }
         }
 
         /**
@@ -2164,7 +2179,7 @@ class MainActivity : Screen() {
                         if (item.live) Gravity.CENTER else Gravity.BOTTOM or Gravity.START
                     ).apply {
                         if (item.live) setMargins(dp(8), dp(8), dp(8), dp(8))
-                        else setMargins(dp(inset), 0, dp(inset), dp(if (item.progress > 0) 22 else 12))
+                        else setMargins(dp(inset), 0, dp(inset), dp(if (item.progress > 0 && !continueRow) 22 else 12))
                     })
                 }
             }
@@ -2177,8 +2192,11 @@ class MainActivity : Screen() {
             // Darkens the cards beside the focused one. A shade, not transparency: a see-through card would let the
             // art behind it show through and look like it was floating on the poster.
             private val shade = View(context).apply { setBackgroundColor(Color.BLACK); alpha = 0f }
-            // On every card in progress, as Netflix does: comparing how far along titles are is the point of the row.
-            private val progress = item.progress.takeIf { it > 0 }?.let { progressBar(it) }
+            private val progress = when {
+                continueRow && item.progress > 0 -> progressBar(maxOf(item.progress, 2f / (cardW - 2 * inset)))
+                continueRow || item.progress > 0 -> progressBar(item.progress)
+                else -> null
+            }
 
             init {
                 outlineProvider = object : android.view.ViewOutlineProvider() {
@@ -2207,11 +2225,10 @@ class MainActivity : Screen() {
                     }, LayoutParams(-2, -2, Gravity.TOP or Gravity.START).apply { setMargins(dp(10), dp(10), 0, 0) })
                 }
                 if (wide && item.newEpisode) addBadge()
-                addView(face, LayoutParams(-1, -1))
-                // A white bar inset and rounded inside the card's dark foot, so it reads as a bar and not a cropped edge.
+                addView(face, LayoutParams(-1, -1).apply { if (continueRow) bottomMargin = dp(9) })
                 if (progress != null) addView(progress,
-                    LayoutParams(-1, dp(3), Gravity.BOTTOM).apply {
-                        if (!continueRow) setMargins(dp(inset), 0, dp(inset), dp(11))
+                    LayoutParams(-1, dp(if (continueRow) 2 else 3), Gravity.BOTTOM).apply {
+                        setMargins(dp(inset), 0, dp(inset), dp(if (continueRow) 3 else 11))
                     })
                 if (grid && item.finished) addView(text("✓", SMALL, bold = true, color = TUNGSTEN).apply {
                     gravity = Gravity.CENTER
@@ -2225,9 +2242,7 @@ class MainActivity : Screen() {
                     if (wanted) load()
                 }
                 setOnFocusChangeListener { _, has ->
-                    // Focus grows into the gaps without moving its neighbours, and wears a white edge that reads from the
-                    // couch on any poster (the clip to the card's outline keeps it inside the rounded corners).
-                    lift(has, strongRim = page == Page.HOME)
+                    lift(has, rim = !homeRail)
                     if (has) {
                         focus(index)
                         showHero(item)
@@ -2279,7 +2294,7 @@ class MainActivity : Screen() {
                     if (item.live) fitLogo()
                     if (nameMade.isInitialized()) name.visibility = if (wide && !item.live) View.VISIBLE else View.INVISIBLE
                     if (now) face.alpha = 1f else face.enter(QUICK_MS).alpha(1f).start()
-                    if (isFocused) lift(true)
+                    if (isFocused) lift(true, rim = !homeRail)
                 }
                 now = false
             }
@@ -2544,7 +2559,7 @@ class MainActivity : Screen() {
         const val SAFE_BOTTOM = 27
         const val CAPTION_BOTTOM = 16 // dp: low enough to leave the focused card a clear gap
         const val DIM = 0.5f
-        const val CONTINUE_DIM = 0.32f
+        const val CONTINUE_DIM = 0.38f
         const val HOME_SYNOPSIS_W = 445
         const val HOME_HERO_WAIT = 150L
         const val HOME_ART_EXIT_MS = 100L

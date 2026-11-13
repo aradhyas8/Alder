@@ -655,11 +655,11 @@ abstract class Screen : Activity() {
         else -> null
     }
 
-    protected fun View.lift(on: Boolean, radiusDp: Int = 6, strongRim: Boolean = false) {
-        foreground = if (on) GradientDrawable().apply {
+    protected fun View.lift(on: Boolean, radiusDp: Int = 6, rim: Boolean = true) {
+        foreground = if (on && rim) GradientDrawable().apply {
             setColor(Color.TRANSPARENT)
             cornerRadius = dp(radiusDp).toFloat()
-            setStroke(dp(if (strongRim) 2 else 1), if (strongRim) TUNGSTEN else TUNGSTEN_RIM)
+            setStroke(dp(1), TUNGSTEN_RIM)
         } else null
         if (on && android.os.Build.VERSION.SDK_INT >= 28) {
             val poster = posterBitmap(this)
