@@ -696,12 +696,14 @@ class SettingsActivity : Screen() {
         }
     }
 
-    /** The catalog rows hidden from home, movies or shows; OK on one puts it back. */
     /** This profile's tabs after Home, in its order; its add-ons say whether Live and their own tabs (Trakt…) exist. */
     private fun withTabs(then: (List<String>) -> Unit) {
         val key = authKey ?: return
-        background({ tabsFor((Stremio.savedAddons(key) ?: Stremio.addons(key)).flatMap { a -> a.catalogs.map { it.type } }) }) { result ->
-            result.getOrNull()?.let { then(orderTabs(Settings.tabOrder(this), it)) }
+        background({
+            val addons = runCatching { Stremio.addons(key) }.getOrElse { Stremio.savedAddons(key).orEmpty() }
+            tabsFor(addons.flatMap { a -> a.catalogs.map { it.type } })
+        }) { result ->
+            then(orderTabs(Settings.tabOrder(this), result.getOrElse { tabsFor(emptyList()) }))
         }
     }
 
@@ -724,7 +726,10 @@ class SettingsActivity : Screen() {
             getString(R.string.tabs_desc), focus = focus.coerceIn(0, tabs.lastIndex)) { i ->
             val id = tabs[i]
             val shown = Settings.tabShown(this, id)
-            fun move(to: Int) = Settings.setTabOrder(this, tabs.toMutableList().apply { add(to, removeAt(i)) })
+            fun move(to: Int) {
+                val reordered = tabs.toMutableList().apply { add(to, removeAt(i)) }
+                Settings.setTabOrder(this, saveTabOrder(Settings.tabOrder(this), reordered))
+            }
             val actions = listOfNotNull(
                 getString(if (shown) R.string.tab_hide else R.string.tab_show) to { Settings.setTabShown(this, id, !shown); i },
                 if (i > 0) getString(R.string.tab_move_left) to { move(i - 1); i - 1 } else null,
@@ -738,6 +743,7 @@ class SettingsActivity : Screen() {
         }
     }
 
+    /** The catalog rows hidden from home, movies or shows; OK on one puts it back. */
     private fun unhideRowsMenu(done: () -> Unit) {
         val all = Settings.hiddenRows(this).toList().sorted()
         if (all.isEmpty()) return choose(getString(R.string.no_hidden_rows), listOf(getString(R.string.action_ok)), getString(R.string.no_hidden_rows_desc)) {}

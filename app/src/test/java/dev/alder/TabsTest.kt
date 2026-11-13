@@ -15,6 +15,14 @@ class TabsTest {
         assertEquals(available, orderTabs(emptyList(), available))
     }
 
+    @Test fun builtInTabsKeepTheirSavedOrderWithoutAddonData() =
+        assertEquals(listOf("library", "movies", "shows"),
+            orderTabs(listOf("library", "type:anime", "movies", "live", "shows"), tabsFor(emptyList())))
+
+    @Test fun reorderingBuiltInTabsKeepsUnavailableAddonTabs() =
+        assertEquals(listOf("library", "type:anime", "shows", "movies"),
+            saveTabOrder(listOf("shows", "type:anime", "movies", "library"), listOf("library", "shows", "movies")))
+
     @Test fun savedOrderWins() =
         assertEquals(listOf("library", "type:trakt", "shows", "movies"),
             orderTabs(listOf("library", "type:trakt", "shows", "movies"), listOf("shows", "movies", "type:trakt", "library")))

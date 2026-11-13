@@ -43,6 +43,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - The README has a **Website** badge and a **Downloads** badge with the total number of GitHub release downloads.
 
 ### Fixes
+- **Top bar tabs.** Add-on tab names align with the other tabs and use the correct color as soon as they show. **Search** uses your tab choices. You can change the **Shows**, **Movies** and **My List** tabs when Alder cannot get the add-on list. **Tabs** shows changes to your add-ons.
 - **Profile PIN.** Another app cannot open a profile that has a PIN. Alder asks for the PIN first.
 - **Sign-in and backups.** Android does not copy profiles, sign-ins and PINs to a new TV.
 - **Watch progress.** **My List** and the watched marks do not erase your progress from other devices. Alder gets your Stremio library first, then saves the change.

@@ -2514,6 +2514,12 @@ internal fun orderTabs(saved: List<String>, available: List<String>): List<Strin
     return out
 }
 
+/** Keep the saved places of add-on tabs that are unavailable in the current menu. */
+internal fun saveTabOrder(saved: List<String>, reordered: List<String>): List<String> {
+    val remaining = reordered.iterator()
+    return saved.distinct().map { if (it in reordered) remaining.next() else it } + remaining.asSequence().toList()
+}
+
 /**
  * The catalog types that get a page of their own, in the add-ons' order: all but movie and series (Movies and Shows)
  * and the live ones (Live). A type is a word an add-on picks, so a new one gets a page without a code change.
