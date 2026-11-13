@@ -23,8 +23,21 @@ object StreamsResolver {
         val file = prefs.getString("file:$videoId", null)
         val binge = metaId?.let { prefs.getString("binge:$it", null) }
         val tv = Device.of(context)
-        val prefer = preference(context)
-        val lower = maxHeight > 0
+        val preferResolution = Settings.release(context) == "remux" && Settings.hdrPref(context) == "dv"
+        return rank(streams, tv, Settings.displayHeight(context), file, binge, maxHeight > 0, preference(context), preferResolution)
+    }
+
+    internal fun rank(
+        streams: List<Stream>,
+        tv: Device,
+        displayOverride: Int,
+        file: String?,
+        binge: String?,
+        lower: Boolean,
+        prefer: (Stream) -> Int,
+        preferResolution: Boolean
+    ): List<Stream> {
+        val displayHeight = if (displayOverride > 0) displayOverride else tv.height
         // P2P after every direct or debrid source: peers start slower and can't be checked first.
         // A P2P source its add-on says nobody shares (👤 0) can't start: after every other.
         return streams.sortedWith(compareBy<Stream> { it.torrent != null }
@@ -34,8 +47,9 @@ object StreamsResolver {
             .thenByDescending { binge != null && it.bingeGroup == binge }
             .thenBy { it.awkward }
             .thenBy { it.dolbyVisionOnly && !tv.dolbyVision }
-            .thenByDescending { it.fit(tv) }
+            .thenByDescending { it.fit(tv, displayHeight) }
             .thenByDescending(prefer)
+            .thenByDescending { if (preferResolution && it.height <= displayHeight) it.height else 0 }
             .thenByDescending { if (it.torrent != null) it.seeders ?: 0 else 0 })
     }
 

@@ -548,4 +548,6 @@
     <string name="profiles_watchly_steps">"1.  Scannez avec le téléphone de %1$s pour ouvrir Watchly\n2.  Connectez-y le compte Stremio de %1$s\n3.  Installez-la sur le compte Stremio de %1$s\n\nLes sélections de %1$s apparaîtront ensuite sur l’Accueil. Vous pouvez terminer plus tard."</string>
     <string name="profiles_all_set">Tout est prêt</string>
     <string name="profiles_ready">Le profil de %1$s est prêt. Vous pourrez ajouter d’autres extensions plus tard dans Paramètres.</string>
+    <string name="display_resolution">Résolution de l’écran</string>
+    <string name="display_resolution_hint">Choisissez la résolution du téléviseur utilisée par Alder pour sélectionner une source. Choisissez 4K si votre boîtier indique 1080p mais diffuse en 4K.</string>
 </resources>
