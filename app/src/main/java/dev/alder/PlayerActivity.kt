@@ -21,12 +21,14 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextClock
 import android.widget.TextView
+import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.HttpDataSource
@@ -231,6 +233,7 @@ internal fun playerBadges(
     return out
 }
 
+@OptIn(UnstableApi::class)
 internal class OffsettableTextRenderer(
     private val delegate: TextRenderer
 ) : Renderer by delegate, RendererCapabilities by delegate {
@@ -255,6 +258,7 @@ internal class OffsettableTextRenderer(
 // It gets a short list of sources: one that fails, or hasn't shown a picture after START_WAIT, gives way to the next
 // at the same second, and when the list runs out the sources page opens. Network blips are retried first, twice
 // after 1.5 s (NuvioTV's rule), so a dropped connection doesn't cost the source.
+@OptIn(UnstableApi::class)
 class PlayerActivity : Screen() {
     private lateinit var player: ExoPlayer
     private lateinit var view: PlayerView
@@ -3223,6 +3227,7 @@ private class SeekBar(context: Context) : View(context) {
 }
 
 /** Media3's resize mode for Settings' picture fit: Zoom fills the screen and crops, Stretch fills it and changes the shape. */
+@OptIn(UnstableApi::class)
 internal fun resizeModeFor(fit: String) = when (fit) {
     "zoom" -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
     "stretch" -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
@@ -3234,6 +3239,7 @@ internal fun resizeModeFor(fit: String) = when (fit) {
  * 10 to 17 s of a 4K remux). With the large heap (512 MB on most TV boxes) the buffer can use up to 200 MB, and
  * 250 MB stays free for decoders, pictures and screens. As NuvioTV does it.
  */
+@OptIn(UnstableApi::class)
 internal fun bufferBytesFor(maxHeap: Long): Int? {
     val mb = 1024L * 1024
     return (maxHeap - 250 * mb).coerceAtMost(200 * mb).takeIf { it > DefaultLoadControl.DEFAULT_VIDEO_BUFFER_SIZE }?.toInt()

@@ -49,7 +49,7 @@ internal object SubtitleFiles {
             Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                 .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString()
         } catch (e: CharacterCodingException) { null }
-        return (utf8 ?: String(bytes, legacy(lang))).removePrefix("﻿")
+        return (utf8 ?: String(bytes, legacy(lang))).removePrefix("\uFEFF")
     }
 
     // ponytail: by language, not by reading the bytes (no detector library); right for the files add-ons serve.

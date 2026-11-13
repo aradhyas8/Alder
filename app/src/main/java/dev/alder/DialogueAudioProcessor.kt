@@ -1,8 +1,10 @@
 package dev.alder
 
+import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
+import androidx.media3.common.util.UnstableApi
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -21,6 +23,7 @@ import java.nio.ByteOrder
  *
  * A fast soft-knee saturator prevents hard-clipping crackle when loud speech peaks occur.
  */
+@OptIn(UnstableApi::class)
 class DialogueAudioProcessor : BaseAudioProcessor() {
 
     @Volatile

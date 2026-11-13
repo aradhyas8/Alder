@@ -46,6 +46,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - The README has a **Website** badge and a **Downloads** badge with the total number of GitHub release downloads.
 
 ### Fixes
+- The Android lint check passes for the player and subtitle files.
 - The caption moves with the selected card when you press Left or Right.
 - **Profile PIN.** Another app cannot open a profile that has a PIN. Alder asks for the PIN first.
 - **Sign-in and backups.** Android does not copy profiles, sign-ins and PINs to a new TV.
