@@ -108,7 +108,6 @@
     <string name="action_more_info">Altre informazioni</string>
     <string name="action_start_over">Ricomincia</string>
     <string name="action_trailer">Trailer</string>
-    <string name="time_left">Mancano %1$s</string>
     <string name="action_add_to_list">Aggiungi a La mia lista</string>
     <string name="season_specials">Speciali</string>
     <string name="season_number">Stagione %1$d</string>
@@ -544,4 +543,5 @@
     <string name="profiles_watchly_steps">"1.  Inquadra con il telefono di %1$s per aprire Watchly\n2.  Collega lì l’account Stremio di %1$s\n3.  Installalo sull’account Stremio di %1$s\n\nPoi i consigli di %1$s appariranno nella Home. Puoi finire più tardi."</string>
     <string name="profiles_all_set">Tutto pronto</string>
     <string name="profiles_ready">Il profilo di %1$s è pronto. Puoi aggiungere altri add-on più tardi in Impostazioni.</string>
+    <string name="time_left_under_minute">Meno di 1 min</string>
 </resources>

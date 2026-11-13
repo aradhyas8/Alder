@@ -61,12 +61,13 @@
     <string name="stopped_at">Stopped at %1$s</string>
     <string name="time_left_hours">%1$dh %2$dm left</string>
     <string name="time_left_minutes">%1$d min left</string>
+    <string name="time_left_under_minute">Under 1 min left</string>
     <plurals name="seasons">
         <item quantity="one">%1$d season</item>
         <item quantity="other">%1$d seasons</item>
     </plurals>
     <string name="home_unreachable">Couldn\'t reach Stremio. Check the TV\'s connection.</string>
-    <string name="row_continue">Continue</string>
+    <string name="row_continue">Continue Watching</string>
     <string name="home_no_picks">Picks for you show here once Watchly is installed on this profile\'s Stremio account. Shows and Movies have more to browse.</string>
     <string name="page_no_movie_catalogs">None of your addons has movie catalogs. Add one (AIOMetadata, Cinemeta) in Stremio.</string>
     <string name="page_no_show_catalogs">None of your addons has show catalogs. Add one (AIOMetadata, Cinemeta) in Stremio.</string>
@@ -105,7 +106,6 @@
     <string name="action_more_info">More information</string>
     <string name="action_start_over">Start over</string>
     <string name="action_trailer">Trailer</string>
-    <string name="time_left">%1$s left</string>
     <string name="action_add_to_list">Add to My List</string>
     <string name="season_specials">Specials</string>
     <string name="season_number">Season %1$d</string>

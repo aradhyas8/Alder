@@ -310,6 +310,17 @@ class CastMember(
 class Video(val id: String, val title: String, val season: Int, val episode: Int, val thumbnail: String?,
             val overview: String?, val released: String?)
 
+internal fun episodeNumber(season: Int, episode: Int): String? =
+    if (season >= 0 && episode > 0) "S$season E$episode" else null
+
+internal fun episodeNumbers(videoId: String?): Pair<Int, Int>? {
+    val parts = videoId?.split(':') ?: return null
+    if (parts.size != 3 || parts[0].isBlank()) return null
+    val season = parts[1].toIntOrNull() ?: return null
+    val episode = parts[2].toIntOrNull() ?: return null
+    return (season to episode).takeIf { season >= 0 && episode > 0 }
+}
+
 /**
  * Whether a title has episodes. A type is only a word an add-on picks ("anime", "channel", "podcast"), so for any type
  * but movie, series and live, the title's own videos decide, as stremio-core does.

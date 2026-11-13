@@ -27,8 +27,8 @@ object WatchNext {
         items.take(MAX).forEach { item ->
             val state = item.optJSONObject("state") ?: JSONObject()
             // A series' video id is "tt123:1:3": season, then episode. Other types (anime) count as one when theirs is.
-            val parts = state.optString("video_id").split(":")
-            val series = item.optString("type").let { it == "series" || it != "movie" && parts.size >= 3 }
+            val numbers = episodeNumbers(state.text("video_id"))
+            val series = item.optString("type").let { it == "series" || it != "movie" && numbers != null }
             // Wide, cinematic art for the launcher's wide cards: the meta addon's backdrop (TMDB's, from AIOMetadata or
             // Cinemeta; last time's answer from disk when there is one), else the library's own, else MetaHub's for the
             // IMDb id. A poster sent as the art gets cropped to a strip of its middle by the launcher.
@@ -43,9 +43,9 @@ object WatchNext {
                 put(WatchNextPrograms.COLUMN_TYPE, if (series) WatchNextPrograms.TYPE_TV_EPISODE else WatchNextPrograms.TYPE_MOVIE)
                 put(WatchNextPrograms.COLUMN_WATCH_NEXT_TYPE, WatchNextPrograms.WATCH_NEXT_TYPE_CONTINUE)
                 put(WatchNextPrograms.COLUMN_TITLE, item.optString("name"))
-                if (series && parts.size == 3) {
-                    put(WatchNextPrograms.COLUMN_SEASON_DISPLAY_NUMBER, parts[1])
-                    put(WatchNextPrograms.COLUMN_EPISODE_DISPLAY_NUMBER, parts[2])
+                if (series && numbers != null) {
+                    put(WatchNextPrograms.COLUMN_SEASON_DISPLAY_NUMBER, numbers.first.toString())
+                    put(WatchNextPrograms.COLUMN_EPISODE_DISPLAY_NUMBER, numbers.second.toString())
                 }
                 put(WatchNextPrograms.COLUMN_POSTER_ART_URI, art ?: poster)
                 put(WatchNextPrograms.COLUMN_POSTER_ART_ASPECT_RATIO,

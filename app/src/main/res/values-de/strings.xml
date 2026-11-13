@@ -104,7 +104,6 @@
     <string name="action_more_info">Mehr Infos</string>
     <string name="action_start_over">Von vorn</string>
     <string name="action_trailer">Trailer</string>
-    <string name="time_left">Noch %1$s</string>
     <string name="action_add_to_list">Zu Meine Liste hinzufügen</string>
     <string name="season_specials">Specials</string>
     <string name="season_number">Staffel %1$d</string>
@@ -537,4 +536,5 @@
     <string name="profiles_watchly_steps">"1.  Mit dem Handy von %1$s scannen, um Watchly zu öffnen\n2.  Dort das Stremio-Konto von %1$s verbinden\n3.  Im Stremio-Konto von %1$s installieren\n\nDanach erscheinen die eigenen Top-Tipps von %1$s auf Start. Du kannst das später abschließen."</string>
     <string name="profiles_all_set">Alles bereit</string>
     <string name="profiles_ready">Das Profil von %1$s ist bereit. Weitere Add-ons kannst du später in den Einstellungen hinzufügen.</string>
+    <string name="time_left_under_minute">Weniger als 1 Min.</string>
 </resources>

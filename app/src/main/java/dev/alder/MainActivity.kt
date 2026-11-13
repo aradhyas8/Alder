@@ -260,11 +260,12 @@ class MainActivity : Screen() {
     private lateinit var moreHint: ImageView
     private lateinit var nextRowHint: TextView
     private lateinit var cardCaption: TextView
-    private var captionX = 0 // px from the left margin to the focused card, where its caption goes
+    private val captionAnchor = Rect()
     private var browseRowTop = 0
     private var browseRowH = 0
 
     private var artTask = Runnable {}
+    private var heroTask: Runnable? = null
     private val artW by lazy { resources.displayMetrics.widthPixels }
 
     /**
@@ -309,10 +310,11 @@ class MainActivity : Screen() {
     /** The left darkening behind the words, the long one down to the cards, and a light one under the top bar. */
     private fun shade(canvas: Canvas, w: Int, h: Int, bright: Boolean) {
         val shade = Paint().apply {
-            shader = LinearGradient(0f, 0f, w * 0.55f, 0f,
-                if (bright) 0xF70E0C0A.toInt() else 0xEB0E0C0A.toInt(), 0x000E0C0A, Shader.TileMode.CLAMP)
+            shader = LinearGradient(0f, 0f, w * 0.59f, 0f,
+                intArrayOf(0xF70E0C0A.toInt(), if (bright) 0xAA0E0C0A.toInt() else 0x800E0C0A.toInt(), 0x000E0C0A),
+                floatArrayOf(0f, 0.68f, 1f), Shader.TileMode.CLAMP)
         }
-        canvas.drawRect(0f, 0f, w * 0.55f, h.toFloat(), shade)
+        canvas.drawRect(0f, 0f, w * 0.59f, h.toFloat(), shade)
         shade.shader = LinearGradient(0f, h.toFloat(), 0f, h * 0.55f, 0xF70E0C0A.toInt(), 0x000E0C0A, Shader.TileMode.CLAMP)
         canvas.drawRect(0f, h * 0.55f, w.toFloat(), h.toFloat(), shade)
         shade.shader = LinearGradient(0f, 0f, 0f, h * 0.14f, 0x8C0E0C0A.toInt(), 0x000E0C0A, Shader.TileMode.CLAMP)
@@ -355,9 +357,9 @@ class MainActivity : Screen() {
         var art: String?, var logo: String?, var about: String, var facts: List<String>,
         val videoId: String?, val progress: Float,
         val resume: Boolean, // has watch progress (Continue Watching, Library): its facts come from the meta addon
-        val left: String?, // Continue Watching: "S1 E3 · 31 min left"
-        val timeLeft: String? = null, // the "31 min left" part of [left]
-        val stoppedAt: Long? = null,
+        val timeLeft: String? = null,
+        val resumeAt: Long = 0,
+        val nextEpisodePending: Boolean = false,
         val addedAt: String? = null,
         val finished: Boolean = false,
         var newEpisode: Boolean = false,
@@ -424,7 +426,7 @@ class MainActivity : Screen() {
         }.apply {
             isVerticalScrollBarEnabled = false
             addView(content)
-            setOnScrollChangeListener { _, _, _, _, _ -> updateImages(); loadMoreSections?.invoke() }
+            setOnScrollChangeListener { _, _, _, _, _ -> placeCaption(); updateImages(); loadMoreSections?.invoke() }
         }
 
         art = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP; alpha = 0f }
@@ -442,7 +444,7 @@ class MainActivity : Screen() {
             addView(moreHint, FrameLayout.LayoutParams(dp(32), dp(32), Gravity.END).apply {
                 rightMargin = (dp(PAD) - dp(32)) / 2; topMargin = rowTop + headingH + dp(ROW_TOP_ROOM + CARD_H / 2 - 16)
             })
-            cardCaption = caption("").apply { visibility = View.GONE }
+            cardCaption = caption("", keepPrevious = false).apply { visibility = View.GONE }
             addView(cardCaption, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.START).apply {
                 leftMargin = dp(PAD); bottomMargin = dp(CAPTION_BOTTOM)
             })
@@ -488,7 +490,7 @@ class MainActivity : Screen() {
             rows.filter { it.active && (now == null || !isInside(now, it.view)) }.forEach { it.light(false) }
             if (mode == Mode.CINEMA) chrome() // the top bar shows only while the remote is on it
             // The caption names the focused card: none while the remote is up in the top bar.
-            if (now != null && isInside(now, header)) cardCaption.visibility = View.GONE
+            if (now !is Row.Card) cardCaption.visibility = View.GONE
             // Rows settle after a focus move (the next heading can peek in): name it once, whichever shows.
             main.removeCallbacks(nextRowCheck); main.postDelayed(nextRowCheck, 300)
         }
@@ -819,7 +821,7 @@ class MainActivity : Screen() {
                 if (p == Page.SHOWS && !Settings.showShows(this@MainActivity)) visibility = View.GONE
             }
         }
-        nav.background = glassOver(nav, NAV_R + 4)
+        nav.background = glassOver(nav, NAV_R + 4, shade = 0.22f, keepPrevious = false)
         header.addView(avatarBox, FrameLayout.LayoutParams(dp(30), dp(30), Gravity.START or Gravity.CENTER_VERTICAL))
         header.addView(nav, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
         header.addView(TextClock(this).apply {
@@ -942,9 +944,11 @@ class MainActivity : Screen() {
      */
     private fun showArt(item: Item, ready: (() -> Unit)? = null) {
         main.removeCallbacks(artTask)
+        val homeBrowse = page == Page.HOME && mode == Mode.BROWSE
         if (item.live && item.art == null && item.poster == null) return run { if (item.settled) clearArt(); ready?.invoke() }
-        val (url, look) = backdropOf(item) ?: return
+        val (url, look) = backdropOf(item) ?: run { if (homeBrowse) resetArt(); return }
         if (url == art.tag) return run { ready?.invoke() }
+        if (homeBrowse) resetArt()
         artTask = Runnable {
             art.animate().cancel()
             // Racing along a row cancels fades midway: only a picture that's mostly in replaces the one behind,
@@ -959,7 +963,7 @@ class MainActivity : Screen() {
             art.alpha = 0f
             Images.load(url, art, artW, urgent = true, look = look, failed = ready) {
                 // Once the new art covers it, the old one lets go: otherwise the GPU paints a hidden full screen every frame.
-                art.enter(if (artBack.drawable == null) LIGHTS_MS else ART_MS).alpha(1f).withEndAction {
+                art.enter(if (homeBrowse) HOME_ART_MS else if (artBack.drawable == null) LIGHTS_MS else ART_MS).alpha(1f).withEndAction {
                     artBack.setImageDrawable(null)
                     art.animate().scaleX(PUSH_IN).scaleY(PUSH_IN).setDuration(PUSH_IN_MS).start()
                 }.start()
@@ -967,7 +971,7 @@ class MainActivity : Screen() {
                 ready?.invoke()
             }
         }
-        val delay = artDelay(held, Images.cached(url, artW, look), ready != null)
+        val delay = if (homeBrowse) 0L else artDelay(held, Images.cached(url, artW, look), ready != null)
         if (delay == 0L) artTask.run() else main.postDelayed(artTask, delay)
     }
 
@@ -984,6 +988,16 @@ class MainActivity : Screen() {
         art.tag = null
         artBack.setImageDrawable(null)
         art.exit(PAGE_MS).alpha(0f).withEndAction { if (art.tag == null) art.setImageDrawable(null) }.start()
+    }
+
+    private fun resetArt() {
+        main.removeCallbacks(artTask)
+        art.animate().cancel()
+        art.tag = null
+        art.alpha = 0f
+        art.setImageDrawable(null)
+        artBack.setImageDrawable(null)
+        refrost()
     }
 
     /** Gets [item]'s full-screen art ready ahead (fetching its details first if need be), so moving to it is instant. */
@@ -1074,7 +1088,7 @@ class MainActivity : Screen() {
         if (logoUrl == null) { cinemaName.visibility = View.VISIBLE; part() }
         else Images.load(logoUrl, cinemaLogo, dp(LOGO_W), urgent = true, failed = { cinemaName.visibility = View.VISIBLE; part() }) { part() }
         cinemaLine.text = where(item)
-        cinemaPlay.text = getString(if (item.progress > 0) R.string.action_resume else R.string.action_play)
+        cinemaPlay.text = getString(if (item.resume) R.string.action_resume else R.string.action_play)
         dots.removeAllViews()
         cinema.indices.forEach { i ->
             dots.addView(View(this).apply { background = rounded(if (i == index) TUNGSTEN else TEXT_3, 3) },
@@ -1088,6 +1102,7 @@ class MainActivity : Screen() {
 
     private fun enterCinema() {
         if (cinema.isEmpty() || mode == Mode.CINEMA) return
+        cancelHomeHero()
         beforeCinema = currentFocus
         cinemaAt = 0
         cinemaAwake = false
@@ -1166,13 +1181,57 @@ class MainActivity : Screen() {
 
     /** The focused title: its art across the screen, and logo, facts (and time left) and description top left. */
     private fun showHero(item: Item) {
+        val changed = heroItem !== item
         heroItem = item
+        if (page.isBrowse) showCaption(item)
+        if (page == Page.HOME && changed) {
+            main.removeCallbacks(artTask)
+            // Keep the last complete hero visible until the new focus settles.
+            if (art.drawable == null) art.tag = null
+            queueHomeHero(item)
+        } else if (heroTask == null) {
+            renderHero(item)
+        }
+    }
+
+    private fun cancelHomeHero() {
+        heroTask?.let(main::removeCallbacks)
+        heroTask = null
+        if (page == Page.HOME && mode == Mode.BROWSE) browseInfo.animate().cancel()
+    }
+
+    private fun queueHomeHero(item: Item) {
+        cancelHomeHero()
+        heroTask = Runnable {
+            if (heroItem === item && page == Page.HOME && mode == Mode.BROWSE && !isDestroyed) {
+                if (browseInfo.alpha == 0f || (art.drawable != null && backdropOf(item)?.first == art.tag)) {
+                    heroTask = null
+                    renderHero(item)
+                } else {
+                    // Fade through the dark base so the new title never appears over the previous picture.
+                    art.exit(HOME_ART_EXIT_MS).alpha(0f).start()
+                    browseInfo.exit(HOME_ART_EXIT_MS).alpha(0f).withEndAction {
+                        if (heroItem === item && page == Page.HOME && mode == Mode.BROWSE && !isDestroyed) {
+                            heroTask = null
+                            renderHero(item)
+                        }
+                    }.start()
+                }
+            }
+        }.also { main.postDelayed(it, HOME_HERO_WAIT) }
+    }
+
+    private fun renderHero(item: Item) {
+        showArt(item)
+        val logoChanged = heroLogo.tag != item.logo
         heroName.text = item.name
-        heroName.visibility = View.VISIBLE
-        heroLogo.visibility = View.GONE
-        heroLogo.setImageDrawable(null)
-        Images.load(item.logo, heroLogo, dp(LOGO_W), failed = { if (heroItem === item) heroName.visibility = View.VISIBLE }) {
-            if (heroItem === item) { heroLogo.visibility = View.VISIBLE; heroName.visibility = View.INVISIBLE }
+        if (logoChanged || heroLogo.drawable == null) {
+            heroName.visibility = View.VISIBLE
+            heroLogo.visibility = View.GONE
+            Images.load(item.logo, heroLogo, dp(LOGO_W)) {
+                heroLogo.visibility = View.VISIBLE
+                heroName.visibility = View.INVISIBLE
+            }
         }
         val meta = metas[item.id]
         val year = meta?.year ?: item.facts.firstOrNull { it.firstOrNull()?.isDigit() == true }
@@ -1181,7 +1240,7 @@ class MainActivity : Screen() {
             ?.let { plural(R.plurals.seasons, it) }
             else meta?.runtime
         // A show in progress describes its next episode, so the line names that episode rather than the show.
-        val code = item.left?.split(DOT)?.firstOrNull { it.startsWith("S") && " E" in it }
+        val code = episodeLabel(item)
         val factsList = mutableListOf<String>()
         if (item.newEpisode) factsList += getString(R.string.new_episode)
         if (code != null) factsList += listOfNotNull(code, episode(item)?.title?.takeIf { it.isNotEmpty() })
@@ -1218,44 +1277,52 @@ class MainActivity : Screen() {
             }
         }
         heroActions.visibility = if (page != Page.HOME && page != Page.LIBRARY && item.resume) View.VISIBLE else View.GONE
-        if (page.isBrowse) showCaption(item)
-        if (mode == Mode.BROWSE) browseInfo.animate().alpha(if (homeDimmed && (page.isBrowse || page == Page.LIBRARY)) 0.3f else 1f).setDuration(FOCUS_MS).start()
-        showArt(item)
+        if (mode == Mode.BROWSE) browseInfo.enter(if (page == Page.HOME) HOME_ART_MS else FOCUS_MS)
+            .alpha(if (homeDimmed && (page.isBrowse || page == Page.LIBRARY)) 0.3f else 1f).start()
     }
 
     private fun showCaption(item: Item) {
-        val remaining = item.timeLeft
-        val stop = item.stoppedAt?.takeIf { it > 0 }?.let { getString(R.string.stopped_at, android.text.format.DateUtils.formatElapsedTime(it / 1000)) }
+        if ((currentFocus as? Row.Card)?.item !== item) {
+            cardCaption.visibility = View.GONE
+            return
+        }
         val meta = metas[item.id]
         val detail = if (page == Page.HOME) meta?.year ?: item.facts.firstOrNull { it.firstOrNull()?.isDigit() == true }
             else if (hasEpisodes(item.type, meta?.videos)) meta?.videos?.map { it.season }?.filter { it > 0 }?.distinct()?.size?.takeIf { it > 0 }
                 ?.let { plural(R.plurals.seasons, it) }
             else meta?.runtime
-        cardCaption.text = listOfNotNull(remaining, stop).takeIf { it.isNotEmpty() }?.joinToString(DOT)
+        cardCaption.text = item.timeLeft
+            ?: getString(R.string.player_next_episode).takeIf { item.nextEpisodePending }
             ?: listOfNotNull(item.name, detail).joinToString(DOT)
         cardCaption.visibility = View.VISIBLE
-        // Measured with its new words, so a caption near the right end stops at the margin.
+        placeCaption()
         cardCaption.post(::placeCaption)
     }
 
     private fun placeCaption() {
-        cardCaption.translationX = minOf(captionX, cardCaption.rootView.width - 2 * dp(PAD) - cardCaption.width).coerceAtLeast(0).toFloat()
+        if (cardCaption.visibility != View.VISIBLE) return
+        val card = currentFocus as? Row.Card ?: return
+        val parent = cardCaption.parent as FrameLayout
+        if (!card.isAttachedToWindow || !isInside(card, parent)) return
+        captionAnchor.set(0, 0, card.width, card.height)
+        parent.offsetDescendantRectToMyCoords(card, captionAnchor)
+        cardCaption.translationX = (captionAnchor.left - cardCaption.left)
+            .coerceIn(0, (parent.width - 2 * dp(PAD) - cardCaption.width).coerceAtLeast(0)).toFloat()
+        cardCaption.translationY = (captionAnchor.bottom + dp(17) - cardCaption.top).toFloat()
         clearHint()
     }
 
     /** The next row's name and the caption share one line: a long caption that reaches the name hides it. */
     private fun clearHint() {
         if (nextRowHint.text.isEmpty() || cardCaption.visibility != View.VISIBLE) return
-        nextRowHint.post {
-            val captionEnd = cardCaption.left + cardCaption.translationX + cardCaption.width
-            nextRowHint.visibility = if (captionEnd + dp(SECTION_GAP) > nextRowHint.left) View.INVISIBLE else View.VISIBLE
-        }
+        val captionEnd = cardCaption.x + cardCaption.width
+        val sameLine = cardCaption.y < nextRowHint.bottom && cardCaption.y + cardCaption.height > nextRowHint.top
+        nextRowHint.visibility = if (sameLine && captionEnd + dp(SECTION_GAP) > nextRowHint.left) View.INVISIBLE else View.VISIBLE
     }
 
     /** One quiet line for a title in progress: the episode and its name (or, for a film, its facts), then the time left. */
     private fun where(item: Item): String {
-        val parts = item.left?.split(DOT).orEmpty()
-        val code = parts.firstOrNull { it.startsWith("S") && " E" in it }
+        val code = episodeLabel(item)
         val about = if (code != null) listOfNotNull(code, episode(item)?.title?.takeIf { it.isNotEmpty() }) else item.facts
         return (about + listOfNotNull(item.timeLeft)).joinToString(DOT)
     }
@@ -1271,6 +1338,12 @@ class MainActivity : Screen() {
     /** The episode Continue Watching points at, once the title's details are in. */
     private fun episode(item: Item) = item.videoId?.let { v -> metas[item.id]?.videos?.firstOrNull { it.id == v } }
 
+    private fun episodeLabel(item: Item): String? {
+        if (item.type == "movie" || item.live) return null
+        return episode(item)?.let { episodeNumber(it.season, it.episode) }
+            ?: episodeNumbers(item.videoId)?.let { (season, episode) -> episodeNumber(season, episode) }
+    }
+
     // ---------- pages ----------
 
     /**
@@ -1279,6 +1352,8 @@ class MainActivity : Screen() {
      * only if it changed and the remote hasn't been touched yet.
      */
     private fun showPage(p: Page, quick: Boolean = true) {
+        cancelHomeHero()
+        if (page == Page.HOME || p == Page.HOME) resetArt()
         dimHome(false)
         if (p != page) {
             genre = null // a genre belongs to the page it was picked on
@@ -1295,6 +1370,7 @@ class MainActivity : Screen() {
         browseInfo.layoutParams = (browseInfo.layoutParams as FrameLayout.LayoutParams).apply {
             bottomMargin = if (grid) resources.displayMetrics.heightPixels - dp(220) else heroBottom
         }
+        heroAbout.maxWidth = if (p == Page.HOME) dp(HOME_SYNOPSIS_W) else Int.MAX_VALUE
         wideRow = false
         librarySlot = null
         listCount.visibility = if (grid) View.VISIBLE else View.GONE
@@ -1352,7 +1428,7 @@ class MainActivity : Screen() {
             fun show(list: List<JSONObject>, force: Boolean = false) {
                 val cw = Library.continueWatching(list).filterNot { raw ->
                     val s = raw.optJSONObject("state") ?: return@filterNot false
-                    if (s.optLong("timeOffset") != 1L) return@filterNot false
+                    if (!Library.nextEpisodePending(raw)) return@filterNot false
                     val vid = s.text("video_id") ?: return@filterNot false
                     val id = raw.optString("_id")
                     val type = raw.optString("type")
@@ -1362,7 +1438,8 @@ class MainActivity : Screen() {
                     v != null && !isEpisodeAired(v.released)
                 }
                 val what = (if (p == Page.HOME) cw else list).joinToString {
-                    it.optString("_id") + it.optString("_mtime") + it.optBoolean("removed") + it.optJSONObject("state")?.optLong("timeOffset")
+                    val state = it.state
+                    "${it.optString("_id")}:${it.optString("_mtime")}:${it.optBoolean("removed")}:${state.optLong("timeOffset")}:${state.optLong("duration")}:${state.text("video_id")}"
                 }
                 // Saved copies wait once the remote is in use; Stremio's own answer always goes in (focus stays on
                 // its title below), or a stale disk copy could hide a show for the whole visit.
@@ -1378,7 +1455,7 @@ class MainActivity : Screen() {
                 if (p == Page.HOME) {
                     val items = cw.map(::libraryItem)
                     if (items.isNotEmpty()) {
-                        slot.addView(row(getString(R.string.row_continue), items.take(initialRowCards(false)), later(items)).view)
+                        slot.addView(row(getString(R.string.row_continue), items.take(initialRowCards(false)), later(items), continueRow = true).view)
                         android.util.Log.d("Alder", "page ${p.label}: Continue in ${android.os.SystemClock.uptimeMillis() - opened} ms")
                         startCinema(items.take(CINEMA_MAX))
                     }
@@ -1841,7 +1918,8 @@ class MainActivity : Screen() {
     private fun later(all: List<Item>): ((Int) -> List<Item>)? =
         if (all.size <= START) null else { from -> all.drop(from).take(PAGE) }
 
-    private fun row(title: String, items: List<Item>, more: ((Int) -> List<Item>)? = null, wide: Boolean = false, grid: Boolean = false): Row = Row(title, items, more, wide, grid).also {
+    private fun row(title: String, items: List<Item>, more: ((Int) -> List<Item>)? = null, wide: Boolean = false, grid: Boolean = false,
+                    continueRow: Boolean = false): Row = Row(title, items, more, wide, grid, continueRow).also {
         rows += it
         main.post(::updateImages)
         if (!focusedSomething && mode == Mode.BROWSE) {
@@ -1898,7 +1976,8 @@ class MainActivity : Screen() {
      * (Continue Watching) shows 16:9 art with the name, time left and progress on the card, two poster columns wide, and
      * ends on the same foot line as the poster rows.
      */
-    private inner class Row(val title: String, first: List<Item>, private var more: ((Int) -> List<Item>)?, val wide: Boolean = false, val grid: Boolean = false) {
+    private inner class Row(val title: String, first: List<Item>, private var more: ((Int) -> List<Item>)?, val wide: Boolean = false,
+                            val grid: Boolean = false, val continueRow: Boolean = false) {
         val cardW = if (grid) LIST_W else if (wide) WIDE_W else CARD_W
         val cardH = if (grid) LIST_H else if (wide) WIDE_H else CARD_H
         val items = first.toMutableList()
@@ -1928,7 +2007,7 @@ class MainActivity : Screen() {
                 } else {
                     val wasHeld = held
                     held = false
-                    if (wasHeld) items.getOrNull(selected)?.let(::showArt)
+                    if (wasHeld && page != Page.HOME) items.getOrNull(selected)?.let(::showArt)
                 }
                 return true // at either end the remote simply stays put
             }
@@ -1943,6 +2022,7 @@ class MainActivity : Screen() {
             addView(strip)
             addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> showVisibleCards() }
             setOnScrollChangeListener { _, _, _, _, _ ->
+                if (hasFocus()) placeCaption()
                 showVisibleCards()
                 loadRest(this@Row)
             }
@@ -1954,6 +2034,7 @@ class MainActivity : Screen() {
             maxLines = 1; ellipsize = TextUtils.TruncateAt.END
             maxWidth = dp(PAD + HERO_W) // a long "Because you watched…" stops at the hero's width
             alpha = QUIET
+            if (continueRow) translationY = dp(10).toFloat()
             if (grid) visibility = View.GONE
         }
         val view: View = column(Gravity.START, heading, scroller).apply { if (wide) setPadding(0, dp(CARD_H - WIDE_H), 0, 0) }
@@ -2013,8 +2094,6 @@ class MainActivity : Screen() {
             val right = scroller.width - dp(PAD) / 2
             showVisibleCards()
             loadRest(this@Row)
-            // The caption sits under the focused card, also where the row stops sliding near its end.
-            captionX = (cards[index].left - targetScroll - dp(PAD)).coerceAtLeast(0)
             val beyond = cards.any { it.right - targetScroll > right }
             moreHint.animate().alpha(if (beyond && mode == Mode.BROWSE && !page.isBrowse) 0.9f else 0f).setDuration(FOCUS_MS).start()
             moreHint.translationY = if (wide) dp(CARD_H - WIDE_H + WIDE_H / 2 - CARD_H / 2).toFloat() else 0f
@@ -2110,7 +2189,7 @@ class MainActivity : Screen() {
                 setBackgroundColor(BASE)
                 face.addView(image, LayoutParams(-1, -1))
                 // A dark foot under the words or the progress bar; a plain poster needs none.
-                if ((wide && !item.live) || item.progress > 0) face.addView(View(context).apply {
+                if ((wide && !item.live) || (item.progress > 0 && !continueRow)) face.addView(View(context).apply {
                     background = GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP, intArrayOf(0xE6000000.toInt(), 0x66000000, 0x00000000))
                 }, LayoutParams(-1, dp(cardH * (if (wide) 6 else 4) / 10), Gravity.BOTTOM))
                 if (wide && !item.live) name.visibility = View.VISIBLE
@@ -2130,8 +2209,10 @@ class MainActivity : Screen() {
                 if (wide && item.newEpisode) addBadge()
                 addView(face, LayoutParams(-1, -1))
                 // A white bar inset and rounded inside the card's dark foot, so it reads as a bar and not a cropped edge.
-                if (progress != null) addView(progress.apply { clipToOutline = true },
-                    LayoutParams(-1, dp(3), Gravity.BOTTOM).apply { setMargins(dp(inset), 0, dp(inset), dp(11)) })
+                if (progress != null) addView(progress,
+                    LayoutParams(-1, dp(3), Gravity.BOTTOM).apply {
+                        if (!continueRow) setMargins(dp(inset), 0, dp(inset), dp(11))
+                    })
                 if (grid && item.finished) addView(text("✓", SMALL, bold = true, color = TUNGSTEN).apply {
                     gravity = Gravity.CENTER
                     background = glass(12)
@@ -2146,7 +2227,7 @@ class MainActivity : Screen() {
                 setOnFocusChangeListener { _, has ->
                     // Focus grows into the gaps without moving its neighbours, and wears a white edge that reads from the
                     // couch on any poster (the clip to the card's outline keeps it inside the rounded corners).
-                    lift(has)
+                    lift(has, strongRim = page == Page.HOME)
                     if (has) {
                         focus(index)
                         showHero(item)
@@ -2155,7 +2236,7 @@ class MainActivity : Screen() {
                 // A channel has no title page to show: OK plays it, and holding OK lists its sources.
                 setOnClickListener { if (item.live) play(item) else openDetails(item) }
                 if (grid) setOnLongClickListener { listMenu(item); true }
-                else if (item.resume) setOnLongClickListener { continueMenu(item); true }
+                else if (continueRow) setOnLongClickListener { continueMenu(item); true }
                 else setOnLongClickListener { rowMenu(this@Row, item); true }
             }
 
@@ -2168,7 +2249,8 @@ class MainActivity : Screen() {
                 alpha = if (on) 1f else 0f
             }
 
-            fun dim(on: Boolean) = shade.animate().alpha(if (on) DIM else 0f).setDuration(FOCUS_MS).start()
+            fun dim(on: Boolean) = shade.animate()
+                .alpha(if (!on) 0f else if (continueRow) CONTINUE_DIM else DIM).setDuration(FOCUS_MS).start()
 
             /** On screen (or nearly): the poster (the wide art cropped for a title without one, else its name). */
             fun load() {
@@ -2258,7 +2340,7 @@ class MainActivity : Screen() {
         if (item.logo == null) item.logo = m.logo
         if (item.about.isEmpty()) item.about = m.description ?: ""
         if (item.facts.isEmpty() || item.resume) item.facts = facts(m)
-        if (item.stoppedAt == 1L && item.videoId != null) {
+        if (item.nextEpisodePending && item.videoId != null) {
             val v = m.videos.firstOrNull { it.id == item.videoId }
             if (v != null && isRecentlyAired(v.released)) item.newEpisode = true
         }
@@ -2285,23 +2367,19 @@ class MainActivity : Screen() {
         m.id, m.type, m.name, m.poster, m.background,
         m.logo ?: Images.logoFor(m.id) ?: m.poster?.takeIf { isLiveType(m.type) && m.posterShape in listOf("square", "landscape") },
         m.description ?: "", facts(m),
-        null, 0f, resume = false, left = null,
+        null, 0f, resume = false,
     )
 
     private fun libraryItem(item: JSONObject): Item {
         val s = item.optJSONObject("state") ?: JSONObject()
-        val videoId = s.text("video_id")
+        val videoId = Library.savedVideoId(item)
         val duration = s.optLong("duration")
-        val offset = s.optLong("timeOffset")
-        // "S1 E3" for an episode (ids look like tt123:1:3), and how much is left.
-        val episode = videoId?.split(":")?.takeIf { it.size == 3 }?.let { "S${it[1]} E${it[2]}" }
-        val mins = (duration - offset) / 60_000
-        val left = if (duration > 0 && offset > 1) (if (mins >= 60) getString(R.string.time_left_hours, (mins / 60).toInt(), (mins % 60).toInt())
-            else getString(R.string.time_left_minutes, mins.toInt())) else null
-        val progress = if (duration > 0) (offset.toFloat() / duration).coerceIn(0f, 1f) else 0f
+        val offset = Library.resumeAt(item, videoId)
+        val pending = Library.nextEpisodePending(item)
+        val progress = if (duration > 0) offset.toFloat() / duration else 0f
         val id = item.getString("_id")
         val type = item.optString("type")
-        val newEpisode = if (offset == 1L && videoId != null) {
+        val newEpisode = if (pending) {
             val key = profile.authKey
             val m = metas[id] ?: runCatching { Stremio.savedAddons(key)?.savedMeta(type, id) ?: Stremio.addons(key).savedMeta(type, id) }.getOrNull()
             if (m != null) metas[id] = m
@@ -2311,7 +2389,7 @@ class MainActivity : Screen() {
         return Item(
             id, type, item.optString("name"), item.text("poster"),
             null, Images.logoFor(id), "", emptyList(), videoId, progress,
-            resume = progress > 0, left = listOfNotNull(episode, left).joinToString(DOT).ifEmpty { null }, timeLeft = left, stoppedAt = offset,
+            resume = offset > 0, timeLeft = timeLeft(duration, offset), resumeAt = offset, nextEpisodePending = pending,
             addedAt = item.text("_ctime"), finished = libraryFinished(item),
             newEpisode = newEpisode,
         )
@@ -2323,7 +2401,7 @@ class MainActivity : Screen() {
         val videoId = item.videoId ?: item.id
         val videos = metas[item.id]?.videos.orEmpty()
         val next = videos.getOrNull(videos.indexOfFirst { it.id == videoId } + 1)?.takeIf { videos.any { it.id == videoId } }
-        val episode = item.left?.substringBefore(" · ")?.takeIf { item.type != "movie" && it.startsWith("S") }
+        val episode = episodeLabel(item)
         val intent = Intent(this, StreamsActivity::class.java)
             .putExtra("type", item.type).putExtra("id", item.id).putExtra("name", item.name).putExtra("poster", item.poster)
             .putExtra("videoId", videoId).putExtra("nextVideoId", next?.id).putExtra("pick", pick)
@@ -2331,9 +2409,9 @@ class MainActivity : Screen() {
             .putExtra("logo", metas[item.id]?.logo ?: item.logo)
             .putExtra("still", videos.firstOrNull { it.id == videoId }?.thumbnail)
             .putExtra("runtime", metas[item.id]?.runtime)
-            .putExtra("episode", videos.firstOrNull { it.id == videoId }?.let { "S${it.season} E${it.episode}  ·  ${it.title}" })
+            .putExtra("episode", listOfNotNull(episode, episode(item)?.title?.takeIf { it.isNotBlank() }).joinToString(DOT).ifEmpty { null })
             .putExtra("label", listOfNotNull(item.name, episode).joinToString("  ·  "))
-            .putExtra("resumeAt", item.stoppedAt)
+            .putExtra("resumeAt", item.resumeAt)
 
         if (pick || Settings.alwaysList(this)) {
             startActivity(intent)
@@ -2466,6 +2544,11 @@ class MainActivity : Screen() {
         const val SAFE_BOTTOM = 27
         const val CAPTION_BOTTOM = 16 // dp: low enough to leave the focused card a clear gap
         const val DIM = 0.5f
+        const val CONTINUE_DIM = 0.32f
+        const val HOME_SYNOPSIS_W = 445
+        const val HOME_HERO_WAIT = 150L
+        const val HOME_ART_EXIT_MS = 100L
+        const val HOME_ART_MS = 220L
         const val QUIET = 0.65f // the next row remains visible without competing with the active one
         const val HERO_GAP = SECTION_GAP // dp between the focused title's block and the row heading below it
         const val RISE = 200 // dp the rows travel when they come up from the cinema
