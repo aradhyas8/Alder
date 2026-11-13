@@ -75,9 +75,10 @@
     <string name="list_sort_recent">Zuletzt hinzugefügt</string>
     <string name="list_sort_name">A–Z</string>
     <string name="list_sort_unwatched">Ungesehene zuerst</string>
-    <plurals name="list_position">
-        <item quantity="one">Reihe %1$d von %2$d  ·  %3$d Titel</item>
-        <item quantity="other">Reihe %1$d von %2$d  ·  %3$d Titel</item>
+    <string name="list_row_position">Reihe %1$d von %2$d</string>
+    <plurals name="list_title_count">
+        <item quantity="one">%1$d Titel</item>
+        <item quantity="other">%1$d Titel</item>
     </plurals>
     <string name="list_empty">Titel, die du mit + speicherst, erscheinen hier</string>
     <string name="list_empty_movies">Keine Filme in Meine Liste</string>

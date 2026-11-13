@@ -77,9 +77,10 @@
     <string name="list_sort_recent">Recently added</string>
     <string name="list_sort_name">A–Z</string>
     <string name="list_sort_unwatched">Unwatched first</string>
-    <plurals name="list_position">
-        <item quantity="one">Row %1$d of %2$d  ·  %3$d title</item>
-        <item quantity="other">Row %1$d of %2$d  ·  %3$d titles</item>
+    <string name="list_row_position">Row %1$d of %2$d</string>
+    <plurals name="list_title_count">
+        <item quantity="one">%1$d title</item>
+        <item quantity="other">%1$d titles</item>
     </plurals>
     <string name="list_empty">Titles you save with + appear here</string>
     <string name="list_empty_movies">No movies in My List</string>

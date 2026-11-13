@@ -33,6 +33,9 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - **Send report.** When Alder stops, it saves the error on your TV. The next time Home opens, Alder asks to send a report. Select **Send report** or **No**. The report has the error, the Alder version and the TV model. It does not have your account details. To send it later, select **Settings → About → Send report**.
 
 ### Easier to use
+- **My List.** Posters are brighter. A dark background makes the controls and text easier to read. The title shows while Alder gets the poster.
+- The title count shows next to the sort controls. The row number and options hint show below the posters when a poster has focus.
+- Alder asks for confirmation before it removes a title from **My List**.
 - **Movies.** Select a genre in **Jump to** to go to its shelf. Select **Top** to go to the first shelf.
 - **Movies posters.** A short line marks the selected poster. Alder shows the title while it gets the poster.
 - **Shows.** Select a genre in **Jump to** to go to its shelf. Select **Top** to go to the first shelf.
