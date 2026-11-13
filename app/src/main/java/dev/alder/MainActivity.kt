@@ -260,6 +260,7 @@ class MainActivity : Screen() {
     private lateinit var moreHint: ImageView
     private lateinit var nextRowHint: TextView
     private lateinit var cardCaption: TextView
+    private lateinit var cardUnderline: View
     private val captionAnchor = Rect()
     private var browseRowTop = 0
     private var browseRowH = 0
@@ -398,7 +399,7 @@ class MainActivity : Screen() {
 
         val screenH = resources.displayMetrics.heightPixels
         // A row heading's real height: the TV's font size setting can make it taller than any fixed guess.
-        val headingH = caps("").lineHeight
+        val headingH = text("", BODY, bold = true).lineHeight
         val rowH = headingH + dp(ROW_TOP_ROOM + CARD_H + ROW_BOTTOM_ROOM)
         val rowTop = screenH - rowH - dp(SAFE_BOTTOM) // one row on screen; the track in the left margin says where you are
         browseRowTop = rowTop
@@ -448,7 +449,13 @@ class MainActivity : Screen() {
             addView(cardCaption, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.START).apply {
                 leftMargin = dp(PAD); bottomMargin = dp(CAPTION_BOTTOM)
             })
-            nextRowHint = text("", SMALL, color = TEXT_2).onArt().apply {
+            cardUnderline = View(context).apply {
+                background = rounded(TUNGSTEN, 2)
+                visibility = View.INVISIBLE
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            }
+            addView(cardUnderline, FrameLayout.LayoutParams(dp(28), dp(3)))
+            nextRowHint = text("", SMALL, bold = true, color = TEXT).onArt().apply {
                 visibility = View.GONE
                 maxLines = 1
                 ellipsize = TextUtils.TruncateAt.END
@@ -495,7 +502,10 @@ class MainActivity : Screen() {
             rows.filter { it.active && (now == null || !isInside(now, it.view)) }.forEach { it.light(false) }
             if (mode == Mode.CINEMA) chrome() // the top bar shows only while the remote is on it
             // The caption names the focused card: none while the remote is up in the top bar.
-            if (now !is Row.Card) cardCaption.visibility = View.GONE
+            if (now !is Row.Card) {
+                cardCaption.visibility = View.GONE
+                cardUnderline.visibility = View.INVISIBLE
+            }
             // Rows settle after a focus move (the next heading can peek in): name it once, whichever shows.
             main.removeCallbacks(nextRowCheck); main.postDelayed(nextRowCheck, 300)
         }
@@ -953,7 +963,8 @@ class MainActivity : Screen() {
         if (item.live && item.art == null && item.poster == null) return run { if (item.settled) clearArt(); ready?.invoke() }
         val (url, look) = backdropOf(item) ?: run { if (homeBrowse) resetArt(); return }
         if (url == art.tag) return run { ready?.invoke() }
-        if (homeBrowse) resetArt()
+        val cached = Images.cached(url, artW, look)
+        if (homeBrowse && !cached) resetArt()
         artTask = Runnable {
             art.animate().cancel()
             // Racing along a row cancels fades midway: only a picture that's mostly in replaces the one behind,
@@ -976,7 +987,7 @@ class MainActivity : Screen() {
                 ready?.invoke()
             }
         }
-        val delay = if (homeBrowse) 0L else artDelay(held, Images.cached(url, artW, look), ready != null)
+        val delay = if (homeBrowse) 0L else artDelay(held, cached, ready != null)
         if (delay == 0L) artTask.run() else main.postDelayed(artTask, delay)
     }
 
@@ -1209,8 +1220,10 @@ class MainActivity : Screen() {
         cancelHomeHero()
         heroTask = Runnable {
             if (heroItem === item && page == Page.HOME && mode == Mode.BROWSE && !isDestroyed) {
-                if (browseInfo.alpha == 0f || (art.drawable != null && backdropOf(item)?.first == art.tag)) {
+                val cachedArt = backdropOf(item)?.let { (url, look) -> Images.cached(url, artW, look) } == true
+                if (browseInfo.alpha == 0f || cachedArt || (art.drawable != null && backdropOf(item)?.first == art.tag)) {
                     heroTask = null
+                    if (cachedArt && backdropOf(item)?.first != art.tag) browseInfo.alpha = 0f
                     renderHero(item)
                 } else {
                     // Fade through the dark base so the new title never appears over the previous picture.
@@ -1289,6 +1302,7 @@ class MainActivity : Screen() {
     private fun showCaption(item: Item) {
         if ((currentFocus as? Row.Card)?.item !== item) {
             cardCaption.visibility = View.GONE
+            cardUnderline.visibility = View.INVISIBLE
             return
         }
         val meta = metas[item.id]
@@ -1299,6 +1313,16 @@ class MainActivity : Screen() {
         cardCaption.text = item.timeLeft
             ?: getString(R.string.player_next_episode).takeIf { item.nextEpisodePending }
             ?: listOfNotNull(item.name, detail).joinToString(DOT)
+        val progress = item.progress.takeIf { page == Page.HOME && item.timeLeft != null && it > 0f }
+        val line = progress?.let {
+            val fill = android.graphics.drawable.ClipDrawable(rounded(TUNGSTEN, 2), Gravity.LEFT,
+                android.graphics.drawable.ClipDrawable.HORIZONTAL).apply { level = (it * 10_000).toInt().coerceAtLeast(650) }
+            android.graphics.drawable.LayerDrawable(arrayOf(rounded(PROGRESS_TRACK, 2), fill)).apply {
+                setBounds(0, 0, dp(28), dp(2))
+            }
+        }
+        cardCaption.compoundDrawablePadding = dp(8)
+        cardCaption.setCompoundDrawablesRelative(null, null, line, null)
         cardCaption.visibility = View.VISIBLE
         placeCaption()
         cardCaption.post(::placeCaption)
@@ -1311,6 +1335,9 @@ class MainActivity : Screen() {
         if (!card.isAttachedToWindow || !isInside(card, parent)) return
         captionAnchor.set(0, 0, card.width, card.height)
         parent.offsetDescendantRectToMyCoords(card, captionAnchor)
+        cardUnderline.visibility = if (page == Page.HOME && mode == Mode.BROWSE) View.VISIBLE else View.INVISIBLE
+        cardUnderline.translationX = (captionAnchor.centerX() - cardUnderline.width / 2).toFloat()
+        cardUnderline.translationY = (captionAnchor.bottom + dp(8)).toFloat()
         cardCaption.translationX = (captionAnchor.left - cardCaption.left)
             .coerceIn(0, (parent.width - 2 * dp(PAD) - cardCaption.width).coerceAtLeast(0)).toFloat()
         cardCaption.translationY = (captionAnchor.bottom + dp(17) - cardCaption.top).toFloat()
@@ -1396,6 +1423,7 @@ class MainActivity : Screen() {
         if (grid) showListChips()
         else if (!p.isCatalog) { genreStrip.removeAllViews(); genreChips.clear() }
         cardCaption.visibility = View.GONE
+        cardUnderline.visibility = View.INVISIBLE
         nextRowHint.visibility = View.GONE
         moreHint.alpha = 0f
         lastHiddenRows = Settings.hiddenRows(this)
@@ -1949,7 +1977,9 @@ class MainActivity : Screen() {
         // Rows below the active one keep their names hidden: one peeking in at the bottom sat under the caption.
         // The hint on the right names the next row instead.
         visible.forEachIndexed { i, row -> row.peek(i <= active) }
-        nextRowHint.text = visible.getOrNull(active + 1)?.let { "▾  ${it.title}" } ?: ""
+        val next = visible.getOrNull(active + 1)
+        nextRowHint.text = next?.let { "⌄  ${it.title}" } ?: ""
+        if (page == Page.HOME) next?.items?.firstOrNull()?.let(::warm)
         nextRowHint.visibility = if (nextRowHint.text.isEmpty()) View.GONE else View.VISIBLE
         clearHint()
     }
@@ -1986,7 +2016,8 @@ class MainActivity : Screen() {
         val cardW = if (grid) LIST_W else if (wide) WIDE_W else CARD_W
         val cardH = if (grid) LIST_H else if (wide) WIDE_H else CARD_H
         private val homeRail = page == Page.HOME
-        private val railClip = Rect()
+        private val gap = if (grid) LIST_GAP else if (homeRail) 18 else CARD_GAP
+        val cardStep = dp(cardW) + dp(gap)
         val items = first.toMutableList()
         val cards = items.mapIndexed { i, item -> Card(item, i) }.toMutableList()
         private var fetching = false
@@ -1999,10 +2030,11 @@ class MainActivity : Screen() {
             // Room above and below for the focused card to grow into without being clipped.
             setPadding(dp(PAD), dp(if (grid) LIST_TOP_ROOM else ROW_TOP_ROOM), dp(PAD), if (grid) dp(LIST_GAP) else dp(ROW_BOTTOM_ROOM))
             clipToPadding = false
-            cards.forEachIndexed { i, c -> addView(c, LinearLayout.LayoutParams(dp(cardW), dp(cardH)).apply { if (i > 0) marginStart = dp(if (grid) LIST_GAP else CARD_GAP) }) }
+            cards.forEachIndexed { i, c -> addView(c, LinearLayout.LayoutParams(dp(cardW), dp(cardH)).apply { if (i > 0) marginStart = dp(gap) }) }
         }
         val scroller: HorizontalScrollView = object : HorizontalScrollView(this@MainActivity) {
             override fun computeScrollDeltaToGetChildRectOnScreen(rect: Rect) = 0
+            override fun getLeftFadingEdgeStrength() = if (homeRail) 0f else super.getLeftFadingEdgeStrength()
 
             override fun dispatchKeyEvent(event: KeyEvent): Boolean {
                 val left = event.keyCode == KeyEvent.KEYCODE_DPAD_LEFT
@@ -2026,6 +2058,10 @@ class MainActivity : Screen() {
             }
         }.apply {
             isHorizontalScrollBarEnabled = false
+            if (homeRail) {
+                isHorizontalFadingEdgeEnabled = true
+                setFadingEdgeLength(dp(30))
+            }
             addView(strip)
             if (homeRail) strip.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> showVisibleCards() }
             addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> showVisibleCards() }
@@ -2037,7 +2073,7 @@ class MainActivity : Screen() {
         }
         // The row the remote is in has a bright title; the next one, peeking in below, is a quiet hint.
         // One line, always: the row band is measured for one, and a second would push the cards off the screen.
-        private val heading = (if (homeRail) text(title, SMALL, bold = true) else caps(title)).onArt().apply {
+        private val heading = (if (homeRail) text(title, BODY, bold = true) else caps(title)).onArt().apply {
             setPadding(dp(PAD), 0, dp(PAD), 0)
             maxLines = 1; ellipsize = TextUtils.TruncateAt.END
             maxWidth = dp(PAD + HERO_W) // a long "Because you watched…" stops at the hero's width
@@ -2065,14 +2101,7 @@ class MainActivity : Screen() {
 
         private fun showVisibleCards() {
             val x = scroller.scrollX
-            val width = scroller.width
-            // Leave a clear poster peek while the rail scrolls. At the end its own padding sets the right inset.
-            val edge = if (homeRail && x < strip.width - width) (width - dp(PAD)).coerceAtLeast(0) else width
-            if (homeRail && (edge != railClip.right || scroller.height != railClip.bottom)) {
-                railClip.set(0, 0, edge, scroller.height)
-                scroller.clipBounds = railClip
-            }
-            cards.forEach { it.show(it.isFocused || (it.right - x > dp(PAD) && it.left - x < edge)) }
+            cards.forEach { it.show(it.isFocused || (it.right - x > dp(PAD) && it.left - x < scroller.width)) }
         }
 
         /**
@@ -2104,7 +2133,7 @@ class MainActivity : Screen() {
             }
             anim?.cancel()
             val startScroll = scroller.scrollX
-            val targetScroll = minOf(index * (dp(cardW) + dp(CARD_GAP)), (strip.width - scroller.width).coerceAtLeast(0))
+            val targetScroll = minOf(index * cardStep, (strip.width - scroller.width).coerceAtLeast(0))
             // Keep the cards at the current scroll position visible while the strip slides toward its destination.
             val right = scroller.width - dp(PAD) / 2
             showVisibleCards()
@@ -2142,7 +2171,7 @@ class MainActivity : Screen() {
                     val card = Card(item, items.size)
                     items += item
                     cards += card
-                    strip.addView(card, LinearLayout.LayoutParams(dp(cardW), dp(cardH)).apply { marginStart = dp(CARD_GAP) })
+                    strip.addView(card, LinearLayout.LayoutParams(dp(cardW), dp(cardH)).apply { marginStart = dp(gap) })
                     card.alpha = 0f // shows once focus moves near, like the cards past the right margin
                     card.dim(active)
                 }
@@ -2192,11 +2221,7 @@ class MainActivity : Screen() {
             // Darkens the cards beside the focused one. A shade, not transparency: a see-through card would let the
             // art behind it show through and look like it was floating on the poster.
             private val shade = View(context).apply { setBackgroundColor(Color.BLACK); alpha = 0f }
-            private val progress = when {
-                continueRow && item.progress > 0 -> progressBar(maxOf(item.progress, 2f / (cardW - 2 * inset)))
-                continueRow || item.progress > 0 -> progressBar(item.progress)
-                else -> null
-            }
+            private val progress = item.progress.takeIf { it > 0f && !continueRow }?.let { progressBar(it) }
 
             init {
                 outlineProvider = object : android.view.ViewOutlineProvider() {
@@ -2225,10 +2250,10 @@ class MainActivity : Screen() {
                     }, LayoutParams(-2, -2, Gravity.TOP or Gravity.START).apply { setMargins(dp(10), dp(10), 0, 0) })
                 }
                 if (wide && item.newEpisode) addBadge()
-                addView(face, LayoutParams(-1, -1).apply { if (continueRow) bottomMargin = dp(9) })
+                addView(face, LayoutParams(-1, -1))
                 if (progress != null) addView(progress,
-                    LayoutParams(-1, dp(if (continueRow) 2 else 3), Gravity.BOTTOM).apply {
-                        setMargins(dp(inset), 0, dp(inset), dp(if (continueRow) 3 else 11))
+                    LayoutParams(-1, dp(3), Gravity.BOTTOM).apply {
+                        setMargins(dp(inset), 0, dp(inset), dp(11))
                     })
                 if (grid && item.finished) addView(text("✓", SMALL, bold = true, color = TUNGSTEN).apply {
                     gravity = Gravity.CENTER
@@ -2478,7 +2503,7 @@ class MainActivity : Screen() {
     /** A row scrolled sideways: its cards near the screen load, and cards far away let pictures go. */
     private fun loadRest(r: Row) {
         if (!r.loaded) return
-        val step = dp(r.cardW + CARD_GAP)
+        val step = r.cardStep
         val w = if (r.scroller.width > 0) r.scroller.width else resources.displayMetrics.widthPixels
         val window = cardLoadWindow(r.scroller.scrollX, w, step, r.cards.size)
         for (i in 0 until window.farLeftEnd) {

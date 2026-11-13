@@ -33,8 +33,8 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - **Send report.** When Alder stops, it saves the error on your TV. The next time Home opens, Alder asks to send a report. Select **Send report** or **No**. The report has the error, the Alder version and the TV model. It does not have your account details. To send it later, select **Settings → About → Send report**.
 
 ### Easier to use
-- **Continue Watching.** The shelf shows the time left below the selected poster. Thin progress bars sit below the poster art.
-- **Home.** The selected poster grows and gets brighter. The shelf names use upper and lower case letters. The last poster has a clear space at the right edge.
+- **Continue Watching.** The shelf shows the time left and a progress bar below the selected poster.
+- **Home.** A short line marks the selected poster. Shelf names are larger. Posters fade at the right edge until you reach the last title.
 - The top bar and story text are easier to read over bright art.
 - **Change stream keeps your video.** When you select **Change stream**, the video stops and stays behind the source list. Press Back to continue from the same picture without a new load. Select a different source to play it from the same second.
 <!-- Spotlight -->
@@ -45,7 +45,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - The README has a **Website** badge and a **Downloads** badge with the total number of GitHub release downloads.
 
 ### Fixes
-- **Home art.** The title and art change together when you stop on a poster. Alder shows episode numbers when they are available.
+- **Home art.** The title and art change together when you stop on a poster. Pictures that are ready fade directly into each other. Alder shows episode numbers when they are available.
 - **Resume.** **Continue Watching** and the title page use the same resume point. The title page shows where you stopped.
 - **Profile PIN.** Another app cannot open a profile that has a PIN. Alder asks for the PIN first.
 - **Sign-in and backups.** Android does not copy profiles, sign-ins and PINs to a new TV.
