@@ -46,6 +46,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - The README has a **Website** badge and a **Downloads** badge with the total number of GitHub release downloads.
 
 ### Fixes
+- **4K source selection.** If Alder selects 1080p on a 4K TV, select **4K** under **Picture & Sound → Display resolution**. With **Best picture**, Alder gives 4K priority when the other preferences are equal.
 - The caption moves with the selected card when you press Left or Right.
 - **Profile PIN.** Another app cannot open a profile that has a PIN. Alder asks for the PIN first.
 - **Sign-in and backups.** Android does not copy profiles, sign-ins and PINs to a new TV.

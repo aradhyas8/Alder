@@ -541,4 +541,6 @@
     <string name="profiles_watchly_steps">"1.  Mit dem Handy von %1$s scannen, um Watchly zu öffnen\n2.  Dort das Stremio-Konto von %1$s verbinden\n3.  Im Stremio-Konto von %1$s installieren\n\nDanach erscheinen die eigenen Top-Tipps von %1$s auf Start. Du kannst das später abschließen."</string>
     <string name="profiles_all_set">Alles bereit</string>
     <string name="profiles_ready">Das Profil von %1$s ist bereit. Weitere Add-ons kannst du später in den Einstellungen hinzufügen.</string>
+    <string name="display_resolution">Bildschirmauflösung</string>
+    <string name="display_resolution_hint">Wähle die TV-Auflösung, die Alder für die Quellenauswahl verwendet. Wähle 4K, wenn deine TV-Box 1080p meldet, aber 4K ausgibt.</string>
 </resources>
