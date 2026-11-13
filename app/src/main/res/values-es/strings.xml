@@ -254,7 +254,7 @@
     <string name="frame_rate">Ajustar frecuencia de imagen</string>
     <string name="frame_rate_hint">El televisor usa la frecuencia de la película para que los paneos no tiemblen.</string>
     <string name="audio_output">Salida de audio</string>
-    <string name="audio_output_hint">Receptor envía Dolby y DTS sin cambios a una barra de sonido o receptor. Altavoces del TV decodifica el sonido aquí, lo que siempre funciona.</string>
+    <string name="audio_output_hint">Auto envía los formatos compatibles a tu dispositivo de audio. PCM decodifica el sonido en Alder.</string>
     <string name="ui_size">Tamaño de texto y pósteres</string>
     <string name="ui_size_hint">Agranda el texto, los pósteres y los botones en todas las pantallas, para un TV lejos de tu asiento.</string>
     <string name="ui_size_normal">Normal</string>
@@ -263,8 +263,6 @@
     <string name="video_player_alder">Alder</string>
     <string name="player_other_app">Se reproduce en otra app. Pulsa Atrás allí para volver.</string>
     <string name="player_no_other_app">No hay otro reproductor de video en este TV. Alder reproduce el video.</string>
-    <string name="audio_tv_speakers">Altavoces del TV</string>
-    <string name="audio_receiver">Receptor</string>
     <string name="clear_dialogue_setting_hint">Realza las voces sobre la música y los efectos fuertes con los altavoces del TV.</string>
     <string name="dubbed">Versiones dobladas</string>
     <string name="dubbed_hint">Original primero pone al final las versiones dobladas; Mi idioma primero usa el idioma de audio de este perfil.</string>

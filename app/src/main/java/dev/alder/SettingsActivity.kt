@@ -109,7 +109,7 @@ object Settings {
     /** Settings › Source list: true shows each source as its add-on wrote it, in a wider list. */
     fun addonText(c: Context) = prefs(c).getBoolean("addonText", false)
     fun matchFrameRate(c: Context) = prefs(c).getBoolean("matchFrameRate", true)
-    fun passthrough(c: Context) = prefs(c).getBoolean("passthrough", false)
+    fun decodeAudio(c: Context) = prefs(c).getBoolean("decodeAudio", false)
     /** Settings › Text and poster size, for this TV: 1 is the House Lights size, more makes every screen bigger. */
     fun uiScale(c: Context) = prefs(c).getInt("uiScale", 100).coerceIn(100, 115) / 100f
     /** Settings › Video player: null plays in Alder, else the package of the video app each source goes to. */
@@ -281,8 +281,8 @@ class SettingsActivity : Screen() {
         Choice("hdrPref", getString(R.string.hdr_choice), getString(R.string.hdr_choice_hint),
             listOf("" to on, "dv" to getString(R.string.hdr_dv_first), "hdr10" to getString(R.string.hdr_hdr10_first), "off" to off)),
         Choice("matchFrameRate", getString(R.string.frame_rate), getString(R.string.frame_rate_hint), onOff()),
-        Choice("passthrough", getString(R.string.audio_output), getString(R.string.audio_output_hint),
-            listOf(false to getString(R.string.audio_tv_speakers), true to getString(R.string.audio_receiver))),
+        Choice("decodeAudio", getString(R.string.audio_output), getString(R.string.audio_output_hint),
+            listOf(false to getString(R.string.streams_auto), true to "PCM")),
         Choice("clearDialogue", getString(R.string.clear_dialogue), getString(R.string.clear_dialogue_setting_hint),
             listOf(false to off, true to on)),
     ) }

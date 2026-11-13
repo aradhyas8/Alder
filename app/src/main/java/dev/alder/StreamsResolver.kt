@@ -3,6 +3,9 @@ package dev.alder
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
+import androidx.media3.exoplayer.audio.AudioCapabilities
 import java.util.concurrent.Executor
 
 interface Cancellable {
@@ -53,12 +56,15 @@ object StreamsResolver {
             .thenByDescending { if (it.torrent != null) it.seeders ?: 0 else 0 })
     }
 
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     fun preference(context: Context): (Stream) -> Int {
         val release = Settings.release(context)
         val hdr = Settings.hdrPref(context)
         val dub = Settings.dub(context)
         val language = Settings.audioLanguage(context)
-        val receiver = Settings.passthrough(context)
+        val audio = if (Settings.decodeAudio(context)) null else AudioCapabilities.getCapabilities(context, AudioAttributes.DEFAULT, null)
+        val trueHd = audio?.supportsEncoding(C.ENCODING_DOLBY_TRUEHD) == true
+        val dtsHd = audio?.supportsEncoding(C.ENCODING_DTS_HD) == true
         return { s ->
             when (release) {
                 "remux" -> if (s.remux) 3 else if (s.bluray) 1 else 0
@@ -73,7 +79,7 @@ object StreamsResolver {
                 "original" -> if (s.dubbed) -2 else 0
                 "mine" -> if (s.mentions(language)) 2 else if (s.multiAudio) 1 else 0
                 else -> 0
-            } + if (receiver && s.bigAudio) 1 else 0
+            } + if ((trueHd && s.trueHdAudio) || (dtsHd && s.dtsHdAudio)) 1 else 0
         }
     }
 

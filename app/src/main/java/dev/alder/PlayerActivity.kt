@@ -39,12 +39,12 @@ import androidx.media3.exoplayer.text.TextOutput
 import androidx.media3.exoplayer.text.TextRenderer
 import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
 import androidx.media3.exoplayer.audio.AudioSink
-import androidx.media3.exoplayer.audio.DefaultAudioSink
-import androidx.media3.exoplayer.audio.ForwardingAudioSink
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.mp3.Mp3Extractor
@@ -255,6 +255,7 @@ internal class OffsettableTextRenderer(
 // It gets a short list of sources: one that fails, or hasn't shown a picture after START_WAIT, gives way to the next
 // at the same second, and when the list runs out the sources page opens. Network blips are retried first, twice
 // after 1.5 s (NuvioTV's rule), so a dropped connection doesn't cost the source.
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class PlayerActivity : Screen() {
     private lateinit var player: ExoPlayer
     private lateinit var view: PlayerView
@@ -310,7 +311,8 @@ class PlayerActivity : Screen() {
     private var subsOn = true
     private var viewerAddonSub = false // the viewer chose the addon file, over the file's own in the same language
     private val dialogueProcessor = DialogueAudioProcessor()
-    private var passthrough = false
+    @Volatile private var decodeAudio = false
+    @Volatile private var retryWithPcm = false
     private var pickedSub: String? = null // the exact subtitle picked for this video before: "addon:<url>" or "file:<track id>"
     // Timing for subtitles (in the file or from add-ons): offset is applied directly to the TextRenderer live.
     private var subDelay = 0L
@@ -356,19 +358,11 @@ class PlayerActivity : Screen() {
             sources = JSONArray(sourcesJson).objects().map(Stream::read)
         }
         if (sources.isEmpty() && isTrailer) return finish()
-        // Audio is decoded to PCM here unless Settings says a receiver takes Dolby and DTS: TVs report passthrough
-        // (DTS-HD, TrueHD) they then can't open, and playback dies. A track that fails is swapped (onPlayerError).
-        passthrough = Settings.passthrough(this)
-        dialogueProcessor.enabled = !passthrough && Settings.clearDialogue(this)
+        decodeAudio = Settings.decodeAudio(this)
+        dialogueProcessor.enabled = Settings.clearDialogue(this)
         val renderers = object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
-                if (passthrough) DefaultAudioSink.Builder(context).build() else
-                object : ForwardingAudioSink(DefaultAudioSink.Builder(context).setAudioProcessors(arrayOf(dialogueProcessor)).build()) {
-                    override fun getFormatSupport(format: Format): Int =
-                        if (format.sampleMimeType == MimeTypes.AUDIO_RAW) super.getFormatSupport(format) else AudioSink.SINK_FORMAT_UNSUPPORTED
-
-                    override fun supportsFormat(format: Format) = getFormatSupport(format) != AudioSink.SINK_FORMAT_UNSUPPORTED
-                }
+                playbackAudioSink(context, dialogueProcessor) { decodeAudio || retryWithPcm }
 
             override fun buildTextRenderers(
                 context: Context,
@@ -391,7 +385,15 @@ class PlayerActivity : Screen() {
         val load = DefaultLoadControl.Builder().setBufferDurationsMs(DefaultLoadControl.DEFAULT_MIN_BUFFER_MS,
             DefaultLoadControl.DEFAULT_MAX_BUFFER_MS, 2_000, 4_000)
             .apply { bufferBytesFor(Runtime.getRuntime().maxMemory())?.let(::setTargetBufferBytes) }.build()
-        player = ExoPlayer.Builder(this, renderers).setLoadControl(load).build()
+        val selector = DefaultTrackSelector(this).apply {
+            setParameters(buildUponParameters().setAllowInvalidateSelectionsOnRendererCapabilitiesChange(true))
+        }
+        player = ExoPlayer.Builder(this, renderers).setLoadControl(load).setTrackSelector(selector).build()
+        player.addAnalyticsListener(object : AnalyticsListener {
+            override fun onAudioTrackInitialized(eventTime: AnalyticsListener.EventTime, audioTrackConfig: AudioSink.AudioTrackConfig) {
+                android.util.Log.i("Alder", "Audio output: encoding=${audioTrackConfig.encoding}, sample rate=${audioTrackConfig.sampleRate}, channel mask=${audioTrackConfig.channelConfig}")
+            }
+        })
         val remembered = Settings.titleChoice(this, metaId)
         wantAudio = remembered?.audio ?: Settings.audioLanguage(this)
         subPref = Settings.subPref(this)
@@ -473,16 +475,25 @@ class PlayerActivity : Screen() {
 
         player.addListener(object : Player.Listener {
             override fun onPlayerError(e: PlaybackException) {
-                // A bad audio track (ffmpeg rejects a DTS-HD packet in The Raid around 5:14) shouldn't end the movie:
-                // drop that track and carry on from the same second on the next best one.
-                val failed = (e as? ExoPlaybackException)?.rendererFormat
-                if (failed?.sampleMimeType?.let(MimeTypes::isAudio) == true && failedAudio.add(failed.id ?: "")) {
-                    val next = bestAudio(audioGroups)
-                    if (next != null) {
-                        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
-                            .setOverrideForType(TrackSelectionOverride(next.mediaTrackGroup, (0 until next.length).toList())).build()
-                        player.prepare()
-                        android.util.Log.i("Alder", "Audio track changed after decoder error")
+                val format = (e as? ExoPlaybackException)?.rendererFormat
+                val sinkFormat = when (val cause = e.cause) {
+                    is AudioSink.ConfigurationException -> cause.format
+                    is AudioSink.InitializationException -> cause.format
+                    is AudioSink.WriteException -> cause.format
+                    else -> null
+                }
+                val outputFailed = audioOutputFailure(e.errorCode)
+                val selected = audioGroups.firstOrNull { it.isSelected }
+                val failed = audioGroups.firstOrNull { it.getTrackFormat(0) == format || it.getTrackFormat(0) == sinkFormat } ?: selected
+                if (shouldRetryWithPcm(decodeAudio || retryWithPcm, outputFailed, sinkFormat?.sampleMimeType)) {
+                    retryWithPcm = true
+                    retryAudio(failed, "Retrying the audio track as PCM after ${e.errorCodeName}")
+                    return
+                }
+                if ((outputFailed || format?.sampleMimeType?.let(MimeTypes::isAudio) == true) &&
+                    failed != null && failedAudio.add(failed.getTrackFormat(0))) {
+                    bestAudio(audioGroups)?.let {
+                        retryAudio(it, "Audio track changed after ${e.errorCodeName}")
                         return
                     }
                 }
@@ -581,6 +592,7 @@ class PlayerActivity : Screen() {
                 }
                 val audio = tracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }
                 if (audio.isNotEmpty()) audioGroups = audio
+                val lostAudioSupport = audio.any { it.isSelected && !it.isTrackSupported(0) }
                 val best = bestAudio(audio)
                 // Releases flag foreign subtitles as forced or default (Lanterns came up with Russian "Forced" under
                 // English audio): start with subtitles only in the profile's subtitle language, whatever the sound, else
@@ -615,7 +627,11 @@ class PlayerActivity : Screen() {
                         else setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).setOverrideForType(TrackSelectionOverride(pick.mediaTrackGroup, 0))
                     }.build()
                 }
-                if (audioPicked || best == null) return
+                if (lostAudioSupport && best == null) {
+                    player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().clearOverridesOfType(C.TRACK_TYPE_AUDIO).build()
+                    return
+                }
+                if ((audioPicked && !lostAudioSupport) || best == null) return
                 audioPicked = true // once per video; picks made later in the settings menu stand
                 player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
                     .setOverrideForType(TrackSelectionOverride(best.mediaTrackGroup, (0 until best.length).toList())).build()
@@ -839,6 +855,11 @@ class PlayerActivity : Screen() {
         // The source's link first (Stream.open). A link is ready at once; a torrent's engine starts on another thread,
         // then load runs again. A new source lets the last one go.
         if (openedFor !== s) {
+            retryWithPcm = false
+            audioPicked = false
+            audioGroups = emptyList()
+            failedAudio.clear()
+            player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().clearOverridesOfType(C.TRACK_TYPE_AUDIO).build()
             opened?.close()
             opened = null
             openedFor = null
@@ -980,9 +1001,7 @@ class PlayerActivity : Screen() {
             stalls.clear()
             retries = 0
             asHls = false
-            audioPicked = false
             subsPicked = false
-            failedAudio.clear()
             android.util.Log.w("Alder", "Source failed: $reason; trying another")
             return load(position, getString(R.string.player_source_failed_next))
         }
@@ -1019,23 +1038,30 @@ class PlayerActivity : Screen() {
     private var audioPicked = false
     private var subsPicked = false
     private var audioGroups: List<Tracks.Group> = emptyList()
-    private val failedAudio = mutableSetOf<String>() // Format ids of audio tracks that failed to decode
+    private val failedAudio = mutableSetOf<Format>()
 
-    /**
-     * The start track: never a commentary (releases only say so in the track name, which ExoPlayer ignores), then the
-     * TV's language, then the release's default track, then the most channels. ExoPlayer alone would favour whatever
-     * the TV decodes in hardware, which on The Raid was a stereo commentary.
-     */
     private fun bestAudio(groups: List<Tracks.Group>): Tracks.Group? {
-        val language = wantAudio
-        return groups
-            .filter { it.isTrackSupported(0) && (it.getTrackFormat(0).id ?: "") !in failedAudio }
-            .filter { it.getTrackFormat(0).label?.contains("commentary", ignoreCase = true) != true }
-            .maxWithOrNull(compareBy<Tracks.Group>(
-                { Languages.match(it.getTrackFormat(0).language, language) },
-                { it.getTrackFormat(0).selectionFlags and C.SELECTION_FLAG_DEFAULT != 0 },
-                { it.getTrackFormat(0).channelCount },
-            ))
+        val supported = groups.filter { it.isTrackSupported(0) }
+        if (supported.isEmpty()) return null
+        val lossless = if (decodeAudio || retryWithPcm) ({ _: Format -> false }) else losslessOutput(this, player.audioAttributes)
+        val best = bestAudioFormat(supported.map { it.getTrackFormat(0) }, wantAudio, failedAudio, lossless)
+        return supported.firstOrNull { it.getTrackFormat(0) === best }
+    }
+
+    private fun retryAudio(track: Tracks.Group?, reason: String) {
+        val resume = position()
+        if (track != null) {
+            audioPicked = true
+            player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+                .setOverrideForType(TrackSelectionOverride(track.mediaTrackGroup, (0 until track.length).toList())).build()
+        }
+        if (!player.isCurrentMediaItemLive) player.seekTo(resume)
+        player.prepare()
+        if (!started && !stopped) {
+            main.removeCallbacks(startTimeout)
+            main.postDelayed(startTimeout, startWait)
+        }
+        android.util.Log.i("Alder", reason)
     }
 
     private val tickTask = Runnable { tick() }
@@ -2760,7 +2786,7 @@ class PlayerActivity : Screen() {
             }
         }
 
-        if (!passthrough) {
+        run {
             audioPanel.addView(divider().apply {
                 layoutParams = LinearLayout.LayoutParams(-1, dp(1)).apply { setMargins(0, dp(12), 0, dp(8)) }
             })

@@ -254,7 +254,7 @@
     <string name="frame_rate">Adapter la fréquence d’images</string>
     <string name="frame_rate_hint">Le téléviseur adopte la fréquence du film pour que les panoramiques ne saccadent pas.</string>
     <string name="audio_output">Sortie audio</string>
-    <string name="audio_output_hint">Ampli transmet le Dolby et le DTS tels quels à une barre de son ou un ampli. Haut-parleurs TV décode le son ici, ce qui fonctionne toujours.</string>
+    <string name="audio_output_hint">Auto envoie les formats compatibles à votre appareil audio. PCM décode le son dans Alder.</string>
     <string name="ui_size">Taille du texte et des affiches</string>
     <string name="ui_size_hint">Agrandit le texte, les affiches et les boutons sur tous les écrans, pour un téléviseur loin de votre place.</string>
     <string name="ui_size_normal">Normale</string>
@@ -263,8 +263,6 @@
     <string name="video_player_alder">Alder</string>
     <string name="player_other_app">Lecture dans une autre app. Appuyez sur Retour dans celle-ci pour revenir.</string>
     <string name="player_no_other_app">Aucun autre lecteur vidéo sur ce téléviseur. Alder lit la vidéo.</string>
-    <string name="audio_tv_speakers">Haut-parleurs TV</string>
-    <string name="audio_receiver">Ampli</string>
     <string name="clear_dialogue_setting_hint">Fait ressortir les voix par-dessus la musique et les effets forts sur les haut-parleurs du téléviseur.</string>
     <string name="dubbed">Versions doublées</string>
     <string name="dubbed_hint">VO d’abord place les versions doublées en dernier ; Ma langue d’abord utilise la langue audio de ce profil.</string>

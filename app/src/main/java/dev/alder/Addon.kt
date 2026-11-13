@@ -409,7 +409,8 @@ class Stream(
     private val hardSubs = Regex("\\bhc\\b|hardcoded|hardsub").containsMatchIn(words)
     /** 3D or subtitles burnt into the picture: picked last. */
     val awkward get() = threeD || hardSubs
-    val bigAudio = Regex("atmos|truehd|dts.?hd|dts.?x\\b").containsMatchIn(words) // what a receiver gains from
+    val trueHdAudio = "truehd" in words
+    val dtsHdAudio = Regex("dts.?hd").containsMatchIn(words)
     val multiAudio = Regex("\\b(multi|dual)\\b").containsMatchIn(words)
     val dubbed = Regex("\\bdub(bed)?\\b").containsMatchIn(words)
     /** The audio languages the names give, as two-letter codes; empty when they give none (see [audioLanguagesIn]). */
@@ -421,7 +422,7 @@ class Stream(
     val tags get() = listOfNotNull(
         "REMUX".takeIf { remux }, "BluRay".takeIf { bluray }, "WEB".takeIf { web && !remux && !bluray },
         "DV".takeIf { dolbyVision }, "HDR".takeIf { hdr }, "Atmos".takeIf { "atmos" in words },
-        "TrueHD".takeIf { "truehd" in words }, "DTS-HD".takeIf { Regex("dts.?hd").containsMatchIn(words) },
+        "TrueHD".takeIf { trueHdAudio }, "DTS-HD".takeIf { dtsHdAudio },
         "Multi audio".takeIf { multiAudio }, "Dub".takeIf { dubbed }, "3D".takeIf { threeD }, "Hard subs".takeIf { hardSubs },
     )
 

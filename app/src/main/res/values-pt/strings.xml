@@ -254,7 +254,7 @@
     <string name="frame_rate">Ajustar taxa de quadros</string>
     <string name="frame_rate_hint">A TV usa a taxa do filme para que os movimentos de câmera não tremam.</string>
     <string name="audio_output">Saída de áudio</string>
-    <string name="audio_output_hint">Receiver envia Dolby e DTS sem alterações para uma soundbar ou receiver. Alto-falantes da TV decodifica o som aqui, o que sempre funciona.</string>
+    <string name="audio_output_hint">Auto envia os formatos compatíveis para seu dispositivo de áudio. PCM decodifica o som no Alder.</string>
     <string name="ui_size">Tamanho do texto e dos pôsteres</string>
     <string name="ui_size_hint">Aumenta o texto, os pôsteres e os botões em todas as telas, para uma TV longe do seu lugar.</string>
     <string name="ui_size_normal">Normal</string>
@@ -263,8 +263,6 @@
     <string name="video_player_alder">Alder</string>
     <string name="player_other_app">Reproduz em outro app. Pressione Voltar lá para retornar.</string>
     <string name="player_no_other_app">Não há outro player de vídeo nesta TV. O Alder reproduz o vídeo.</string>
-    <string name="audio_tv_speakers">Alto-falantes da TV</string>
-    <string name="audio_receiver">Receiver</string>
     <string name="clear_dialogue_setting_hint">Realça as vozes acima da música e dos efeitos altos nos alto-falantes da TV.</string>
     <string name="dubbed">Versões dubladas</string>
     <string name="dubbed_hint">Original primeiro coloca as versões dubladas por último; Meu idioma primeiro usa o idioma de áudio deste perfil.</string>

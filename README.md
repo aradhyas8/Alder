@@ -28,7 +28,7 @@ Alder makes that choice for them:
 - **Press Play, it plays.** Alder picks the best source for your TV and starts it. Hold OK when you want to choose yourself.
 - **Dead links don't stop the film.** If a stream fails or shows no picture within 12 seconds, Alder moves to the next one from the same second. You only see the list if three fail in a row.
 - **It knows your TV.** Files your TV can't decode are left out before anyone sees them, including Dolby Vision profiles it can't show and 4K on a 1080p screen.
-- **Sound that works.** DTS and TrueHD play on any TV. The starting track is the original language, not a dub or a commentary. If a track breaks mid-film, the next best one takes over at the same second.
+- **Automatic audio output.** Alder sends TrueHD and DTS-HD to audio devices that support those formats. If passthrough fails, Alder tries to decode the same track to PCM at the same position before it changes tracks or sources.
 - **Everyone gets their own profile.** Up to 5, each its own Stremio account with its own history and recommendations, and an optional PIN.
 
 ## A look around
