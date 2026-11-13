@@ -16,9 +16,15 @@ object Library {
     private const val WATCHED = 0.7 // stremio-core WATCHED_THRESHOLD_COEF: watched this much, it counts as seen
     private const val CREDITS = 0.9 // CREDITS_THRESHOLD_COEF: stopped past this, it's finished
 
-    fun continueWatching(items: List<JSONObject>): List<JSONObject> = items
+    fun continueWatching(
+        items: List<JSONObject>,
+        unreleased: (JSONObject, String) -> Boolean = { _, _ -> false },
+    ): List<JSONObject> = items
         .filter { it.optString("type") != "other" && (!it.optBoolean("removed") || it.optBoolean("temp")) }
-        .filter { nextEpisodePending(it) || resumeAt(it, savedVideoId(it)) > 0 }
+        .filter {
+            val videoId = savedVideoId(it)
+            if (nextEpisodePending(it)) !unreleased(it, videoId) else resumeAt(it, videoId) > 0
+        }
         .sortedByDescending { it.state.text("lastWatched") }
 
     /** A title that isn't in the library yet: Stremio keeps those as temporary, hidden items. */

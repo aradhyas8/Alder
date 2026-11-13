@@ -27,6 +27,21 @@ class ContinueWatchingTest {
     }
 
     @Test
+    fun releaseCheckOnlyAppliesToPendingEpisodes() {
+        val pending = entry("pending", "series", 1, 100_000)
+        val playing = entry("playing", "series", 12_000, 100_000)
+        val checked = mutableListOf<String>()
+
+        val visible = Library.continueWatching(listOf(pending, playing)) { _, videoId ->
+            checked += videoId
+            true
+        }
+
+        assertEquals(listOf("pending:1:2"), checked)
+        assertEquals(listOf(playing), visible)
+    }
+
+    @Test
     fun episodeLabelsUseNumbersFromStructuredIds() {
         assertEquals(1 to 3, episodeNumbers("tt123:1:3"))
         assertEquals(0 to 2, episodeNumbers("tt123:0:2"))

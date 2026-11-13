@@ -35,6 +35,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - **Send report.** When Alder stops, it saves the error on your TV. The next time Home opens, Alder asks to send a report. Select **Send report** or **No**. The report has the error, the Alder version and the TV model. It does not have your account details. To send it later, select **Settings → About → Send report**.
 
 ### Easier to use
+- **Faster Home.** Alder shows saved rows while it gets new data. When add-ons change, focus returns to the same title if it is still available.
 - **My List.** Two full rows of posters show at once. Move down to see more titles. The title shows while Alder gets the poster.
 - The filters, sort menu and title count show above the posters.
 - **My List art.** A dark picture of the selected title shows behind the posters.

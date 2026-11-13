@@ -18,6 +18,7 @@ import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewConfiguration
+import android.view.ViewTreeObserver
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.LinearInterpolator
 import android.widget.FrameLayout
@@ -382,6 +383,8 @@ class MainActivity : Screen() {
     // Title details, newest request first, so the cards on screen get theirs before the ones scrolled past.
     private val metaPool = Images.newestFirst(6)
     private var generation = 0 // which showPage answers belong to: late ones from an earlier page are dropped
+    private var rowDrawListener: ViewTreeObserver.OnPreDrawListener? = null
+    private var restoreCatalogFocus: (() -> Unit)? = null
     private var loadMoreSections: (() -> Unit)? = null
     private var touched = false // a key was pressed since the page opened: fresh data then waits for the next visit
     private var cinemaReady = false // the cinema's title has its art and logo (or gave up waiting) and may show
@@ -679,6 +682,7 @@ class MainActivity : Screen() {
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action == KeyEvent.ACTION_DOWN) {
+            restoreCatalogFocus = null
             if (event.keyCode == KeyEvent.KEYCODE_BACK && resolvingStreams != null) {
                 cancelStreamResolution()
                 return true
@@ -1403,12 +1407,9 @@ class MainActivity : Screen() {
 
     // ---------- pages ----------
 
-    /**
-     * Opens page [p]. With [quick], it draws from last time's answers kept on disk (library, addons, catalogs) at once
-     * and asks the network behind them: catalogs refresh for the next visit, and the library replaces what's shown
-     * only if it changed and the remote hasn't been touched yet.
-     */
-    private fun showPage(p: Page, quick: Boolean = true) {
+    /** Opens [p] with saved answers and refreshes them in the background. */
+    private fun showPage(p: Page) {
+        val opened = android.os.SystemClock.uptimeMillis()
         cancelBrowseHero()
         if (page.polishedRail || p.polishedRail || page == Page.LIBRARY || p == Page.LIBRARY) resetArt()
         dimHome(false)
@@ -1434,7 +1435,10 @@ class MainActivity : Screen() {
         listShade.visibility = if (grid) View.VISIBLE else View.GONE
         val g = ++generation
         loadMoreSections = null
-        val opened = android.os.SystemClock.uptimeMillis()
+        restoreCatalogFocus = null
+        refreshAddons = null
+        main.removeCallbacks(focusTop)
+        main.removeCallbacks(heroTop)
         refreshLibrary = null
         touched = false
         applyNavVisibility()
@@ -1466,17 +1470,22 @@ class MainActivity : Screen() {
         scroller.alpha = 1f
         stage.isFocusable = false
         chrome()
+        measureFirstRow(g, opened)
         val key = profile.authKey
 
         // Nothing at all came back (no network, Stremio down): say so once, with a retry, instead of a blank page.
-        var failedShown = false
+        var failure: View? = null
         fun failedToLoad(error: Throwable) {
             forgetIfSessionGone(error)
-            if (failedShown || isFinishing || page != p) return
-            failedShown = true
+            if (failure != null || isFinishing || rows.isNotEmpty()) return
             val view = failed(getString(R.string.home_unreachable)) { showPage(page) }
+            failure = view
             content.addView(view, 0, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(PAD) })
-            view.post { if (!focusedSomething && !header.hasFocus()) view.getChildAt(2).requestFocus() }
+            view.post { if (view.isAttachedToWindow && !focusedSomething && !header.hasFocus()) view.getChildAt(2).requestFocus() }
+        }
+        fun clearFailure() {
+            failure?.let(content::removeView)
+            failure = null
         }
 
         if (p == Page.HOME || p == Page.LIBRARY) {
@@ -1484,18 +1493,9 @@ class MainActivity : Screen() {
             if (grid) librarySlot = slot
             var shown: String? = null // what's on screen, to tell whether the fresh library changed anything
             var fresh = false
-            fun show(list: List<JSONObject>, force: Boolean = false) {
-                val cw = Library.continueWatching(list).filterNot { raw ->
-                    val s = raw.optJSONObject("state") ?: return@filterNot false
-                    if (!Library.nextEpisodePending(raw)) return@filterNot false
-                    val vid = s.text("video_id") ?: return@filterNot false
-                    val id = raw.optString("_id")
-                    val type = raw.optString("type")
-                    val m = metas[id] ?: runCatching { Stremio.savedAddons(key)?.savedMeta(type, id) ?: Stremio.addons(key).savedMeta(type, id) }.getOrNull()
-                    if (m != null) metas[id] = m
-                    val v = m?.videos?.firstOrNull { it.id == vid }
-                    v != null && !isEpisodeAired(v.released)
-                }
+            fun show(prepared: HomeLibrary, force: Boolean = false) {
+                val (list, cw, metadata) = prepared
+                metadata.forEach { (id, meta) -> metas.putIfAbsent(id, meta) }
                 val what = (if (p == Page.HOME) cw else list).joinToString {
                     val state = it.state
                     "${it.optString("_id")}:${it.optString("_mtime")}:${it.optBoolean("removed")}:${state.optLong("timeOffset")}:${state.optLong("duration")}:${state.text("video_id")}"
@@ -1505,6 +1505,7 @@ class MainActivity : Screen() {
                 if (what == shown || (shown != null && touched && !force)) return
                 val firstShow = shown == null
                 shown = what
+                if (grid || cw.isNotEmpty()) clearFailure()
                 // The remote was on one of these titles: it stays on that title wherever it moved (watched: to the front).
                 val was = (currentFocus?.takeIf { isInside(it, slot) })?.tag
                 library = list
@@ -1526,25 +1527,50 @@ class MainActivity : Screen() {
                 else if (p == Page.HOME && firstShow && !touched && focusedSomething && scroller.hasFocus())
                     rows.firstOrNull { isInside(it.view, slot) }?.focusFirst()
             }
-            if (quick && library.isNotEmpty()) show(library) // the library already in memory: no wait on a revisit
-            if (quick) background({ Stremio.savedLibrary(key) }) { r -> if (g == generation && !fresh) r.getOrNull()?.let { show(it) } }
-            fun ask() = background({ Stremio.library(key) }) { result ->
-                if (g != generation) return@background
-                fresh = true
-                result.fold({ show(it, force = true) }) { if (shown == null) failedToLoad(it) }
+            val remembered = library.takeIf { it.isNotEmpty() }
+            if (grid && remembered != null) show(HomeLibrary(remembered))
+            else {
+                val known = if (grid) emptyMap() else metas.toMap()
+                background({
+                    (remembered ?: Stremio.savedLibrary(key))?.let { prepareLibrary(it, known, key, grid) }
+                }, cacheReads) { r -> if (g == generation && !fresh) r.getOrNull()?.let { show(it) } }
+            }
+            var libraryRequest = 0
+            fun ask() {
+                val request = ++libraryRequest
+                val known = if (grid) emptyMap() else metas.toMap()
+                background({ prepareLibrary(Stremio.library(key), known, key, grid) }) { result ->
+                    if (g != generation || request != libraryRequest) return@background
+                    result.fold({
+                        fresh = true
+                        show(it, force = true)
+                    }) { if (shown == null) failedToLoad(it) }
+                }
             }
             ask()
-            refreshLibrary = { ask() }
+            refreshLibrary = ::ask
         }
         if (p == Page.LIBRARY) return
 
-        var built = false
-        var builtFrom: List<String>? = null // the add-ons the rows came from, to tell when Stremio's fresh list differs
+        val catalogSlots = linkedMapOf<String, FrameLayout>()
+        var catalogBuild = 0
+        var noCatalogs: View? = null
+        var builtFrom: List<Pair<String, String>>? = null
         fun build(addons: List<Addon>) {
-            if (g == generation) showLiveTab(addons)
-            if (built || g != generation) return
-            built = true
-            builtFrom = addons.map { it.id }
+            if (g != generation) return
+            showLiveTab(addons)
+            val ids = addons.map { it.id to it.transportUrl }
+            if (builtFrom == ids) return
+            builtFrom = ids
+            val build = ++catalogBuild
+            loadMoreSections = null
+            val oldSlots = catalogSlots.toMutableMap()
+            val focusedRow = rows.firstOrNull { it.view.hasFocus() && it.view.parent in oldSlots.values }
+            val focused = currentFocus as? Row.Card
+            val focusedTag = focused?.tag?.takeIf { focusedRow != null }
+            catalogSlots.clear()
+            noCatalogs?.let(content::removeView)
+            noCatalogs = null
             val featuredHome = p == Page.HOME && Settings.featuredHome(this@MainActivity)
             // Each catalog on its page under a plain name, personal rows first; the sort keeps the addons' order within a rank.
             val shelves = addons.flatMap { it.catalogs }.mapNotNull { c ->
@@ -1559,13 +1585,16 @@ class MainActivity : Screen() {
                     else -> R.string.page_no_show_catalogs
                 }
                 // Home holds only Continue and Watchly's picks, so a new account sees nothing there without a word.
-                content.addView(text(none, BODY, color = TEXT_3)
-                    .apply { setPadding(dp(PAD), 0, dp(PAD), 0) })
+                noCatalogs = text(none, BODY, color = TEXT_3).apply {
+                    setPadding(dp(PAD), 0, dp(PAD), 0)
+                    content.addView(this)
+                }
             }
             val genres = catalogGenres(catalogs.flatMap { it.genres }.map { if (p.hasGenreShortcuts) genreLabel(it) else it })
             val hiddenRows = Settings.hiddenRows(this@MainActivity)
             val sections = sections(p, shelves, featuredHome).filterNot { it.first in hiddenRows }
-            val genreNames = (if (p.isCatalog) sections.take(nextCatalogSection(sections.size, 0)).map { it.first }.filter { name -> genres.any { it.equals(name, true) } }
+            val initialSections = maxOf(nextCatalogSection(sections.size, 0), minOf(oldSlots.size, sections.size))
+            val genreNames = (if (p.isCatalog) sections.take(initialSections).map { it.first }.filter { name -> genres.any { it.equals(name, true) } }
                 else emptyList()).toMutableList()
             val genreResults = mutableMapOf<String, Boolean>()
             if (p.isCatalog && !p.hasGenreShortcuts && genreNames.isEmpty()) {
@@ -1580,17 +1609,19 @@ class MainActivity : Screen() {
                 if (p.isCatalog && genres.any { it.equals(title, true) } && title !in genreNames) genreNames += title
                 val rowCatalogs = sources.map { it.first }
                 val genreFallback = p.hasGenreShortcuts && picked != null
-                val slot = slot()
                 val key = catalogAnswerKey(p.label, title, picked, rowCatalogs.map { c ->
                     "${c.addon.transportUrl}/${c.type}/${c.id}"
                 })
+                val reused = oldSlots.remove(key)
+                val slot = (reused ?: slot()).also { catalogSlots[key] = it }
+                val kept = answers[key]
                 val sourceAnswers = arrayOfNulls<Pair<List<Meta>, Boolean>>(rowCatalogs.size)
                 var completed = 0
                 var reported = false
                 var rowVersion = 0
                 lateinit var onAnswer: (Result<List<Pair<List<Meta>, Boolean>>>) -> Unit
                 onAnswer = onAnswer@{ answer ->
-                    if (g != generation) return@onAnswer
+                    if (g != generation || build != catalogBuild) return@onAnswer
                     val version = ++rowVersion
                     val results = answer.getOrNull() ?: emptyList()
                     val items = results.flatMap { it.first }.filterNot { isAddonMessage(it.name) }.distinctBy { it.id }.map(::metaItem)
@@ -1647,21 +1678,25 @@ class MainActivity : Screen() {
                     }
                     // Build nearby rows first, spacing the others within this small batch across frames.
                     fun add() {
-                        if (g != generation || version != rowVersion) return
+                        if (g != generation || build != catalogBuild || version != rowVersion) return
                         if (items.isEmpty()) { if (completed == rowCatalogs.size) main.post { loadMoreSections?.invoke() }; return }
                         val old = rows.firstOrNull { it.view.parent === slot }
+                        if (old != null && reused != null && old.pendingUpdate == null && results == kept) return
                         if (old?.view?.hasFocus() == true) { old.pendingUpdate = ::add; return }
                         old?.let { it.cards.forEach { card -> card.unload() }; rows.remove(it); slot.removeAllViews() }
-                        val initial = initialRowCards(p == Page.LIVE)
+                        val restoreIndex = if (focusedTag != null && title == focusedRow?.title &&
+                            (focused.isAttachedToWindow || restoreCatalogFocus != null))
+                            items.indexOfFirst { "card:${it.id}" == focusedTag } else -1
+                        val initial = maxOf(initialRowCards(p == Page.LIVE), restoreIndex + 1)
                         val made = row(title, items.take(maxOf(initial, old?.items?.size ?: initial)), more, wide = (p == Page.LIVE))
+                        clearFailure()
                         slot.addView(made.view)
-                        if (i == 0) android.util.Log.d("Alder", "page ${p.label}: first row in ${android.os.SystemClock.uptimeMillis() - opened} ms")
+                        restoreCatalogFocus?.invoke()
                         updateNextRow()
                         if (jumpTo == title) { jumpTo = null; made.view.post { made.focusFirst() } }
                     }
                     if (i < 2) add() else main.postDelayed(::add, (i % 4) * ROW_STAGGER)
                     // Nothing to continue: the cinema shows the first catalog's top titles instead.
-                    if (p == Page.HOME && i == 0 && items.isNotEmpty()) main.postDelayed({ if (cinema.isEmpty() && page == p) startCinema(items.take(CINEMA_MAX)) }, 1500)
                     main.post(::updateImages)
                 }
                 // Answers already read this session (or warmed from disk) build the row at once: switching to a page
@@ -1676,74 +1711,109 @@ class MainActivity : Screen() {
                     val catalog = rowCatalogs[index]
                     val option = if (genreFallback) genreOption(catalog.genres, picked!!) else picked
                     background({ catalog.addon.catalog(catalog, option, CATALOG_WAIT) }) { fresh ->
-                        if (g != generation) return@background
+                        if (g != generation || build != catalogBuild) return@background
                         fresh.getOrNull()?.takeIf { it.isNotEmpty() }?.let {
                             sourceAnswers[index] = it to false
                             update()
                         }
                     }
                 }
-                val kept = answers[key]
-                if (genreFallback) {
-                    if (quick && kept != null && kept.size == rowCatalogs.size) {
-                        kept.forEachIndexed { index, answer -> sourceAnswers[index] = answer }
+                if (kept != null && kept.size == rowCatalogs.size) {
+                    kept.forEachIndexed { index, answer -> sourceAnswers[index] = answer }
+                    completed = rowCatalogs.size
+                    update()
+                    rowCatalogs.indices.filter { kept[it].second }.forEach(::refresh)
+                } else if (genreFallback) {
+                    fun accept(answer: List<Pair<List<Meta>, Boolean>>) {
+                        if (g != generation || build != catalogBuild) return
+                        answer.forEachIndexed { index, result -> sourceAnswers[index] = result }
                         completed = rowCatalogs.size
                         update()
-                        rowCatalogs.indices.filter { kept[it].second }.forEach(::refresh)
-                    } else background({
+                    }
+                    fun firstGenre(read: (Addon.Catalog, String) -> List<Meta>): List<Pair<List<Meta>, Boolean>> {
                         val results = MutableList(rowCatalogs.size) { emptyList<Meta>() to false }
                         for ((index, catalog) in rowCatalogs.withIndex()) {
                             val option = genreOption(catalog.genres, picked!!) ?: continue
-                            val saved = if (quick) catalog.addon.savedCatalog(catalog, option).orEmpty()
-                                .filterNot { isAddonMessage(it.name) } else emptyList()
-                            val items = saved.ifEmpty {
-                                runCatching { catalog.addon.catalog(catalog, option, CATALOG_WAIT) }
-                                    .getOrDefault(emptyList()).filterNot { isAddonMessage(it.name) }
-                            }
+                            val items = runCatching { read(catalog, option) }.getOrDefault(emptyList())
+                                .filterNot { isAddonMessage(it.name) }
                             if (items.isNotEmpty()) {
-                                results[index] = items to (saved.isNotEmpty())
+                                results[index] = items to false
                                 break
                             }
                         }
-                        results
-                    }) { answer ->
-                        if (g != generation) return@background
-                        answer.getOrNull()?.forEachIndexed { index, result -> sourceAnswers[index] = result }
-                        completed = rowCatalogs.size
-                        update()
-                        rowCatalogs.indices.filter { sourceAnswers[it]?.second == true }.forEach(::refresh)
+                        return results
                     }
-                } else if (quick && kept != null && kept.size == rowCatalogs.size) {
-                    kept.forEachIndexed { index, answer -> sourceAnswers[index] = answer.first to false }
-                    completed = rowCatalogs.size
-                    update()
-                    kept.forEachIndexed { index, answer -> if (answer.second) refresh(index) }
-                } else rowCatalogs.forEachIndexed { index, catalog ->
-                    background({
-                        runCatching {
-                            (if (quick) catalog.addon.savedCatalog(catalog, picked) else null)?.let { it to true }
-                                ?: (catalog.addon.catalog(catalog, picked, CATALOG_WAIT) to false)
-                        }.getOrElse { e ->
-                            android.util.Log.w("Alder", "row $title (${catalog.id}, genre $picked) failed: $e")
-                            emptyList<Meta>() to false
+                    background({ firstGenre { catalog, option -> catalog.addon.savedCatalog(catalog, option).orEmpty() } }, cacheReads) { answer ->
+                        if (g != generation || build != catalogBuild) return@background
+                        val saved = answer.getOrDefault(emptyList())
+                        if (saved.any { it.first.isNotEmpty() }) accept(saved.map { it.first to it.first.isNotEmpty() })
+                        background({ firstGenre { catalog, option -> catalog.addon.catalog(catalog, option, CATALOG_WAIT) } }) { result ->
+                            val fresh = result.getOrDefault(emptyList())
+                            if (saved.none { it.first.isNotEmpty() } || fresh.any { it.first.isNotEmpty() }) accept(fresh)
                         }
-                    }) { answer ->
-                        if (g != generation) return@background
-                        sourceAnswers[index] = answer.getOrDefault(emptyList<Meta>() to false)
+                    }
+                } else rowCatalogs.forEachIndexed { index, catalog ->
+                    fun accept(items: List<Meta>, cached: Boolean) {
+                        if (g != generation || build != catalogBuild) return
+                        sourceAnswers[index] = items to cached
                         completed++
                         update()
-                        if (sourceAnswers[index]?.second == true) refresh(index)
+                        if (cached) refresh(index)
+                    }
+                    background({ catalog.addon.savedCatalog(catalog, picked) }, cacheReads) { answer ->
+                        if (g != generation || build != catalogBuild) return@background
+                        val saved = answer.getOrNull()
+                        if (saved != null) accept(saved, cached = true)
+                        else background({ catalog.addon.catalog(catalog, picked, CATALOG_WAIT) }) { result ->
+                            result.exceptionOrNull()?.let { android.util.Log.w("Alder", "row $title (${catalog.id}, genre $picked) failed: $it") }
+                            accept(result.getOrDefault(emptyList()), cached = false)
+                        }
                     }
                 }
             }
-            var nextSection = nextCatalogSection(sections.size, 0)
+            var nextSection = initialSections
             batchPending = nextSection
             for (i in 0 until nextSection) buildSection(i)
+            oldSlots.values.forEach { slot ->
+                rows.firstOrNull { it.view.parent === slot }?.let { row ->
+                    row.cards.forEach { it.unload() }
+                    rows.remove(row)
+                }
+                content.removeView(slot)
+            }
+            val first = content.childCount - catalogSlots.size
+            catalogSlots.values.forEachIndexed { index, slot ->
+                if (content.indexOfChild(slot) != first + index) {
+                    content.removeView(slot)
+                    content.addView(slot, first + index)
+                }
+            }
+            oldSlots.clear()
+            if (focusedTag != null && !(focused.isAttachedToWindow && focused.isFocused)) {
+                navItems[p]?.requestFocus()
+                val fallback = currentFocus
+                restoreCatalogFocus = restore@{
+                    if (currentFocus !== fallback) {
+                        restoreCatalogFocus = null
+                        return@restore
+                    }
+                    val sameRow = rows.firstNotNullOfOrNull { row ->
+                        row.view.takeIf { row.title == focusedRow?.title }?.findViewWithTag<View>(focusedTag)
+                    }
+                    val card = sameRow ?: rows.firstNotNullOfOrNull { it.view.findViewWithTag<View>(focusedTag) }
+                    if (card?.requestFocus() == true) {
+                        restoreCatalogFocus = null
+                        android.util.Log.d("Alder", "page ${p.label}: restored catalog focus")
+                    }
+                }
+                restoreCatalogFocus?.invoke()
+            }
+            main.post { updateNextRow(); updateImages() }
             loadMoreSections = {
                 val focusedSlot = rows.firstOrNull { it.view.hasFocus() }?.view?.parent as? View
                 val nearFocus = focusedSlot != null && content.indexOfChild(focusedSlot) >= content.childCount - 3
                 val nearEnd = batchPending == 0 && scroller.scrollY + scroller.height >= content.height - dp(350)
-                if (g == generation && nextSection < sections.size && (nearFocus || nearEnd)) {
+                if (g == generation && build == catalogBuild && nextSection < sections.size && (nearFocus || nearEnd)) {
                     val end = nextCatalogSection(sections.size, nextSection)
                     batchPending = end - nextSection
                     for (i in nextSection until end) buildSection(i)
@@ -1751,15 +1821,18 @@ class MainActivity : Screen() {
                 }
             }
         }
-        if (quick) background({ Stremio.savedAddons(key) }) { r -> r.getOrNull()?.let(::build) }
-        // Every page asks Stremio for the add-on list once as it opens (and again when Alder comes back to the front), and
-        // redraws only when the list differs from the one its rows came from: add-ons added or removed elsewhere.
-        fun checkAddons(drawn: (List<Addon>) -> Unit) = background({ Stremio.addons(key, refresh = true) }) { r -> r.fold({ fresh ->
-            if (g == generation) showLiveTab(fresh)
-            if (built && g == generation && builtFrom != fresh.map { it.id }) showPage(p, quick = false) else drawn(fresh)
-        }) { if (!built && g == generation) failedToLoad(it) } }
-        checkAddons(::build)
-        refreshAddons = { checkAddons {} }
+        background({ Stremio.savedAddons(key) }, cacheReads) { r -> if (builtFrom == null) r.getOrNull()?.let(::build) }
+        var addonRequest = 0
+        fun checkAddons() {
+            val request = ++addonRequest
+            background({ Stremio.addons(key, refresh = true) }) { r ->
+                if (g == generation && request == addonRequest) r.fold(::build) {
+                    if (builtFrom == null) failedToLoad(it)
+                }
+            }
+        }
+        checkAddons()
+        refreshAddons = ::checkAddons
     }
 
     private class Shelf(val page: Page, val title: String, val rank: Int)
@@ -2099,6 +2172,33 @@ class MainActivity : Screen() {
 
     /** The row nearest the top of the page: where Up goes back to the cinema from. */
     private fun firstRow(): Row? = rows.filter { it.view.isAttachedToWindow }.minByOrNull { offsetIn(it.view) }
+
+    private fun measureFirstRow(g: Int, opened: Long) {
+        val decor = window.decorView
+        val observer = decor.viewTreeObserver
+        rowDrawListener?.let(observer::removeOnPreDrawListener)
+        val label = page.label
+        val bounds = Rect()
+        val listener = object : ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                if (scroller.alpha <= 0f || !rows.any { row ->
+                        row.view.isShown && row.view.alpha > 0f &&
+                            row.cards.firstOrNull()?.getGlobalVisibleRect(bounds) == true
+                    }) return true
+                decor.viewTreeObserver.removeOnPreDrawListener(this)
+                rowDrawListener = null
+                decor.postOnAnimation {
+                    if (g == generation && !isDestroyed) {
+                        android.util.Log.d("Alder", "page $label: first row visible in ${android.os.SystemClock.uptimeMillis() - opened} ms")
+                        if (g == 1) reportFullyDrawn()
+                    }
+                }
+                return true
+            }
+        }
+        rowDrawListener = listener
+        observer.addOnPreDrawListener(listener)
+    }
 
     /**
      * One row of wide art cards along the bottom of the screen; only the focused row shows, the art fills the rest.
@@ -2519,6 +2619,27 @@ class MainActivity : Screen() {
         null, 0f, resume = false,
     )
 
+    private data class HomeLibrary(
+        val list: List<JSONObject>,
+        val continuing: List<JSONObject> = emptyList(),
+        val metadata: Map<String, Meta> = emptyMap(),
+    )
+
+    private fun prepareLibrary(list: List<JSONObject>, known: Map<String, Meta>, key: String, grid: Boolean): HomeLibrary {
+        if (grid) return HomeLibrary(list)
+        val addons by lazy { Stremio.savedAddons(key).orEmpty() }
+        val found = mutableMapOf<String, Meta>()
+        val continuing = Library.continueWatching(list) { item, videoId ->
+            val id = item.optString("_id")
+            val meta = known[id] ?: found[id] ?: runCatching {
+                addons.savedMeta(item.optString("type"), id)
+            }.getOrNull()?.also { found[id] = it }
+            val video = meta?.videos?.firstOrNull { it.id == videoId }
+            video != null && !isEpisodeAired(video.released)
+        }
+        return HomeLibrary(list, continuing, found)
+    }
+
     private fun libraryItem(item: JSONObject): Item {
         val s = item.optJSONObject("state") ?: JSONObject()
         val videoId = Library.savedVideoId(item)
@@ -2529,10 +2650,7 @@ class MainActivity : Screen() {
         val id = item.getString("_id")
         val type = item.optString("type")
         val newEpisode = if (pending) {
-            val key = profile.authKey
-            val m = metas[id] ?: runCatching { Stremio.savedAddons(key)?.savedMeta(type, id) ?: Stremio.addons(key).savedMeta(type, id) }.getOrNull()
-            if (m != null) metas[id] = m
-            val v = m?.videos?.firstOrNull { it.id == videoId }
+            val v = metas[id]?.videos?.firstOrNull { it.id == videoId }
             v != null && isRecentlyAired(v.released)
         } else false
         return Item(
@@ -2673,6 +2791,7 @@ class MainActivity : Screen() {
     }
 
     private companion object {
+        val cacheReads = java.util.concurrent.Executors.newSingleThreadExecutor()
         const val HEADER_H = 76 // dp
         const val WHATS_NEW_WAIT = 1_500L // ms after Home opens: its first row draws before the pop-up covers it
         // 2:3 posters, six and a bit across (56 + 7 × 120 + 6 × 16 = 992 of 960 dp): the seventh runs off the edge to
