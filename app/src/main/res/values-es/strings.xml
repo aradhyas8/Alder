@@ -46,7 +46,6 @@
     <string name="tab_my_list">Mi lista</string>
     <string name="nav_profile">Perfil</string>
     <string name="nav_search">Buscar</string>
-    <string name="home_hold_ok">Mantén OK para ver opciones</string>
     <string name="updates_ready">Alder %1$s está listo</string>
     <string name="updates_ready_desc">¿Instalar ahora? Tarda un minuto y tus perfiles y ajustes se conservan.</string>
     <string name="action_later">Más tarde</string>
@@ -57,8 +56,6 @@
     <string name="action_play">Reproducir</string>
     <string name="action_resume">Reanudar</string>
     <string name="new_episode">Nuevo episodio</string>
-    <string name="added_when">Añadido %1$s</string>
-    <string name="added_recently">recientemente</string>
     <string name="stopped_at">Detenido en %1$s</string>
     <string name="time_left_hours">Quedan %1$d h %2$d min</string>
     <string name="time_left_minutes">Quedan %1$d min</string>
@@ -78,10 +75,10 @@
     <string name="list_sort_recent">Añadidos recientemente</string>
     <string name="list_sort_name">A–Z</string>
     <string name="list_sort_unwatched">Sin ver primero</string>
-    <plurals name="list_position">
-        <item quantity="one">Fila %1$d de %2$d  ·  %3$d título</item>
-        <item quantity="many">Fila %1$d de %2$d  ·  %3$d títulos</item>
-        <item quantity="other">Fila %1$d de %2$d  ·  %3$d títulos</item>
+    <plurals name="list_title_count">
+        <item quantity="one">%1$d título</item>
+        <item quantity="many">%1$d títulos</item>
+        <item quantity="other">%1$d títulos</item>
     </plurals>
     <string name="list_empty">Los títulos que guardes con + aparecen aquí</string>
     <string name="list_empty_movies">No hay películas en Mi lista</string>
@@ -108,7 +105,6 @@
     <string name="action_more_info">Más información</string>
     <string name="action_start_over">Empezar de nuevo</string>
     <string name="action_trailer">Tráiler</string>
-    <string name="time_left">Quedan %1$s</string>
     <string name="action_add_to_list">Añadir a Mi lista</string>
     <string name="season_specials">Especiales</string>
     <string name="season_number">Temporada %1$d</string>
@@ -548,6 +544,9 @@
     <string name="profiles_watchly_steps">"1.  Escanea con el teléfono de %1$s para abrir Watchly\n2.  Conecta allí la cuenta de Stremio de %1$s\n3.  Instálalo en la cuenta de Stremio de %1$s\n\nLas recomendaciones de %1$s aparecerán en Inicio. Puedes terminar esto más tarde."</string>
     <string name="profiles_all_set">Todo listo</string>
     <string name="profiles_ready">El perfil de %1$s está listo. Puedes añadir más complementos después en Configuración.</string>
+    <string name="time_left_under_minute">Queda menos de 1 min</string>
+    <string name="catalog_jump_to">Ir a</string>
+    <string name="catalog_jump_top">Inicio</string>
     <string name="display_resolution">Resolución de pantalla</string>
     <string name="display_resolution_hint">Elige la resolución del televisor que Alder usa para seleccionar una fuente. Elige 4K si tu dispositivo indica 1080p pero emite en 4K.</string>
 </resources>

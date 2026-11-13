@@ -44,7 +44,6 @@
     <string name="tab_my_list">मेरी सूची</string>
     <string name="nav_profile">प्रोफ़ाइल</string>
     <string name="nav_search">खोजें</string>
-    <string name="home_hold_ok">विकल्पों के लिए OK दबाकर रखें</string>
     <string name="updates_ready">Alder %1$s तैयार है</string>
     <string name="updates_ready_desc">अभी इंस्टॉल करें? इसमें एक मिनट लगता है, और आपकी प्रोफ़ाइलें और सेटिंग बनी रहती हैं।</string>
     <string name="action_later">बाद में</string>
@@ -55,8 +54,6 @@
     <string name="action_play">चलाएँ</string>
     <string name="action_resume">जारी रखें</string>
     <string name="new_episode">नया एपिसोड</string>
-    <string name="added_when">%1$s जोड़ा गया</string>
-    <string name="added_recently">हाल ही में</string>
     <string name="stopped_at">%1$s पर रुका</string>
     <string name="time_left_hours">%1$d घं %2$d मि बाकी</string>
     <string name="time_left_minutes">%1$d मि बाकी</string>
@@ -75,9 +72,9 @@
     <string name="list_sort_recent">हाल में जोड़े गए</string>
     <string name="list_sort_name">A–Z</string>
     <string name="list_sort_unwatched">पहले बिना देखे</string>
-    <plurals name="list_position">
-        <item quantity="one">पंक्ति %1$d / %2$d  ·  %3$d टाइटल</item>
-        <item quantity="other">पंक्ति %1$d / %2$d  ·  %3$d टाइटल</item>
+    <plurals name="list_title_count">
+        <item quantity="one">%1$d टाइटल</item>
+        <item quantity="other">%1$d टाइटल</item>
     </plurals>
     <string name="list_empty">+ से सहेजे गए टाइटल यहाँ दिखते हैं</string>
     <string name="list_empty_movies">मेरी सूची में कोई फ़िल्म नहीं</string>
@@ -104,7 +101,6 @@
     <string name="action_more_info">ज़्यादा जानकारी</string>
     <string name="action_start_over">शुरू से देखें</string>
     <string name="action_trailer">ट्रेलर</string>
-    <string name="time_left">%1$s बाकी</string>
     <string name="action_add_to_list">मेरी सूची में जोड़ें</string>
     <string name="season_specials">स्पेशल</string>
     <string name="season_number">सीज़न %1$d</string>
@@ -541,6 +537,9 @@
     <string name="profiles_watchly_steps">"1.  Watchly खोलने के लिए %1$s के फ़ोन से स्कैन करें\n2.  वहाँ %1$s का Stremio खाता कनेक्ट करें\n3.  इसे %1$s के Stremio खाते में इंस्टॉल करें\n\nइसके बाद %1$s के अपने टॉप पिक्स होम पर दिखेंगे। आप इसे बाद में भी पूरा कर सकते हैं।"</string>
     <string name="profiles_all_set">सब तैयार है</string>
     <string name="profiles_ready">%1$s की प्रोफ़ाइल तैयार है। आप बाद में सेटिंग में और ऐड-ऑन जोड़ सकते हैं।</string>
+    <string name="time_left_under_minute">1 मिनट से कम बाकी</string>
+    <string name="catalog_jump_to">यहाँ जाएँ</string>
+    <string name="catalog_jump_top">ऊपर</string>
     <string name="display_resolution">स्क्रीन का रिज़ॉल्यूशन</string>
     <string name="display_resolution_hint">वह टीवी रिज़ॉल्यूशन चुनें जिसके आधार पर Alder स्रोत चुनता है। अगर आपका बॉक्स 1080p बताता है लेकिन 4K आउटपुट देता है, तो 4K चुनें।</string>
 </resources>

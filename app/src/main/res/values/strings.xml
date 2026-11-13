@@ -45,7 +45,6 @@
     <string name="tab_my_list">My List</string>
     <string name="nav_profile">Profile</string>
     <string name="nav_search">Search</string>
-    <string name="home_hold_ok">Hold OK for options</string>
     <string name="updates_ready">Alder %1$s is ready</string>
     <string name="updates_ready_desc">Install it now? It takes a minute, and your profiles and settings stay.</string>
     <string name="action_later">Later</string>
@@ -56,17 +55,16 @@
     <string name="action_play">Play</string>
     <string name="action_resume">Resume</string>
     <string name="new_episode">New episode</string>
-    <string name="added_when">Added %1$s</string>
-    <string name="added_recently">recently</string>
     <string name="stopped_at">Stopped at %1$s</string>
     <string name="time_left_hours">%1$dh %2$dm left</string>
     <string name="time_left_minutes">%1$d min left</string>
+    <string name="time_left_under_minute">Under 1 min left</string>
     <plurals name="seasons">
         <item quantity="one">%1$d season</item>
         <item quantity="other">%1$d seasons</item>
     </plurals>
     <string name="home_unreachable">Couldn\'t reach Stremio. Check the TV\'s connection.</string>
-    <string name="row_continue">Continue</string>
+    <string name="row_continue">Continue Watching</string>
     <string name="home_no_picks">Picks for you show here once Watchly is installed on this profile\'s Stremio account. Shows and Movies have more to browse.</string>
     <string name="page_no_movie_catalogs">None of your addons has movie catalogs. Add one (AIOMetadata, Cinemeta) in Stremio.</string>
     <string name="page_no_show_catalogs">None of your addons has show catalogs. Add one (AIOMetadata, Cinemeta) in Stremio.</string>
@@ -76,9 +74,9 @@
     <string name="list_sort_recent">Recently added</string>
     <string name="list_sort_name">A–Z</string>
     <string name="list_sort_unwatched">Unwatched first</string>
-    <plurals name="list_position">
-        <item quantity="one">Row %1$d of %2$d  ·  %3$d title</item>
-        <item quantity="other">Row %1$d of %2$d  ·  %3$d titles</item>
+    <plurals name="list_title_count">
+        <item quantity="one">%1$d title</item>
+        <item quantity="other">%1$d titles</item>
     </plurals>
     <string name="list_empty">Titles you save with + appear here</string>
     <string name="list_empty_movies">No movies in My List</string>
@@ -105,7 +103,6 @@
     <string name="action_more_info">More information</string>
     <string name="action_start_over">Start over</string>
     <string name="action_trailer">Trailer</string>
-    <string name="time_left">%1$s left</string>
     <string name="action_add_to_list">Add to My List</string>
     <string name="season_specials">Specials</string>
     <string name="season_number">Season %1$d</string>
@@ -543,6 +540,8 @@
     <string name="profiles_watchly_steps">"1.  Scan with %1$s's phone to open Watchly\n2.  Connect %1$s's Stremio account there\n3.  Install it to %1$s's Stremio account\n\n%1$s's own \"Top Picks\" then show up on Home. You can finish this later."</string>
     <string name="profiles_all_set">You\'re all set</string>
     <string name="profiles_ready">%1$s\'s profile is ready. You can add more add-ons later in Settings.</string>
+    <string name="catalog_jump_to">Jump to</string>
+    <string name="catalog_jump_top">Top</string>
     <string name="display_resolution">Display resolution</string>
     <string name="display_resolution_hint">Choose the TV resolution Alder uses to pick a source. Use 4K if your box reports 1080p but outputs 4K.</string>
 </resources>
