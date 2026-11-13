@@ -58,6 +58,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - The README has a **Website** badge and a **Downloads** badge with the total number of GitHub release downloads.
 
 ### Fixes
+- **Lossless audio.** Alder sends TrueHD and DTS-HD to a compatible receiver in **Auto**. If passthrough fails, Alder tries the same track as PCM.
 - **Movies art.** The title and art change together when you stop on a poster.
 - **Shows art.** The title and art change together when you stop on a poster.
 - **Home art.** The title and art change together when you stop on a poster. Pictures that are ready fade directly into each other. Alder shows episode numbers when they are available.
