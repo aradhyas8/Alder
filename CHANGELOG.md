@@ -18,6 +18,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 ## Unreleased
 
 ### New
+- **Arabic interface.** Select **Settings → Language → App language → العربية**. Alder shows menus, buttons and settings in Arabic.
 <!-- Spotlight -->
 - **P2P sources.** Alder can play torrents from your add-ons without a debrid account. Sources with the **P2P** label are at the end of the source list. When no other source plays, Alder tries a P2P source. Seek, pause and Back work as with other sources. P2P sources are available on Android 7 and later.
 <!-- Spotlight -->
