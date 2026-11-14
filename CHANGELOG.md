@@ -60,6 +60,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - The README has a **Website** badge and a **Downloads** badge with the total number of GitHub release downloads.
 
 ### Fixes
+- **P2P episodes.** Alder checks the file names in a torrent when the add-on gives no file index. Alder skips a pack if it cannot find one file for the selected episode.
 - **P2P links.** Alder can play sources from add-ons that use `magnet:` or `torrent://` links.
 - **Top bar tabs.** Add-on tab names align with the other tabs and use the correct color as soon as they show. **Search** uses your tab choices. You can change the **Shows**, **Movies** and **My List** tabs when Alder cannot get the add-on list. **Tabs** shows changes to your add-ons.
 - **Lossless audio.** Alder sends TrueHD and DTS-HD to a compatible receiver in **Auto**. If passthrough fails, Alder tries the same track as PCM.
