@@ -76,7 +76,8 @@ class StreamsActivity : Screen() {
             isHorizontalScrollBarEnabled = false; clipChildren = false; clipToPadding = false; visibility = View.GONE
         }
         val rows = column(Gravity.START)
-        val status = text(intent.getStringExtra("message") ?: "Finding sources…", BODY, color = TEXT_2).onArt()
+        val playbackMessage = intent.getStringExtra("message")
+        val status = text(playbackMessage ?: getString(R.string.finding_sources), BODY, color = TEXT_2).onArt()
         rows.addView(status, LinearLayout.LayoutParams(-1, -2).apply { marginStart = dp(12); topMargin = dp(12) })
         val scroll = ScrollView(this).apply {
             isVerticalScrollBarEnabled = false
@@ -169,7 +170,7 @@ class StreamsActivity : Screen() {
                 (own.any { !it.official } || lent.isNotEmpty())
         }) { result ->
             val (addons, anyStreams) = result.getOrElse {
-                status.text = getString(R.string.streams_load_failed)
+                status.text = failureMessage(R.string.streams_load_failed, failureOf(it))
                 return@background tryAgain()
             }
             if (addons.isEmpty()) {
@@ -192,6 +193,9 @@ class StreamsActivity : Screen() {
                 val shown = audio?.let { lang -> ordered.filter { speaks(it, lang) } } ?: ordered
                 count.text = plural(R.plurals.streams_count, shown.size)
                 rows.removeAllViews()
+                playbackMessage?.let { message ->
+                    rows.addView(text(message, SMALL, color = TEXT_2).onArt().apply { setPadding(dp(12), 0, 0, dp(8)) })
+                }
                 cols.visibility = if (shown.isEmpty()) View.GONE else View.VISIBLE
                 val names = addons.map { it.name }
                 // Torrents count only for add-ons that gave nothing playable: "found only torrents" must be true.
@@ -220,7 +224,8 @@ class StreamsActivity : Screen() {
                 addons.indices.firstOrNull { i ->
                     addons[i].configureUrl != null && (failures[i]?.let(::refusedKey) ?: (torrents[i] > 0))
                 }?.let { i -> setupCode(addons[i], torrentsOnly = failures[i] == null)?.let { rows.addView(it, LinearLayout.LayoutParams(-1, -2)) } }
-                if (shown.isEmpty()) tryAgain(focusList) else if (focusList) rows.getChildAt(0).requestFocus()
+                if (shown.isEmpty()) tryAgain(focusList)
+                else if (focusList) rows.getChildAt(if (playbackMessage == null) 0 else 1).requestFocus()
             }
             fun showList() {
                 listed = true
@@ -556,5 +561,6 @@ internal fun failureReason(e: Throwable): String = when {
     e is java.net.ConnectException -> "connection refused"
     e is javax.net.ssl.SSLException -> "secure connection failed"
     e is org.json.JSONException -> "not a source list"
-    else -> e.message?.takeIf { it.length <= 40 } ?: "error"
+    e is HttpError -> "HTTP ${e.code}"
+    else -> "error"
 }

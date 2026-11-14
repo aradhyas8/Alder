@@ -352,9 +352,9 @@
     <string name="updates_up_to_date">अप टू डेट</string>
     <string name="report_send">रिपोर्ट भेजें</string>
     <string name="report_no">नहीं</string>
-    <string name="report_send_hint">Alder पिछली बार रुकने की गड़बड़ी, Alder वर्शन और टीवी मॉडल के साथ भेजता है। इसमें खाते की कोई जानकारी नहीं है।</string>
+    <string name="report_send_hint">आखिरी क्रैश, हाल की गड़बड़ियों के प्रकार और दोबारा कोशिश के नतीजे, Alder का वर्शन और टीवी मॉडल भेजता है। इसमें खाते की जानकारी नहीं है।</string>
     <string name="report_crashed_title">Alder पिछली बार रुक गया था</string>
-    <string name="report_crashed_desc">इसे ठीक करने में मदद के लिए रिपोर्ट भेजें? इसमें गड़बड़ी और टीवी मॉडल है, आपका खाता नहीं।</string>
+    <string name="report_crashed_desc">इसे ठीक करने में मदद के लिए रिपोर्ट भेजें? इसमें क्रैश, हाल की गड़बड़ियों के प्रकार और दोबारा कोशिश के नतीजे, और टीवी मॉडल शामिल हैं।</string>
     <string name="report_sent_title">रिपोर्ट भेजी गई</string>
     <string name="report_sent_desc">धन्यवाद। इससे समस्या ठीक करने में मदद मिलती है।</string>
     <string name="report_failed_title">रिपोर्ट नहीं भेजी जा सकी</string>
@@ -542,4 +542,14 @@
     <string name="catalog_jump_top">ऊपर</string>
     <string name="display_resolution">स्क्रीन का रिज़ॉल्यूशन</string>
     <string name="display_resolution_hint">वह टीवी रिज़ॉल्यूशन चुनें जिसके आधार पर Alder स्रोत चुनता है। अगर आपका बॉक्स 1080p बताता है लेकिन 4K आउटपुट देता है, तो 4K चुनें।</string>
+    <string name="error_sign_in">Stremio में फिर से साइन इन करें</string>
+    <string name="error_response">अमान्य जवाब</string>
+    <string name="error_missing">अब उपलब्ध नहीं है</string>
+    <string name="error_format">यह फ़ॉर्मैट समर्थित नहीं है या पढ़ा नहीं जा सकता</string>
+    <string name="error_network">नेटवर्क की समस्या</string>
+    <string name="library_edit_failed">देखने की स्थिति सेव नहीं हो सकी</string>
+    <string name="search_incomplete">खोज के नतीजे अधूरे हैं</string>
+    <string name="catalog_incomplete">कुछ कैटलॉग लोड नहीं हो सके</string>
+    <string name="progress_saved_on_tv">प्रगति इस टीवी पर सेव है। Alder इसे फिर से सिंक करने की कोशिश करेगा।</string>
+    <string name="library_load_failed">आपकी Stremio लाइब्रेरी लोड नहीं हो सकी</string>
 </resources>

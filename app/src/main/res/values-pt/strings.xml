@@ -356,9 +356,9 @@
     <string name="updates_up_to_date">Em dia</string>
     <string name="report_send">Enviar relatório</string>
     <string name="report_no">Não</string>
-    <string name="report_send_hint">Envia o erro da última vez que o Alder parou, com a versão do Alder e o modelo da TV. Não inclui dados da conta.</string>
+    <string name="report_send_hint">Envia a última falha, os tipos de erros recentes e os resultados das novas tentativas, a versão do Alder e o modelo da TV. Não inclui dados da conta.</string>
     <string name="report_crashed_title">O Alder parou da última vez</string>
-    <string name="report_crashed_desc">Enviar um relatório para ajudar a corrigir? Ele tem o erro e o modelo da TV, não sua conta.</string>
+    <string name="report_crashed_desc">Enviar um relatório para ajudar a corrigir a falha? Inclui a falha, os tipos de erros recentes e os resultados das novas tentativas, e o modelo da TV.</string>
     <string name="report_sent_title">Relatório enviado</string>
     <string name="report_sent_desc">Obrigado. Isso ajuda a corrigir o problema.</string>
     <string name="report_failed_title">Não foi possível enviar o relatório</string>
@@ -549,4 +549,14 @@
     <string name="catalog_jump_top">Topo</string>
     <string name="display_resolution">Resolução da tela</string>
     <string name="display_resolution_hint">Escolha a resolução da TV que o Alder usa para selecionar uma fonte. Escolha 4K se seu aparelho indicar 1080p, mas emitir em 4K.</string>
+    <string name="error_sign_in">entre novamente no Stremio</string>
+    <string name="error_response">resposta inválida</string>
+    <string name="error_missing">não está mais disponível</string>
+    <string name="error_format">formato incompatível ou ilegível</string>
+    <string name="error_network">erro de rede</string>
+    <string name="library_edit_failed">Não foi possível salvar o estado de exibição</string>
+    <string name="search_incomplete">Os resultados da busca estão incompletos</string>
+    <string name="catalog_incomplete">Não foi possível carregar alguns catálogos</string>
+    <string name="progress_saved_on_tv">O progresso foi salvo nesta TV. O Alder tentará sincronizá-lo de novo.</string>
+    <string name="library_load_failed">Não foi possível carregar sua biblioteca do Stremio</string>
 </resources>

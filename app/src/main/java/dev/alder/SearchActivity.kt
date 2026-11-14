@@ -490,7 +490,7 @@ class SearchActivity : Screen() {
             LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(5) })
     }
 
-    private fun search(moveFocus: Boolean) {
+    private fun search(moveFocus: Boolean, previous: Failure? = null) {
         val query = input.text.toString().trim()
         val token = ++request
         searchTasks.forEach { it.cancel(true) }
@@ -527,13 +527,15 @@ class SearchActivity : Screen() {
         background({ Stremio.savedAddons(authKey.orEmpty()) ?: Stremio.addons(authKey.orEmpty()) }) { loaded ->
             if (token != request) return@background
             val addons = loaded.getOrElse {
+                val failure = failureOf(it)
+                FailureLog.record(FailureLog.Operation.SEARCH, failure)
                 results.removeAllViews()
-                results.addView(failed(getString(R.string.search_unavailable)) { search(false) })
+                results.addView(failed(failureMessage(R.string.search_unavailable, failure)) { search(true, failure) })
                 return@background
             }
             val answers = arrayOfNulls<List<Meta>>(addons.size)
             var completed = 0
-            var failedCount = 0
+            val failures = arrayOfNulls<Failure>(addons.size)
             var finished = false
             fun update(final: Boolean = false) {
                 if (token != request || finished) return
@@ -544,24 +546,37 @@ class SearchActivity : Screen() {
                 val ranked = rankSearchTitles(found, query) { it.name }
                 val sections = linkedMapOf(getString(R.string.tab_movies) to ranked.filter { it.type == "movie" }.take(PER_TYPE),
                     getString(R.string.tab_shows) to ranked.filter { it.type == "series" }.take(PER_TYPE)).filterValues { it.isNotEmpty() }
-                if (sections.isNotEmpty()) render(sections, query, moveFocus && (final || completed == addons.size))
-                else if (final || completed == addons.size) {
+                val settled = final || completed == addons.size
+                if (sections.isNotEmpty()) render(sections, query, moveFocus && settled)
+                if (!settled) return
+                val failure = searchFailure(failures.filterNotNull(), completed, addons.size)
+                if (sections.isEmpty()) {
                     results.removeAllViews()
-                    results.addView(if (failedCount == completed && (completed > 0 || final))
-                        failed(getString(R.string.search_unavailable)) { search(false) }
-                    else text(R.string.search_no_matches, BODY, color = TEXT_2))
                     resultCount.text = ""
+                }
+                if (failure != null) {
+                    FailureLog.record(FailureLog.Operation.SEARCH, failure)
+                    val message = if (sections.isEmpty() && answers.all { it == null }) R.string.search_unavailable else R.string.search_incomplete
+                    val card = failed(failureMessage(message, failure)) { search(true, failure) }
+                    results.addView(card)
+                    if (moveFocus && sections.isEmpty()) card.getChildAt(2).requestFocus()
+                } else {
+                    previous?.let { FailureLog.record(FailureLog.Operation.SEARCH, it, recovered = true) }
+                    if (sections.isEmpty()) results.addView(text(R.string.search_no_matches, BODY, color = TEXT_2))
                 }
             }
             if (addons.isEmpty()) { update(true); return@background }
             main.postDelayed({ if (token == request) { update(true); finished = true } }, SEARCH_WAIT)
             addons.forEachIndexed { index, addon ->
                 searchTasks += searchPool.submit {
-                    val answer = runCatching { addon.search(query) }
+                    val answer = runCatching { addon.searchCatalogs(query) }
                     main.post {
                         if (isDestroyed || token != request || finished) return@post
                         completed++
-                        answer.fold({ answers[index] = it }) { failedCount++ }
+                        answer.fold({ (titles, error) ->
+                            answers[index] = titles
+                            failures[index] = error?.let(::failureOf)
+                        }, { failures[index] = failureOf(it) })
                         update()
                         if (completed == addons.size) finished = true
                     }
