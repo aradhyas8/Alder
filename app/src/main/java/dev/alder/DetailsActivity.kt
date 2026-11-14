@@ -338,8 +338,7 @@ class DetailsActivity : Screen() {
     private fun addWatch(m: Meta, stack: LinearLayout) {
         val target = playTarget(m)
         val episode = target?.second
-        // Under a minute in is not started: a title opened and closed at 0:00 offers Play, not Resume.
-        val resumeAt = (item?.let { Library.resumeAt(it, target?.first ?: metaId) } ?: 0L).takeIf { it >= STARTED } ?: 0L
+        val resumeAt = item?.let { Library.resumeAt(it, target?.first ?: metaId) } ?: 0L
         val videos = m.videos
         val watched = Library.watched(item, videos)
         val airedVideos = videos.filter { it.season > 0 && isEpisodeAired(it.released) }
@@ -388,11 +387,14 @@ class DetailsActivity : Screen() {
             return
         }
         val duration = item?.optJSONObject("state")?.optLong("duration") ?: 0L
-        val remaining = if (resumeAt > 0 && duration > resumeAt) getString(R.string.time_left, runtime("${(duration - resumeAt) / 60_000} min")) else null
-        val where = listOfNotNull(episode?.let { "S${it.season} E${it.episode}" }, episode?.title?.takeIf { it.isNotBlank() }, remaining).joinToString(DOT)
-        if (where.isNotEmpty() && resumeAt > 0) stack.addView(text(where, SMALL, bold = true).onArt().apply {
-            maxLines = 1; ellipsize = TextUtils.TruncateAt.END
-        }.marginTop(16))
+        val remaining = timeLeft(duration, resumeAt)
+        if (resumeAt > 0) {
+            val stopped = getString(R.string.stopped_at, android.text.format.DateUtils.formatElapsedTime(resumeAt / 1000))
+            val where = listOfNotNull(episode?.let { "S${it.season} E${it.episode}" }, episode?.title?.takeIf { it.isNotBlank() }, remaining, stopped)
+            stack.addView(text(where.joinToString(DOT), SMALL, bold = true).onArt().apply {
+                maxLines = 2; ellipsize = TextUtils.TruncateAt.END
+            }.marginTop(16))
+        }
         if (remaining != null) stack.addView(progressBar(resumeAt.toFloat() / duration), LinearLayout.LayoutParams(dp(240), dp(3)).apply { topMargin = dp(8) })
 
         playButton = pill(if (resumeAt > 0) R.string.action_resume else R.string.action_play, R.drawable.ic_play).apply {
@@ -525,6 +527,12 @@ class DetailsActivity : Screen() {
     /** What Play opens: the episode Continue Watching points at, or the first episode, or the movie itself. */
     private fun playTarget(m: Meta?): Pair<String, Video?>? {
         val videos = m?.videos.orEmpty()
+        item?.let { entry ->
+            val saved = Library.savedVideoId(entry)
+            if (Library.resumeAt(entry, saved) > 0 || Library.nextEpisodePending(entry)) {
+                return saved to videos.firstOrNull { it.id == saved }
+            }
+        }
         if (videos.isEmpty()) return metaId to null
         val current = item?.optJSONObject("state")?.text("video_id")
         val video = videos.firstOrNull { it.id == current } ?: videos.firstOrNull { it.season > 0 } ?: videos.first()
@@ -672,8 +680,7 @@ class DetailsActivity : Screen() {
             val status = when {
                 !aired -> airDay(video.released)?.let { getString(R.string.airs_on, it) }.orEmpty()
                 video.id in watched -> "✓"
-                resumeAt > 0 && duration > resumeAt -> getString(R.string.time_left_minutes, ((duration - resumeAt) / 60_000).toInt())
-                else -> meta?.runtime.orEmpty()
+                else -> timeLeft(duration, resumeAt) ?: meta?.runtime.orEmpty()
             }
             val titleColor = when {
                 !aired -> TEXT_3
@@ -1678,6 +1685,5 @@ class DetailsActivity : Screen() {
 
     private companion object {
         const val GUIDE_ART = 0.6f // the film's brightness behind the episode guide
-        const val STARTED = 60_000L // ms watched before a title counts as started
     }
 }

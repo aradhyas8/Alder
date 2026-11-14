@@ -44,7 +44,6 @@
     <string name="tab_my_list">Meine Liste</string>
     <string name="nav_profile">Profil</string>
     <string name="nav_search">Suche</string>
-    <string name="home_hold_ok">OK gedrückt halten für Optionen</string>
     <string name="updates_ready">Alder %1$s ist bereit</string>
     <string name="updates_ready_desc">Jetzt installieren? Es dauert eine Minute, und deine Profile und Einstellungen bleiben erhalten.</string>
     <string name="action_later">Später</string>
@@ -55,8 +54,6 @@
     <string name="action_play">Abspielen</string>
     <string name="action_resume">Fortsetzen</string>
     <string name="new_episode">Neue Folge</string>
-    <string name="added_when">Hinzugefügt %1$s</string>
-    <string name="added_recently">kürzlich</string>
     <string name="stopped_at">Gestoppt bei %1$s</string>
     <string name="time_left_hours">Noch %1$d Std. %2$d Min.</string>
     <string name="time_left_minutes">Noch %1$d Min.</string>
@@ -75,9 +72,9 @@
     <string name="list_sort_recent">Zuletzt hinzugefügt</string>
     <string name="list_sort_name">A–Z</string>
     <string name="list_sort_unwatched">Ungesehene zuerst</string>
-    <plurals name="list_position">
-        <item quantity="one">Reihe %1$d von %2$d  ·  %3$d Titel</item>
-        <item quantity="other">Reihe %1$d von %2$d  ·  %3$d Titel</item>
+    <plurals name="list_title_count">
+        <item quantity="one">%1$d Titel</item>
+        <item quantity="other">%1$d Titel</item>
     </plurals>
     <string name="list_empty">Titel, die du mit + speicherst, erscheinen hier</string>
     <string name="list_empty_movies">Keine Filme in Meine Liste</string>
@@ -104,7 +101,6 @@
     <string name="action_more_info">Mehr Infos</string>
     <string name="action_start_over">Von vorn</string>
     <string name="action_trailer">Trailer</string>
-    <string name="time_left">Noch %1$s</string>
     <string name="action_add_to_list">Zu Meine Liste hinzufügen</string>
     <string name="season_specials">Specials</string>
     <string name="season_number">Staffel %1$d</string>
@@ -232,6 +228,10 @@
     <string name="play_press_hint">Was Abspielen und Fortsetzen tun. OK gedrückt halten zeigt immer alle Quellen.</string>
     <string name="play_best_source">Beste Quelle</string>
     <string name="play_show_sources">Quellen zeigen</string>
+    <string name="source_list">Quellenliste</string>
+    <string name="source_list_hint">Wie jede Quelle angezeigt wird. Der Text des Add-ons zeigt, was dein Add-on schreibt, in einer breiteren Liste wie in Stremio.</string>
+    <string name="source_list_clean">Übersichtlich</string>
+    <string name="source_list_addon">Wie das Add-on schreibt</string>
     <string name="max_quality">Höchste Qualität</string>
     <string name="max_quality_hint">Versionen darüber werden bei der Quellenwahl übersprungen.</string>
     <string name="no_limit">Keine Grenze</string>
@@ -250,7 +250,7 @@
     <string name="frame_rate">Bildrate anpassen</string>
     <string name="frame_rate_hint">Der Fernseher übernimmt die Bildrate des Films, damit Schwenks nicht ruckeln.</string>
     <string name="audio_output">Audioausgabe</string>
-    <string name="audio_output_hint">Receiver sendet Dolby und DTS unverändert an eine Soundbar oder einen Receiver. TV-Lautsprecher decodiert den Ton hier, was immer funktioniert.</string>
+    <string name="audio_output_hint">Auto sendet unterstützte Formate an dein Audiogerät. PCM decodiert den Ton in Alder.</string>
     <string name="ui_size">Text- und Postergröße</string>
     <string name="ui_size_hint">Macht Text, Poster und Tasten auf allen Bildschirmen größer, für einen Fernseher weit weg von deinem Platz.</string>
     <string name="ui_size_normal">Normal</string>
@@ -259,8 +259,6 @@
     <string name="video_player_alder">Alder</string>
     <string name="player_other_app">Läuft in einer anderen App. Drücke dort Zurück, um zurückzukehren.</string>
     <string name="player_no_other_app">Auf diesem Fernseher ist kein anderer Videoplayer. Alder spielt das Video ab.</string>
-    <string name="audio_tv_speakers">TV-Lautsprecher</string>
-    <string name="audio_receiver">Receiver</string>
     <string name="clear_dialogue_setting_hint">Hebt Stimmen über Musik und laute Effekte, wenn die TV-Lautsprecher genutzt werden.</string>
     <string name="dubbed">Synchronfassungen</string>
     <string name="dubbed_hint">Original zuerst setzt Synchronfassungen ans Ende; Meine Sprache zuerst nutzt die Audiosprache dieses Profils.</string>
@@ -539,4 +537,9 @@
     <string name="profiles_watchly_steps">"1.  Mit dem Handy von %1$s scannen, um Watchly zu öffnen\n2.  Dort das Stremio-Konto von %1$s verbinden\n3.  Im Stremio-Konto von %1$s installieren\n\nDanach erscheinen die eigenen Top-Tipps von %1$s auf Start. Du kannst das später abschließen."</string>
     <string name="profiles_all_set">Alles bereit</string>
     <string name="profiles_ready">Das Profil von %1$s ist bereit. Weitere Add-ons kannst du später in den Einstellungen hinzufügen.</string>
+    <string name="time_left_under_minute">Weniger als 1 Min.</string>
+    <string name="catalog_jump_to">Springen zu</string>
+    <string name="catalog_jump_top">Nach oben</string>
+    <string name="display_resolution">Bildschirmauflösung</string>
+    <string name="display_resolution_hint">Wähle die TV-Auflösung, die Alder für die Quellenauswahl verwendet. Wähle 4K, wenn deine TV-Box 1080p meldet, aber 4K ausgibt.</string>
 </resources>

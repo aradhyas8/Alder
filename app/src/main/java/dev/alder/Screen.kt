@@ -29,6 +29,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 
 /**
@@ -179,8 +180,8 @@ abstract class Screen : Activity() {
     }
 
     /** Runs [work] off the main thread and hands its result back on it, unless the screen is gone. */
-    protected fun <T> background(work: () -> T, done: (Result<T>) -> Unit) {
-        pool.execute {
+    protected fun <T> background(work: () -> T, executor: Executor = pool, done: (Result<T>) -> Unit) {
+        executor.execute {
             val result = runCatching(work)
             main.post { if (!isDestroyed) done(result) }
         }
@@ -444,9 +445,9 @@ abstract class Screen : Activity() {
         }
     }
 
-    protected fun caption(value: String) = text(value, SMALL).apply {
+    protected fun caption(value: String, keepPrevious: Boolean = true) = text(value, SMALL).apply {
         setPadding(dp(12), dp(6), dp(12), dp(6))
-        background = glassOver(this, 16)
+        background = glassOver(this, 16, keepPrevious = keepPrevious)
     }
 
     /** "[OK] Play / pause": the key in a small box, then what it does. */
@@ -655,11 +656,11 @@ abstract class Screen : Activity() {
         else -> null
     }
 
-    protected fun View.lift(on: Boolean, radiusDp: Int = 6) {
-        foreground = if (on) GradientDrawable().apply {
+    protected fun View.lift(on: Boolean, radiusDp: Int = 6, rim: Boolean = true) {
+        foreground = if (on && rim) GradientDrawable().apply {
             setColor(Color.TRANSPARENT)
             cornerRadius = dp(radiusDp).toFloat()
-            setStroke(dp(1), TUNGSTEN_RIM) // a hairline: the glow and the lift carry focus
+            setStroke(dp(1), TUNGSTEN_RIM)
         } else null
         if (on && android.os.Build.VERSION.SDK_INT >= 28) {
             val poster = posterBitmap(this)
@@ -679,6 +680,7 @@ abstract class Screen : Activity() {
     protected open val backdrop: ImageView? get() = null
 
     private var frostSource: Bitmap? = null
+    private var frostFor: Bitmap? = null
     private var frostBitmap: Bitmap? = null
     private val frostHosts = mutableListOf<View>()
 
@@ -688,11 +690,11 @@ abstract class Screen : Activity() {
      */
     /** [shade]: how much of the screen's own shade lies over the art there (0..1), so glass over a shaded part of the art
      *  is as dark as the art around it instead of a milky patch of the unshaded picture. */
-    protected fun glassOver(host: View, radiusDp: Int, shade: Float = 0f): Drawable {
+    protected fun glassOver(host: View, radiusDp: Int, shade: Float = 0f, keepPrevious: Boolean = true): Drawable {
         // No art to frost (Settings): the glass sits on the base colour, so a dialog doesn't show the rows under it.
         val behind = backdrop ?: return LayerDrawable(arrayOf(rounded(BASE, radiusDp), glass(radiusDp)))
         frostHosts += host
-        return Frost(host, behind, dp(radiusDp).toFloat(), shade)
+        return Frost(host, behind, dp(radiusDp).toFloat(), shade, keepPrevious)
     }
 
     /** The art behind changed: glass redraws with the new picture once it's blurred. */
@@ -702,17 +704,23 @@ abstract class Screen : Activity() {
     }
 
     /** The art blurred once per picture ([Images.frost]); the last one stays up while the next is made. */
-    private fun frosted(d: Drawable?): Bitmap? {
-        val src = (d as? BitmapDrawable)?.bitmap ?: return frostBitmap
+    private fun frosted(d: Drawable?, keepPrevious: Boolean): Bitmap? {
+        val src = (d as? BitmapDrawable)?.bitmap ?: return frostBitmap.takeIf { keepPrevious }
         if (src !== frostSource) {
             frostSource = src
-            background({ Images.frost(src, FROST_W) }) { r -> if (frostSource === src) { frostBitmap = r.getOrNull(); refrost() } }
+            background({ Images.frost(src, FROST_W) }) { r ->
+                if (frostSource === src) {
+                    frostBitmap = r.getOrNull()
+                    frostFor = src
+                    refrost()
+                }
+            }
         }
-        return frostBitmap
+        return frostBitmap.takeIf { keepPrevious || frostFor === src }
     }
 
     private inner class Frost(private val host: View, private val behind: ImageView, private val radius: Float,
-                              private val shade: Float = 0f) : Drawable() {
+                              private val shade: Float, private val keepPrevious: Boolean) : Drawable() {
         private val paint = Paint(Paint.FILTER_BITMAP_FLAG)
         private val tint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GLASS }
         private val edge = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GLASS_EDGE; style = Paint.Style.STROKE; strokeWidth = dp(1).toFloat() }
@@ -725,7 +733,7 @@ abstract class Screen : Activity() {
             path.reset()
             path.addRoundRect(RectF(bounds), radius, radius, Path.Direction.CW)
             val d = behind.drawable
-            frosted(d)?.let { f ->
+            frosted(d, keepPrevious)?.let { f ->
                 canvas.save()
                 canvas.clipPath(path)
                 // The blurred art lines up with the sharp art behind: where the host sits on screen, through the same crop.
@@ -757,6 +765,16 @@ abstract class Screen : Activity() {
         setBackgroundColor(PROGRESS_TRACK)
         addView(View(context).apply { setBackgroundColor(color) }, LinearLayout.LayoutParams(0, -1, p))
         addView(View(context), LinearLayout.LayoutParams(0, -1, 1f - p))
+    }
+
+    protected fun timeLeft(duration: Long, position: Long): String? {
+        if (position <= 0 || duration <= position) return null
+        val minutes = (duration - position) / 60_000
+        return when {
+            minutes == 0L -> getString(R.string.time_left_under_minute)
+            minutes >= 60 -> getString(R.string.time_left_hours, minutes / 60, minutes % 60)
+            else -> getString(R.string.time_left_minutes, minutes)
+        }
     }
 
     protected fun isInside(v: View, parent: View): Boolean = generateSequence(v) { it.parent as? View }.any { it === parent }

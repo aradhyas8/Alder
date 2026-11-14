@@ -32,6 +32,7 @@ object Settings {
             if (tag.isEmpty()) android.os.LocaleList.getEmptyLocaleList() else android.os.LocaleList.forLanguageTags(tag)
     }
     fun maxHeight(c: Context) = prefs(c).getInt("maxHeight", 0) // 0: no limit
+    fun displayHeight(c: Context) = prefs(c).getInt("displayHeight", 0) // 0: auto
     fun maxSizeGb(c: Context) = prefs(c).getInt("maxSizeGb", 0) // 0: no limit
     /** "": as the addon orders them, "dv" or "hdr10": that first, "off": plain releases only. */
     fun hdrPref(c: Context): String {
@@ -117,8 +118,10 @@ object Settings {
         prefs(c).edit().putString(key, json.toString()).apply()
     }
     fun alwaysList(c: Context) = prefs(c).getBoolean("alwaysList", false)
+    /** Settings › Source list: true shows each source as its add-on wrote it, in a wider list. */
+    fun addonText(c: Context) = prefs(c).getBoolean("addonText", false)
     fun matchFrameRate(c: Context) = prefs(c).getBoolean("matchFrameRate", true)
-    fun passthrough(c: Context) = prefs(c).getBoolean("passthrough", false)
+    fun decodeAudio(c: Context) = prefs(c).getBoolean("decodeAudio", false)
     /** Settings › Text and poster size, for this TV: 1 is the House Lights size, more makes every screen bigger. */
     fun uiScale(c: Context) = prefs(c).getInt("uiScale", 100).coerceIn(100, 115) / 100f
     /** Settings › Video player: null plays in Alder, else the package of the video app each source goes to. */
@@ -268,6 +271,8 @@ class SettingsActivity : Screen() {
     private val streaming by lazy { listOf(
         Choice("alwaysList", getString(R.string.play_press), getString(R.string.play_press_hint),
             listOf(false to getString(R.string.play_best_source), true to getString(R.string.play_show_sources))),
+        Choice("addonText", getString(R.string.source_list), getString(R.string.source_list_hint),
+            listOf(false to getString(R.string.source_list_clean), true to getString(R.string.source_list_addon))),
         // Alder, then each video app on this TV by its own name.
         Choice("videoPlayer", getString(R.string.video_player), getString(R.string.video_player_hint),
             listOf("" to getString(R.string.video_player_alder)) + ExternalPlayer.installed(this)),
@@ -280,14 +285,16 @@ class SettingsActivity : Screen() {
                 "encode" to getString(R.string.release_encode), "web" to getString(R.string.release_web)), true),
     ) }
     private val pictureAndSound by lazy { listOf(
+        Choice("displayHeight", getString(R.string.display_resolution), getString(R.string.display_resolution_hint),
+            listOf(0 to getString(R.string.streams_auto), 1080 to "1080p", 2160 to "4K")),
         Choice("uiScale", getString(R.string.ui_size), getString(R.string.ui_size_hint),
             // ponytail: two steps; 130% pushed Home's title logo into the top bar on a 1080p TV.
             listOf(100 to getString(R.string.ui_size_normal), 115 to getString(R.string.size_large))),
         Choice("hdrPref", getString(R.string.hdr_choice), getString(R.string.hdr_choice_hint),
             listOf("" to on, "dv" to getString(R.string.hdr_dv_first), "hdr10" to getString(R.string.hdr_hdr10_first), "off" to off)),
         Choice("matchFrameRate", getString(R.string.frame_rate), getString(R.string.frame_rate_hint), onOff()),
-        Choice("passthrough", getString(R.string.audio_output), getString(R.string.audio_output_hint),
-            listOf(false to getString(R.string.audio_tv_speakers), true to getString(R.string.audio_receiver))),
+        Choice("decodeAudio", getString(R.string.audio_output), getString(R.string.audio_output_hint),
+            listOf(false to getString(R.string.streams_auto), true to "PCM")),
         Choice("clearDialogue", getString(R.string.clear_dialogue), getString(R.string.clear_dialogue_setting_hint),
             listOf(false to off, true to on)),
     ) }

@@ -46,7 +46,6 @@
     <string name="tab_my_list">Mi lista</string>
     <string name="nav_profile">Perfil</string>
     <string name="nav_search">Buscar</string>
-    <string name="home_hold_ok">Mantén OK para ver opciones</string>
     <string name="updates_ready">Alder %1$s está listo</string>
     <string name="updates_ready_desc">¿Instalar ahora? Tarda un minuto y tus perfiles y ajustes se conservan.</string>
     <string name="action_later">Más tarde</string>
@@ -57,8 +56,6 @@
     <string name="action_play">Reproducir</string>
     <string name="action_resume">Reanudar</string>
     <string name="new_episode">Nuevo episodio</string>
-    <string name="added_when">Añadido %1$s</string>
-    <string name="added_recently">recientemente</string>
     <string name="stopped_at">Detenido en %1$s</string>
     <string name="time_left_hours">Quedan %1$d h %2$d min</string>
     <string name="time_left_minutes">Quedan %1$d min</string>
@@ -78,10 +75,10 @@
     <string name="list_sort_recent">Añadidos recientemente</string>
     <string name="list_sort_name">A–Z</string>
     <string name="list_sort_unwatched">Sin ver primero</string>
-    <plurals name="list_position">
-        <item quantity="one">Fila %1$d de %2$d  ·  %3$d título</item>
-        <item quantity="many">Fila %1$d de %2$d  ·  %3$d títulos</item>
-        <item quantity="other">Fila %1$d de %2$d  ·  %3$d títulos</item>
+    <plurals name="list_title_count">
+        <item quantity="one">%1$d título</item>
+        <item quantity="many">%1$d títulos</item>
+        <item quantity="other">%1$d títulos</item>
     </plurals>
     <string name="list_empty">Los títulos que guardes con + aparecen aquí</string>
     <string name="list_empty_movies">No hay películas en Mi lista</string>
@@ -108,7 +105,6 @@
     <string name="action_more_info">Más información</string>
     <string name="action_start_over">Empezar de nuevo</string>
     <string name="action_trailer">Tráiler</string>
-    <string name="time_left">Quedan %1$s</string>
     <string name="action_add_to_list">Añadir a Mi lista</string>
     <string name="season_specials">Especiales</string>
     <string name="season_number">Temporada %1$d</string>
@@ -236,6 +232,10 @@
     <string name="play_press_hint">Qué hacen Reproducir y Reanudar. Mantener OK siempre muestra todas las fuentes.</string>
     <string name="play_best_source">La mejor fuente</string>
     <string name="play_show_sources">Mostrar fuentes</string>
+    <string name="source_list">Lista de fuentes</string>
+    <string name="source_list_hint">Cómo se muestra cada fuente. El texto del complemento muestra lo que escribe tu complemento, en una lista más ancha, como en Stremio.</string>
+    <string name="source_list_clean">Limpia</string>
+    <string name="source_list_addon">Como lo escribe el complemento</string>
     <string name="max_quality">Calidad máxima</string>
     <string name="max_quality_hint">Las versiones por encima de esta se omiten al elegir una fuente.</string>
     <string name="no_limit">Sin límite</string>
@@ -254,7 +254,7 @@
     <string name="frame_rate">Ajustar frecuencia de imagen</string>
     <string name="frame_rate_hint">El televisor usa la frecuencia de la película para que los paneos no tiemblen.</string>
     <string name="audio_output">Salida de audio</string>
-    <string name="audio_output_hint">Receptor envía Dolby y DTS sin cambios a una barra de sonido o receptor. Altavoces del TV decodifica el sonido aquí, lo que siempre funciona.</string>
+    <string name="audio_output_hint">Auto envía los formatos compatibles a tu dispositivo de audio. PCM decodifica el sonido en Alder.</string>
     <string name="ui_size">Tamaño de texto y pósteres</string>
     <string name="ui_size_hint">Agranda el texto, los pósteres y los botones en todas las pantallas, para un TV lejos de tu asiento.</string>
     <string name="ui_size_normal">Normal</string>
@@ -263,8 +263,6 @@
     <string name="video_player_alder">Alder</string>
     <string name="player_other_app">Se reproduce en otra app. Pulsa Atrás allí para volver.</string>
     <string name="player_no_other_app">No hay otro reproductor de video en este TV. Alder reproduce el video.</string>
-    <string name="audio_tv_speakers">Altavoces del TV</string>
-    <string name="audio_receiver">Receptor</string>
     <string name="clear_dialogue_setting_hint">Realza las voces sobre la música y los efectos fuertes con los altavoces del TV.</string>
     <string name="dubbed">Versiones dobladas</string>
     <string name="dubbed_hint">Original primero pone al final las versiones dobladas; Mi idioma primero usa el idioma de audio de este perfil.</string>
@@ -546,4 +544,9 @@
     <string name="profiles_watchly_steps">"1.  Escanea con el teléfono de %1$s para abrir Watchly\n2.  Conecta allí la cuenta de Stremio de %1$s\n3.  Instálalo en la cuenta de Stremio de %1$s\n\nLas recomendaciones de %1$s aparecerán en Inicio. Puedes terminar esto más tarde."</string>
     <string name="profiles_all_set">Todo listo</string>
     <string name="profiles_ready">El perfil de %1$s está listo. Puedes añadir más complementos después en Configuración.</string>
+    <string name="time_left_under_minute">Queda menos de 1 min</string>
+    <string name="catalog_jump_to">Ir a</string>
+    <string name="catalog_jump_top">Inicio</string>
+    <string name="display_resolution">Resolución de pantalla</string>
+    <string name="display_resolution_hint">Elige la resolución del televisor que Alder usa para seleccionar una fuente. Elige 4K si tu dispositivo indica 1080p pero emite en 4K.</string>
 </resources>

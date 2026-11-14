@@ -19,6 +19,8 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 
 ### New
 <!-- Spotlight -->
+- **P2P sources.** Alder can play torrents from your add-ons without a debrid account. Sources with the **P2P** label are at the end of the source list. When no other source plays, Alder tries a P2P source. Seek, pause and Back work as with other sources. P2P sources are available on Android 7 and later.
+<!-- Spotlight -->
 - **Bigger text and posters.** Select **Settings → Picture & Sound → Text and poster size → Large**. Text, posters, buttons and panels get bigger on every screen. Rows show fewer posters, and Home shows the story only on the title page.
 - **Play in another app.** Select **Settings → Streams → Video player**, then select a video app on your TV, for example VLC or Just Player. Alder opens that app when you select **Play**. Alder still selects the source, the resume point and the subtitle. When you press Back in the other app, Alder saves where you stopped. If you remove that app, Android asks which app to use.
 <!-- Spotlight -->
@@ -34,6 +36,21 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 
 ### Easier to use
 - **Choose your tabs.** Select **Settings → Profile → Tabs**. Select a tab to show it, hide it or move it left or right. This includes the tabs of add-ons, for example **Trakt**. A hidden tab keeps its add-on installed. **Home** is always the first tab. Each profile has its own tabs. **Tabs** replaces the **Movies tab**, **Shows tab** and **Live tab** settings and keeps your choices.
+- **Faster Home.** Alder shows saved rows while it gets new data. When add-ons change, focus returns to the same title if it is still available.
+- **My List.** Two full rows of posters show at once. Move down to see more titles. The title shows while Alder gets the poster.
+- The filters, sort menu and title count show above the posters.
+- **My List art.** A dark picture of the selected title shows behind the posters.
+- Empty poster slots have a dark background while Alder gets the images.
+- Alder asks for confirmation before it removes a title from **My List**.
+- **Movies.** Select a genre in **Jump to** to go to its shelf. Select **Top** to go to the first shelf.
+- **Movies posters.** A short line marks the selected poster. Alder shows the title while it gets the poster.
+- **Shows.** Select a genre in **Jump to** to go to its shelf. Select **Top** to go to the first shelf.
+- **Shows posters.** The posters are brighter. A short line marks the selected poster. Alder shows the title while it gets the poster.
+- **Continue Watching.** The shelf shows the time left and a progress bar below the selected poster.
+- **Home.** A short line marks the selected poster. Shelf names are larger. Posters fade at the right edge until you reach the last title.
+- The top bar and story text are easier to read over bright art.
+- **Source list as your add-on writes it.** Select **Settings → Streams → Source list → As the add-on writes it**. The source list gets wider and shows the text of each add-on, as Stremio does. If you set a format in AIOStreams, you see that format. **Clean** keeps the short rows of Alder.
+- **More facts in the source list.** The source list shows the size of more sources, the audio as format and channels (for example **DD+ 5.1**), and the number of seeders for P2P sources (**👤 52**). **⏳** after a debrid service shows that the service must download the source before it plays. Below the list, Alder shows the full text that the add-on wrote for the selected source.
 - **Change stream keeps your video.** When you select **Change stream**, the video stops and stays behind the source list. Press Back to continue from the same picture without a new load. Select a different source to play it from the same second.
 <!-- Spotlight -->
 - **Smooth motion.** Screens fade and settle when they open and close. When you select **Play**, the screen dims to black and the video fades up. A title page opens with its picture moving slowly into place. Focus settles with a small bounce. Panels open fast and close faster. To turn off motion, set the TV to **Remove animations** in its accessibility settings.
@@ -44,6 +61,13 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 
 ### Fixes
 - **Top bar tabs.** Add-on tab names align with the other tabs and use the correct color as soon as they show. **Search** uses your tab choices. You can change the **Shows**, **Movies** and **My List** tabs when Alder cannot get the add-on list. **Tabs** shows changes to your add-ons.
+- **Lossless audio.** Alder sends TrueHD and DTS-HD to a compatible receiver in **Auto**. If passthrough fails, Alder tries the same track as PCM.
+- **Movies art.** The title and art change together when you stop on a poster.
+- **Shows art.** The title and art change together when you stop on a poster.
+- **Home art.** The title and art change together when you stop on a poster. Pictures that are ready fade directly into each other. Alder shows episode numbers when they are available.
+- **Resume.** **Continue Watching** and the title page use the same resume point. The title page shows where you stopped.
+- **4K source selection.** If Alder selects 1080p on a 4K TV, select **4K** under **Picture & Sound → Display resolution**. With **Best picture**, Alder gives 4K priority when the other preferences are equal.
+- The caption moves with the selected card when you press Left or Right.
 - **Profile PIN.** Another app cannot open a profile that has a PIN. Alder asks for the PIN first.
 - **Sign-in and backups.** Android does not copy profiles, sign-ins and PINs to a new TV.
 - **Watch progress.** **My List** and the watched marks do not erase your progress from other devices. Alder gets your Stremio library first, then saves the change.
