@@ -12,6 +12,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.net.URI
+import java.net.URLDecoder
 import java.net.URLEncoder
 import java.util.concurrent.Executors
 
@@ -64,6 +65,7 @@ class TorrentSource private constructor(val infoHash: String, val fileIndex: Int
 
     companion object {
         private val hashFormat = Regex("[0-9a-fA-F]{40}")
+        private const val BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
 
         // One thread for every engine start and stop, in order: two engines must never share the cache at once.
         private val engineThread = Executors.newSingleThreadExecutor()
@@ -77,11 +79,27 @@ class TorrentSource private constructor(val infoHash: String, val fileIndex: Int
             "udp://tracker.torrent.eu.org:451/announce",
         )
 
+        fun isTorrentUrl(url: String) = url.startsWith("magnet:", ignoreCase = true) ||
+            url.startsWith("torrent:", ignoreCase = true)
+
         fun from(json: JSONObject): TorrentSource? {
-            val hash = json.text("infoHash")?.takeIf(hashFormat::matches) ?: return null
+            val uri = json.text("url")?.takeIf(::isTorrentUrl)?.let {
+                runCatching { URI(it) }.getOrNull()
+            }
+            val magnetParams = uri?.takeIf { it.scheme.equals("magnet", ignoreCase = true) }
+                ?.rawSchemeSpecificPart?.takeIf { it.startsWith('?') }?.drop(1)?.split('&').orEmpty()
+            fun magnetValues(key: String) = magnetParams.asSequence().filter { it.startsWith("$key=") }
+                .mapNotNull { runCatching { URLDecoder.decode(it.substringAfter('='), "UTF-8") }.getOrNull() }
+            val btih = "urn:btih:"
+            val magnetHash = magnetValues("xt").filter { it.startsWith(btih, ignoreCase = true) }
+                .firstNotNullOfOrNull { magnetInfoHash(it.drop(btih.length)) }
+            val torrentHash = uri?.takeIf { it.scheme.equals("torrent", ignoreCase = true) }
+                ?.rawAuthority?.takeIf(hashFormat::matches)
+            val hash = json.text("infoHash")?.takeIf(hashFormat::matches) ?: magnetHash ?: torrentHash ?: return null
             val index = json.text("fileIdx")?.let { it.toIntOrNull()?.takeIf { i -> i >= 0 } ?: return null }
-            val trackers = json.optJSONArray("sources").items().asSequence().filterIsInstance<String>()
+            val addonTrackers = json.optJSONArray("sources").strings().asSequence()
                 .filter { it.startsWith("tracker:") }.map { it.removePrefix("tracker:") }
+            val trackers = (magnetValues("tr") + addonTrackers)
                 .filter { tracker ->
                     tracker.length <= 512 && runCatching {
                         val uri = URI(tracker)
@@ -89,6 +107,17 @@ class TorrentSource private constructor(val infoHash: String, val fileIndex: Int
                     }.getOrDefault(false)
                 }.distinct().take(16).toList()
             return TorrentSource(hash.lowercase(), index, trackers)
+        }
+
+        private fun magnetInfoHash(hash: String): String? {
+            if (hashFormat.matches(hash)) return hash
+            val base32 = hash.uppercase()
+            if (base32.length != 32 || base32.any { it !in BASE32 }) return null
+            // Eight base32 digits encode five bytes, which are ten hex digits.
+            return base32.chunked(8).joinToString("") { digits ->
+                digits.fold(0L) { value, digit -> (value shl 5) or BASE32.indexOf(digit).toLong() }
+                    .toString(16).padStart(10, '0')
+            }
         }
     }
 }

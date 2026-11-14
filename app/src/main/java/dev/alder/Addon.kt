@@ -164,12 +164,13 @@ class Addon(val descriptor: JSONObject) {
         }
         val playable = all.mapNotNull { Stream.from(it, allowTorrents) }
         return Streams(playable,
-            all.count { it.text("url") == null && it.text("infoHash") != null } - playable.count { it.torrent != null },
+            all.count { stream -> stream.text("url")?.let(TorrentSource::isTorrentUrl) ?: (stream.text("infoHash") != null) } -
+                playable.count { it.torrent != null },
             all.count { it.text("url") == null && it.text("infoHash") == null && (it.text("externalUrl") ?: it.text("ytId")) != null })
     }
 
     /**
-     * What Alder can't play, counted to say why: [torrents], a torrent with no debrid link (an infoHash, no url), and
+     * What Alder can't play, counted to say why: [torrents], a torrent with no debrid link, and
      * [links], a page for a browser or a YouTube video (externalUrl, ytId).
      */
     class Streams(val playable: List<Stream>, val torrents: Int, val links: Int)
@@ -442,7 +443,7 @@ class Stream(
 
     companion object {
         fun from(json: JSONObject, allowTorrents: Boolean = false): Stream? {
-            val url = json.text("url")
+            val url = json.text("url")?.takeUnless(TorrentSource::isTorrentUrl)
             val torrent = if (url == null && allowTorrents) TorrentSource.from(json) else null
             if (url == null && torrent == null) return null
             val hints = json.optJSONObject("behaviorHints")

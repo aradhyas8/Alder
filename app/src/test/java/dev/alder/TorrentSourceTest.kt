@@ -31,4 +31,32 @@ class TorrentSourceTest {
         assertEquals("https://example.org/video", stream.url)
         assertTrue(stream.opensAtOnce)
     }
+
+    @Test fun torrentUrlsUseTheP2pPlayerAndKeepTheFileIndex() {
+        val urls = listOf("torrent://${hash.uppercase()}",
+            "MAGNET:?xt=urn%3Abtih%3A$hash&tr=https%3A%2F%2Ftracker.example%2Fannounce%3Fa%3D1%26b%3D2")
+        for (url in urls) {
+            val json = JSONObject().put("url", url).put("fileIdx", 2)
+            assertNull(Stream.from(json))
+
+            val stream = requireNotNull(Stream.from(json, allowTorrents = true))
+            assertFalse(stream.opensAtOnce)
+            val torrent = requireNotNull(Stream.read(stream.toJson()).torrent)
+            assertEquals(hash, torrent.infoHash)
+            assertEquals(2, torrent.fileIndex)
+            if (url.startsWith("MAGNET")) {
+                assertTrue(torrent.magnet.contains("&tr=https%3A%2F%2Ftracker.example%2Fannounce%3Fa%3D1%26b%3D2&tr="))
+            }
+        }
+    }
+
+    @Test fun magnetSupportsBase32AndRejectsInvalidTorrentUrls() {
+        val base32 = "AAAQEAYEAUDAOCAJBIFQYDIOB4IBCEQT"
+        val stream = Stream.from(JSONObject().put("url", "magnet:?xt=urn:btih:$base32"), allowTorrents = true)
+        assertEquals("000102030405060708090a0b0c0d0e0f10111213", stream?.torrent?.infoHash)
+        for (url in listOf("torrent://invalid", "magnet:?xt=urn:btih:%zz",
+            "magnet:?xt=urn:btih:extra:$hash", "magnet:?tr=https://tracker.example")) {
+            assertNull(Stream.from(JSONObject().put("url", url), allowTorrents = true))
+        }
+    }
 }
