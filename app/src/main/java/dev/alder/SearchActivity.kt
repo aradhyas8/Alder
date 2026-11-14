@@ -66,6 +66,8 @@ class SearchActivity : Screen() {
     private lateinit var heroTag: TextView
     private lateinit var heroScore: TextView
     private lateinit var keyboard: LinearLayout
+    private lateinit var nav: LinearLayout
+    private var navTabIds = emptyList<String>()
     private val characterKeys = mutableListOf<TextView>()
     private val rightEdgeKeys = mutableSetOf<View>()
     private val cards = mutableListOf<Pair<View, View>>()
@@ -240,6 +242,11 @@ class SearchActivity : Screen() {
         cursor.translationX = input.paddingStart + input.paint.measureText(input.text.toString())
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (::nav.isInitialized) updateNavTabs()
+    }
+
     private fun header(): View {
         val profile = Profiles.active(this)
         val bar = FrameLayout(this).apply { setPadding(dp(48), 0, dp(48), 0) }
@@ -260,7 +267,7 @@ class SearchActivity : Screen() {
             }
         }
         bar.addView(avatar, FrameLayout.LayoutParams(dp(30), dp(30), Gravity.START or Gravity.CENTER_VERTICAL))
-        val nav = LinearLayout(this).apply {
+        nav = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(4), dp(4), dp(4), dp(4))
         }
@@ -277,9 +284,35 @@ class SearchActivity : Screen() {
             setOnClickListener { input.requestFocus() }
         }
         nav.addView(searchTab, LinearLayout.LayoutParams(dp(44), dp(30)))
+        updateNavTabs()
+        nav.background = glassOver(nav, 20, shade = FROST_READING)
+        bar.addView(nav, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+        bar.addView(TextClock(this).apply {
+            format12Hour = "h:mm a"
+            format24Hour = "HH:mm"
+            textSize = SMALL
+            setTextColor(TEXT_2)
+            typeface = text("", SMALL).typeface
+        }, FrameLayout.LayoutParams(-2, -2, Gravity.END or Gravity.CENTER_VERTICAL))
+        return bar
+    }
+
+    private fun updateNavTabs() {
         // The page goes to MainActivity by its English name; the bar shows it in the viewer's language.
-        listOf("Home" to R.string.tab_home, "Shows" to R.string.tab_shows, "Movies" to R.string.tab_movies,
-            "My List" to R.string.tab_my_list).forEach { (page, words) ->
+        val pages = mapOf(
+            "home" to ("Home" to R.string.tab_home),
+            "shows" to ("Shows" to R.string.tab_shows),
+            "movies" to ("Movies" to R.string.tab_movies),
+            "library" to ("My List" to R.string.tab_my_list),
+        )
+        val visible = orderTabs(Settings.tabOrder(this), tabsFor(emptyList())).filter { Settings.tabShown(this, it) }
+        val ids = listOf("home") + visible
+        if (ids == navTabIds) return
+        val focusedId = nav.focusedChild?.let { navTabIds.getOrNull(nav.indexOfChild(it) - 1) }
+        navTabIds = ids
+        nav.removeViews(1, nav.childCount - 1)
+        ids.forEach { id ->
+            val (page, words) = pages.getValue(id)
             nav.addView(text(words, BODY, color = TEXT_2).apply {
                 gravity = Gravity.CENTER
                 setPadding(dp(12), 0, dp(12), 0)
@@ -296,16 +329,7 @@ class SearchActivity : Screen() {
                 }
             }, LinearLayout.LayoutParams(-2, dp(30)).apply { marginStart = dp(4) })
         }
-        nav.background = glassOver(nav, 20, shade = FROST_READING)
-        bar.addView(nav, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
-        bar.addView(TextClock(this).apply {
-            format12Hour = "h:mm a"
-            format24Hour = "HH:mm"
-            textSize = SMALL
-            setTextColor(TEXT_2)
-            typeface = text("", SMALL).typeface
-        }, FrameLayout.LayoutParams(-2, -2, Gravity.END or Gravity.CENTER_VERTICAL))
-        return bar
+        if (focusedId != null) nav.getChildAt(ids.indexOf(focusedId) + 1).requestFocus()
     }
 
     private fun buildKeyboard() {

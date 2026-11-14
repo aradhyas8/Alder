@@ -1,6 +1,7 @@
 package dev.alder
 
 import android.animation.ValueAnimator
+import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -518,9 +519,9 @@ class MainActivity : Screen() {
         }
         val initialPage = Page.find(intent.getStringExtra("page"))
             ?: when (Settings.startTab(this)) {
-                "movies" -> if (Settings.showMovies(this)) Page.MOVIES else Page.HOME
-                "shows" -> if (Settings.showShows(this)) Page.SHOWS else Page.HOME
-                "library" -> Page.LIBRARY
+                "movies" -> if (Settings.tabShown(this, "movies")) Page.MOVIES else Page.HOME
+                "shows" -> if (Settings.tabShown(this, "shows")) Page.SHOWS else Page.HOME
+                "library" -> if (Settings.tabShown(this, "library")) Page.LIBRARY else Page.HOME
                 else -> Page.HOME
             }
         showPage(initialPage)
@@ -609,9 +610,6 @@ class MainActivity : Screen() {
     }) {}
 
     private var lastFeaturedHome = false
-    private var lastShowMovies = true
-    private var lastShowShows = true
-    private var lastShowLive = true
     private var lastHiddenRows: Set<String> = emptySet()
 
     // Back from a title or the player: Continue Watching may have moved on, so this asks Stremio, not the disk. Only
@@ -619,17 +617,11 @@ class MainActivity : Screen() {
     override fun onRestart() {
         super.onRestart()
         val featured = Settings.featuredHome(this)
-        val showMovies = Settings.showMovies(this)
-        val showShows = Settings.showShows(this)
-        val showLive = Settings.showLive(this)
         val hiddenRows = Settings.hiddenRows(this)
         val hiddenRowsChanged = hiddenRows != lastHiddenRows
         lastHiddenRows = hiddenRows
-        lastShowMovies = showMovies
-        lastShowShows = showShows
-        lastShowLive = showLive
-        applyNavVisibility()
-        if ((page == Page.MOVIES && !showMovies) || (page == Page.SHOWS && !showShows) || (page == Page.LIVE && !showLive)) {
+        arrangeTabs()
+        if (page != Page.HOME && !Settings.tabShown(this, page.tabId)) { // its tab was hidden in Settings › Tabs
             showPage(Page.HOME)
             return
         }
@@ -846,14 +838,9 @@ class MainActivity : Screen() {
             setOnClickListener { startActivity(Intent(this@MainActivity, SearchActivity::class.java)) }
         }.inNav(width = dp(44), height = -1)
         // A page opens as soon as the remote rests on its name. OK on Shows or Movies goes to its genres. Live shows only
-        // once the profile's add-ons have a live catalog ([showLiveTab]).
-        Page.fixed.forEach { p ->
-            navItem(p).inNav().apply {
-                if (p == Page.LIVE) visibility = View.GONE
-                if (p == Page.MOVIES && !Settings.showMovies(this@MainActivity)) visibility = View.GONE
-                if (p == Page.SHOWS && !Settings.showShows(this@MainActivity)) visibility = View.GONE
-            }
-        }
+        // once the profile's add-ons have a live catalog; order and hidden tabs come from Settings › Tabs ([arrangeTabs]).
+        Page.fixed.forEach { p -> navItem(p).inNav() }
+        arrangeTabs()
         nav.background = glassOver(nav, NAV_R + 4, shade = 0.22f, keepPrevious = false)
         header.addView(avatarBox, FrameLayout.LayoutParams(dp(30), dp(30), Gravity.START or Gravity.CENTER_VERTICAL))
         header.addView(nav, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
@@ -893,36 +880,48 @@ class MainActivity : Screen() {
         }
     }
 
-    private fun pageName(p: Page) = when (val t = p.type) {
-        null -> getString(p.words)
-        "anime" -> getString(R.string.tab_anime)
-        else -> t.replaceFirstChar { it.uppercase() }
+    private fun pageName(p: Page) = p.type?.let { typeTabName(this, it) } ?: getString(p.words)
+
+    /** The page's id in Settings › Tabs ([tabsFor]). */
+    private val Page.tabId get() = when (this) {
+        Page.SHOWS -> "shows"
+        Page.MOVIES -> "movies"
+        Page.LIVE -> "live"
+        Page.LIBRARY -> "library"
+        else -> type?.let { "type:$it" } ?: "home"
     }
 
-    /** A page for each other catalog type the add-ons list (Anime, Channel...), before My List; gone when none is left. */
-    private fun showTypeTabs() {
-        val types = extraPageTypes(lastAddons.flatMap { a -> a.catalogs.map { it.type } })
-        types.map(Page::of).filter { it !in navItems }.forEach { p ->
-            navBar.addView(navItem(p).apply { isFocusable = true }, navBar.indexOfChild(navItems[Page.LIBRARY]),
-                LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(NAV_GAP) })
+    /**
+     * The tabs after Home as this profile arranged them in Settings › Tabs, hidden ones gone. Live, and a page for each
+     * other catalog type (Anime, Trakt…), are there only while the add-ons list such catalogs. The open page keeps its tab.
+     */
+    private fun arrangeTabs() {
+        val types = lastAddons.flatMap { a -> a.catalogs.map { it.type } }
+        val added = extraPageTypes(types).map(Page::of).filter { it !in navItems }
+        added.forEach { p ->
+            navBar.addView(navItem(p).apply { isFocusable = true }, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(NAV_GAP) })
         }
-        navItems.forEach { (p, item) -> if (p.type != null) item.visibility = if (p.type in types || p == page) View.VISIBLE else View.GONE }
+        // A tab added once the add-ons answer gets the others' colour and empty dot too; without the dot it sat lower.
+        if (added.isNotEmpty()) styleNav()
+        val order = orderTabs(Settings.tabOrder(this), tabsFor(types))
+        var at = navBar.indexOfChild(navItems[Page.HOME]) + 1
+        order.mapNotNull { id -> navItems.entries.firstOrNull { it.key.tabId == id }?.value }.forEach { item ->
+            if (navBar.indexOfChild(item) != at) {
+                val focused = item.isFocused
+                navBar.removeView(item)
+                navBar.addView(item, at)
+                if (focused) item.requestFocus()
+            }
+            at++
+        }
+        navItems.forEach { (p, item) ->
+            if (p != Page.HOME) item.visibility = if ((p.tabId in order && Settings.tabShown(this, p.tabId)) || p == page) View.VISIBLE else View.GONE
+        }
     }
 
-    /** Live in the top bar only for a profile whose add-ons list channels, sport or events, and if allowed in Settings. */
     private fun showLiveTab(addons: List<Addon>) {
         lastAddons = addons
-        val live = addons.any { a -> a.catalogs.any { shelf(it)?.page == Page.LIVE } }
-        navItems[Page.LIVE]?.visibility = if ((live && Settings.showLive(this)) || page == Page.LIVE) View.VISIBLE else View.GONE
-        showTypeTabs()
-    }
-
-    private fun applyNavVisibility() {
-        navItems[Page.MOVIES]?.visibility = if (Settings.showMovies(this) || page == Page.MOVIES) View.VISIBLE else View.GONE
-        navItems[Page.SHOWS]?.visibility = if (Settings.showShows(this) || page == Page.SHOWS) View.VISIBLE else View.GONE
-        val live = lastAddons.any { a -> a.catalogs.any { shelf(it)?.page == Page.LIVE } }
-        navItems[Page.LIVE]?.visibility = if ((live && Settings.showLive(this)) || page == Page.LIVE) View.VISIBLE else View.GONE
-        showTypeTabs()
+        arrangeTabs()
     }
 
     private var pending = Page.HOME
@@ -1441,7 +1440,7 @@ class MainActivity : Screen() {
         main.removeCallbacks(heroTop)
         refreshLibrary = null
         touched = false
-        applyNavVisibility()
+        arrangeTabs()
         styleNav()
         content.removeAllViews()
         rows.forEach { r -> r.cards.forEach { it.unload() } }
@@ -2845,6 +2844,38 @@ class MainActivity : Screen() {
         const val ADVANCE = 20_000L // ms each cinema title shows
         const val REVEAL_WAIT = 1200L // ms the cinema waits for a title's art and logo before showing its words anyway
     }
+}
+
+/** A catalog type's tab name: Anime in the viewer's language, any other type as the add-on writes it. */
+internal fun typeTabName(c: Context, type: String) =
+    if (type == "anime") c.getString(R.string.tab_anime) else type.replaceFirstChar { it.uppercase() }
+
+/**
+ * The tabs after Home, in Alder's own order, for add-ons that list catalogs of these [types]: Shows and Movies always,
+ * Live for channels, sport or events, one "type:<type>" per other type ([extraPageTypes]), then My List ("library").
+ */
+internal fun tabsFor(types: List<String>): List<String> =
+    listOf("shows", "movies") + listOfNotNull("live".takeIf { types.any(::isLiveType) }) +
+        extraPageTypes(types).map { "type:$it" } + "library"
+
+/**
+ * [available] tabs in the order the viewer [saved] in Settings › Tabs. One they never placed (a new add-on's) goes next
+ * to the tab it follows in [available]; a saved one that's gone (its add-on removed) is left out.
+ */
+internal fun orderTabs(saved: List<String>, available: List<String>): List<String> {
+    val out = saved.filter { it in available }.distinct().toMutableList()
+    available.forEachIndexed { i, id ->
+        if (id in out) return@forEachIndexed
+        val after = available.take(i).lastOrNull { it in out }
+        out.add(if (after == null) 0 else out.indexOf(after) + 1, id)
+    }
+    return out
+}
+
+/** Keep the saved places of add-on tabs that are unavailable in the current menu. */
+internal fun saveTabOrder(saved: List<String>, reordered: List<String>): List<String> {
+    val remaining = reordered.iterator()
+    return saved.distinct().map { if (it in reordered) remaining.next() else it } + remaining.asSequence().toList()
 }
 
 /**

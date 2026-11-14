@@ -35,6 +35,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - **Send report.** When Alder stops, it saves the error on your TV. The next time Home opens, Alder asks to send a report. Select **Send report** or **No**. The report has the error, the Alder version and the TV model. It does not have your account details. To send it later, select **Settings → About → Send report**.
 
 ### Easier to use
+- **Choose your tabs.** Select **Settings → Profile → Tabs**. Select a tab to show it, hide it or move it left or right. This includes the tabs of add-ons, for example **Trakt**. A hidden tab keeps its add-on installed. **Home** is always the first tab. Each profile has its own tabs. **Tabs** replaces the **Movies tab**, **Shows tab** and **Live tab** settings and keeps your choices.
 - **Faster Home.** Alder shows saved rows while it gets new data. When add-ons change, focus returns to the same title if it is still available.
 - **My List.** Two full rows of posters show at once. Move down to see more titles. The title shows while Alder gets the poster.
 - The filters, sort menu and title count show above the posters.
@@ -59,6 +60,7 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - The README has a **Website** badge and a **Downloads** badge with the total number of GitHub release downloads.
 
 ### Fixes
+- **Top bar tabs.** Add-on tab names align with the other tabs and use the correct color as soon as they show. **Search** uses your tab choices. You can change the **Shows**, **Movies** and **My List** tabs when Alder cannot get the add-on list. **Tabs** shows changes to your add-ons.
 - **Lossless audio.** Alder sends TrueHD and DTS-HD to a compatible receiver in **Auto**. If passthrough fails, Alder tries the same track as PCM.
 - **Movies art.** The title and art change together when you stop on a poster.
 - **Shows art.** The title and art change together when you stop on a poster.

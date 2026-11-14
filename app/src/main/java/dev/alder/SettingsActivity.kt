@@ -66,9 +66,21 @@ object Settings {
         prefs(c).edit().putStringSet(profileKey(c, "hiddenRows"), current).apply()
     }
     fun startTab(c: Context) = prefs(c).getString(profileKey(c, "startTab"), "home").orEmpty()
-    fun showMovies(c: Context) = prefs(c).getBoolean(profileKey(c, "showMovies"), true)
-    fun showShows(c: Context) = prefs(c).getBoolean(profileKey(c, "showShows"), true)
-    fun showLive(c: Context) = prefs(c).getBoolean(profileKey(c, "showLive"), true)
+    /** Whether a tab after Home shows in the top bar, by its id in [tabsFor]; hiding an add-on's tab keeps the add-on. */
+    fun tabShown(c: Context, id: String) = prefs(c).getBoolean(profileKey(c, tabKey(id)), true)
+    fun setTabShown(c: Context, id: String, shown: Boolean) = prefs(c).edit().putBoolean(profileKey(c, tabKey(id)), shown).apply()
+    // Movies, Shows and Live keep the keys of the switches they had before Settings › Tabs, so those choices carry over.
+    private fun tabKey(id: String) = when (id) {
+        "movies" -> "showMovies"
+        "shows" -> "showShows"
+        "live" -> "showLive"
+        "library" -> "showLibrary"
+        else -> "showTab:" + id.removePrefix("type:")
+    }
+    /** The tabs after Home in this profile's order ([orderTabs] fills in the ones it never placed). */
+    fun tabOrder(c: Context): List<String> =
+        runCatching { org.json.JSONArray(prefs(c).getString(profileKey(c, "tabOrder"), "[]")).strings() }.getOrDefault(emptyList())
+    fun setTabOrder(c: Context, ids: List<String>) = prefs(c).edit().putString(profileKey(c, "tabOrder"), org.json.JSONArray(ids).toString()).apply()
     fun featuredHome(c: Context) = prefs(c).getBoolean(profileKey(c, "featuredHome"), false)
     /** "imdb", "letterboxd" or "both"; Letterboxd needs [mdblistKey] and covers films only. */
     fun ratings(c: Context) = prefs(c).getString("ratings", "imdb").orEmpty().ifEmpty { "imdb" }
@@ -79,8 +91,8 @@ object Settings {
         type == "movie" && id.startsWith("tt") && ratings(c) != "imdb" && mdblistKey(c).isNotEmpty()
     /** A removed profile's taste goes with it, so a new profile in its place starts with none. */
     fun forget(c: Context, profileId: String) = prefs(c).edit().apply {
-        listOf("release", "dub", "audioLang", "subLang", "hidden", "blurThumbnails", "hiddenRows", "startTab", "showMovies", "showShows", "showLive", "featuredHome", "recentSubLangs", "recentAudioLangs").forEach { remove("$it@$profileId") }
-        prefs(c).all.keys.filter { it.startsWith("title:") && it.endsWith("@$profileId") }.forEach(::remove)
+        listOf("release", "dub", "audioLang", "subLang", "hidden", "blurThumbnails", "hiddenRows", "startTab", "showMovies", "showShows", "showLive", "showLibrary", "tabOrder", "featuredHome", "recentSubLangs", "recentAudioLangs").forEach { remove("$it@$profileId") }
+        prefs(c).all.keys.filter { (it.startsWith("title:") || it.startsWith("showTab:")) && it.endsWith("@$profileId") }.forEach(::remove)
     }.apply()
 
     /**
@@ -583,9 +595,11 @@ class SettingsActivity : Screen() {
                 choiceRow(Choice("startTab", getString(R.string.default_tab), getString(R.string.default_tab_hint),
                     listOf("home" to getString(R.string.tab_home), "movies" to getString(R.string.tab_movies),
                         "shows" to getString(R.string.tab_shows), "library" to getString(R.string.tab_my_list)), perProfile = true))
-                choiceRow(Choice("showMovies", getString(R.string.movies_tab), getString(R.string.movies_tab_hint), onOff(), perProfile = true))
-                choiceRow(Choice("showShows", getString(R.string.shows_tab), getString(R.string.shows_tab_hint), onOff(), perProfile = true))
-                choiceRow(Choice("showLive", getString(R.string.live_tab), getString(R.string.live_tab_hint), onOff(), perProfile = true))
+                lateinit var tabsValue: TextView
+                tabsValue = actionRow(getString(R.string.tabs), "…", getString(R.string.tabs_hint), perProfile = true) {
+                    tabsMenu { tabs -> tabsValue.text = tabsSummary(tabs) + "  ›" }
+                }
+                withTabs { tabs -> tabsValue.text = tabsSummary(tabs) + "  ›" }
                 choiceRow(Choice("featuredHome", getString(R.string.featured_home), getString(R.string.featured_home_hint),
                     listOf(false to off, true to on), perProfile = true))
                 choiceRow(Choice("blurThumbnails", getString(R.string.blur_thumbnails), getString(R.string.blur_thumbnails_hint),
@@ -689,6 +703,53 @@ class SettingsActivity : Screen() {
         }
     }
 
+    /** This profile's tabs after Home, in its order; its add-ons say whether Live and their own tabs (Trakt…) exist. */
+    private fun withTabs(then: (List<String>) -> Unit) {
+        val key = authKey ?: return
+        background({
+            val addons = runCatching { Stremio.addons(key) }.getOrElse { Stremio.savedAddons(key).orEmpty() }
+            tabsFor(addons.flatMap { a -> a.catalogs.map { it.type } })
+        }) { result ->
+            then(orderTabs(Settings.tabOrder(this), result.getOrElse { tabsFor(emptyList()) }))
+        }
+    }
+
+    private fun tabsSummary(tabs: List<String>) = getString(R.string.tabs_count, tabs.count { Settings.tabShown(this, it) }, tabs.size)
+
+    private fun tabName(id: String) = when (id) {
+        "shows" -> getString(R.string.tab_shows)
+        "movies" -> getString(R.string.tab_movies)
+        "live" -> getString(R.string.tab_live)
+        "library" -> getString(R.string.tab_my_list)
+        else -> typeTabName(this, id.removePrefix("type:"))
+    }
+
+    /**
+     * Settings › Tabs: the tabs after Home, left to right as in the top bar. OK on one shows or hides it, or moves it a
+     * place; the list then opens again on that tab, so moving it several places is OK, OK, OK.
+     */
+    private fun tabsMenu(focus: Int = 0, done: (List<String>) -> Unit): Unit = withTabs { tabs ->
+        choose(getString(R.string.tabs), tabs.map { "${tabName(it)}  ·  ${if (Settings.tabShown(this, it)) on else off}" },
+            getString(R.string.tabs_desc), focus = focus.coerceIn(0, tabs.lastIndex)) { i ->
+            val id = tabs[i]
+            val shown = Settings.tabShown(this, id)
+            fun move(to: Int) {
+                val reordered = tabs.toMutableList().apply { add(to, removeAt(i)) }
+                Settings.setTabOrder(this, saveTabOrder(Settings.tabOrder(this), reordered))
+            }
+            val actions = listOfNotNull(
+                getString(if (shown) R.string.tab_hide else R.string.tab_show) to { Settings.setTabShown(this, id, !shown); i },
+                if (i > 0) getString(R.string.tab_move_left) to { move(i - 1); i - 1 } else null,
+                if (i < tabs.lastIndex) getString(R.string.tab_move_right) to { move(i + 1); i + 1 } else null,
+            )
+            choose(tabName(id), actions.map { it.first }) { a ->
+                val at = actions[a].second()
+                withTabs(done)
+                tabsMenu(at, done)
+            }
+        }
+    }
+
     /** The catalog rows hidden from home, movies or shows; OK on one puts it back. */
     private fun unhideRowsMenu(done: () -> Unit) {
         val all = Settings.hiddenRows(this).toList().sorted()
@@ -699,9 +760,9 @@ class SettingsActivity : Screen() {
         }
     }
 
-    private fun actionRow(label: String, value: String, help: String, click: () -> Unit): TextView {
+    private fun actionRow(label: String, value: String, help: String, perProfile: Boolean = false, click: () -> Unit): TextView {
         val display = text(if (value.isEmpty()) "›" else "$value  ›", BODY, color = TEXT_2)
-        settingRow(label, display, help, focus = { display.setTextColor(if (it) TUNGSTEN else TEXT_2) }, click = click)
+        settingRow(label, display, help, perProfile, focus = { display.setTextColor(if (it) TUNGSTEN else TEXT_2) }, click = click)
         return display
     }
 
