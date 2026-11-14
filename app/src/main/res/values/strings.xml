@@ -355,9 +355,9 @@
     <string name="updates_up_to_date">Up to date</string>
     <string name="report_send">Send report</string>
     <string name="report_no">No</string>
-    <string name="report_send_hint">Sends the error from the last time Alder stopped, with the Alder version and the TV model. It has no account details.</string>
+    <string name="report_send_hint">Sends the last crash, recent error types and retry results, the Alder version, and the TV model. It has no account details.</string>
     <string name="report_crashed_title">Alder stopped last time</string>
-    <string name="report_crashed_desc">Send a report to help fix it? It has the error and the TV model, not your account.</string>
+    <string name="report_crashed_desc">Send a report to help fix it? It includes the crash, recent error types and retry results, and the TV model.</string>
     <string name="report_sent_title">Report sent</string>
     <string name="report_sent_desc">Thank you. It helps fix the problem.</string>
     <string name="report_failed_title">Couldn\'t send the report</string>
@@ -544,4 +544,14 @@
     <string name="catalog_jump_top">Top</string>
     <string name="display_resolution">Display resolution</string>
     <string name="display_resolution_hint">Choose the TV resolution Alder uses to pick a source. Use 4K if your box reports 1080p but outputs 4K.</string>
+    <string name="error_sign_in">sign in to Stremio again</string>
+    <string name="error_response">invalid response</string>
+    <string name="error_missing">no longer available</string>
+    <string name="error_format">unsupported or unreadable format</string>
+    <string name="error_network">network error</string>
+    <string name="library_edit_failed">Couldn\'t save the watched status</string>
+    <string name="search_incomplete">Search results are incomplete</string>
+    <string name="catalog_incomplete">Some catalogs couldn\'t load</string>
+    <string name="progress_saved_on_tv">Progress saved on this TV. Alder will try to sync it again.</string>
+    <string name="library_load_failed">Couldn\'t load your Stremio library</string>
 </resources>

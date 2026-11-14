@@ -81,11 +81,11 @@ class Addon(val descriptor: JSONObject) {
     // Catalogs (one [genre] of them with Stremio's `genre` extra) and details are kept on disk as they arrive; the saved*
     // versions read last time's answer, no network.
     fun catalog(c: Catalog, genre: String? = null, timeoutMs: Int = 20_000): List<Meta> =
-        JSONObject(Http.get(catalogUrl(c, genre), true, timeoutMs)).optJSONArray("metas").objects().map(::Meta)
+        JSONObject(Http.get(catalogUrl(c, genre), true, timeoutMs, strict = true)).getJSONArray("metas").objects().map(::Meta)
 
     /** The titles after the first [skip] (Stremio's paging extra); not kept on disk. */
     fun catalog(c: Catalog, skip: Int): List<Meta> =
-        JSONObject(Http.get(catalogUrl(c, null, skip))).optJSONArray("metas").objects().map(::Meta)
+        JSONObject(Http.get(catalogUrl(c, null, skip), strict = true)).getJSONArray("metas").objects().map(::Meta)
 
     fun savedCatalog(c: Catalog, genre: String? = null): List<Meta>? =
         Http.savedAnswer(catalogUrl(c, genre))?.let { runCatching { JSONObject(it) }.getOrNull() }?.optJSONArray("metas")?.objects()?.map(::Meta)
@@ -99,7 +99,12 @@ class Addon(val descriptor: JSONObject) {
     }
 
     /** Every search catalog the addon advertises, as Stremio's catalog protocol specifies. */
-    fun search(query: String): List<Meta> {
+    fun search(query: String): List<Meta> = searchCatalogs(query).let { (titles, failure) ->
+        if (titles.isEmpty() && failure != null) throw failure
+        titles
+    }
+
+    internal fun searchCatalogs(query: String): Pair<List<Meta>, Throwable?> {
         require(query.isNotBlank())
         val catalogs = manifest.optJSONArray("catalogs").objects()
             .filter { c ->
@@ -113,27 +118,29 @@ class Addon(val descriptor: JSONObject) {
         fun fetch(c: JSONObject): List<Meta> {
             val path = url(arrayOf("catalog", c.getString("type"), c.getString("id"))).removeSuffix(".json")
             val searchUrl = "$path/search=${Uri.encode(query)}.json"
-            val answer = JSONObject(Http.get(searchUrl, timeoutMs = 5_000))
-            return (answer.optJSONArray("metas") ?: throw IOException("Search catalog failed")).objects().map(::Meta)
+            val answer = JSONObject(Http.get(searchUrl, timeoutMs = 5_000, strict = true))
+            return answer.getJSONArray("metas").objects().map(::Meta)
         }
         val completion = ExecutorCompletionService<Pair<Int, Result<List<Meta>>>>(catalogSearchPool)
         val pending = catalogs.mapIndexed { index, catalog -> completion.submit { index to runCatching { fetch(catalog) } } }
         val deadline = System.currentTimeMillis() + 5_000
         val answers = mutableListOf<Pair<Int, List<Meta>>>()
-        var succeeded = false
+        var failure: Throwable? = null
         try {
             repeat(catalogs.size) {
                 val finished = completion.poll((deadline - System.currentTimeMillis()).coerceAtLeast(0), TimeUnit.MILLISECONDS)
-                    ?: return@repeat
+                if (finished == null) {
+                    if (failure == null) failure = java.net.SocketTimeoutException()
+                    return@repeat
+                }
                 val (index, result) = finished.get()
-                result.getOrNull()?.let { succeeded = true; answers += index to it }
+                result.fold({ answers += index to it }, { if (failure == null) failure = it })
             }
         } finally { pending.forEach { it.cancel(true) } }
-        if (catalogs.isNotEmpty() && !succeeded) throw IOException("Search catalog unavailable")
-        return answers.sortedBy { it.first }.flatMap { it.second }
+        return answers.sortedBy { it.first }.flatMap { it.second } to failure
     }
 
-    fun meta(type: String, id: String): Meta? = get(true, "meta", type, id).optJSONObject("meta")?.let { meta(it, id) }
+    fun meta(type: String, id: String): Meta? = get(true, "meta", type, id, strict = true).optJSONObject("meta")?.let { meta(it, id) }
 
     fun savedMeta(type: String, id: String): Meta? = saved("meta", type, id)?.optJSONObject("meta")?.let { meta(it, id) }
 
@@ -208,13 +215,18 @@ class Addon(val descriptor: JSONObject) {
  * that waits on the answer: a dead add-on then costs no more than its own wait. Otherwise one at a time, so Home's
  * cards don't ask every add-on for every title.
  */
-fun List<Addon>.meta(type: String, id: String, together: Boolean = false): Meta? {
+fun List<Addon>.meta(type: String, id: String, together: Boolean = false, reportFailure: Boolean = false): Meta? {
     val serving = filter { it.serves("meta", type, id) }
     fun ask(a: Addon) = runCatching { a.meta(type, id) }
-        .onFailure { android.util.Log.w("Alder", "details from ${a.name} failed", it) }.getOrNull()
-        .also { if (it == null) android.util.Log.i("Alder", "no details for $type $id from ${a.name}") }
-    if (!together || serving.size < 2) return serving.firstNotNullOfOrNull(::ask)
-    return serving.map { a -> metaPool.submit<Meta?> { ask(a) } }.firstNotNullOfOrNull { it.get() }
+    val answers = if (!together || serving.size < 2) serving.asSequence().map(::ask)
+        else serving.map { a -> metaPool.submit<Result<Meta?>> { ask(a) } }.asSequence().map { it.get() }
+    var failure: Throwable? = null
+    for (answer in answers) {
+        answer.getOrNull()?.let { return it }
+        if (failure == null) failure = answer.exceptionOrNull()
+    }
+    if (reportFailure) failure?.let { throw it }
+    return null
 }
 
 /** Last time's details from disk, from the first add-on in the account's order that kept some; no network. */

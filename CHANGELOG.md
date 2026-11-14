@@ -60,6 +60,10 @@ Put changes that are not released under `## Unreleased`. Before each release, re
 - The README has a **Website** badge and a **Downloads** badge with the total number of GitHub release downloads.
 
 ### Fixes
+- **Watch progress.** Alder keeps your place on the TV if Stremio does not save it. Alder sends it again when Home opens or during playback.
+- **My List and watched marks.** Alder shows the change after Stremio saves it. If the save fails, select **Try again**.
+- **Error messages.** Alder shows the cause when it can find it. Home and Search show a message if some results are not available.
+- **Crash reports.** Reports include recent error types and the result of each retry that Alder records. The new data has no links or account details.
 - **P2P episodes.** Alder checks the file names in a torrent when the add-on gives no file index. Alder skips a pack if it cannot find one file for the selected episode.
 - **P2P links.** Alder can play sources from add-ons that use `magnet:` or `torrent://` links.
 - **Top bar tabs.** Add-on tab names align with the other tabs and use the correct color as soon as they show. **Search** uses your tab choices. You can change the **Shows**, **Movies** and **My List** tabs when Alder cannot get the add-on list. **Tabs** shows changes to your add-ons.

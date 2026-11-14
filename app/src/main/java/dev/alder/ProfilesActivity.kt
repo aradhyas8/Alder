@@ -345,7 +345,10 @@ class ProfilesActivity : Screen() {
             Profiles.remove(this, p.id)
             background({ Http.forget() }) {}
             // Best effort; the TV forgets the profile either way. A sign-in another profile still uses stays signed in.
-            if (Profiles.all(this).none { it.authKey == p.authKey }) background({ Stremio.logout(p.authKey) }) {}
+            if (Profiles.all(this).none { it.authKey == p.authKey }) {
+                ProgressSaves.forget(p.authKey)
+                background({ Stremio.logout(p.authKey) }) {}
+            }
             if (Profiles.all(this).isEmpty()) showName() else showPicker()
         }
     }
@@ -559,6 +562,7 @@ class ProfilesActivity : Screen() {
         back.requestFocus()
 
         waitingCode = null
+        var pollFailure: Failure? = null
         background({ Stremio.createLink() }) { result ->
             if (!signingIn || request != signInGeneration) return@background
             result.onSuccess { link ->
@@ -568,15 +572,22 @@ class ProfilesActivity : Screen() {
                 fun tick() {
                     if (!signingIn || request != signInGeneration || waitingCode != link.code) return
                     val leftSeconds = ((5 * 60_000L - (SystemClock.elapsedRealtime() - started)).coerceAtLeast(0) / 1000).toInt()
-                    status.text = getString(R.string.profiles_waiting, "${leftSeconds / 60}:${"%02d".format(leftSeconds % 60)}")
+                    status.text = pollFailure?.let { failureMessage(R.string.profiles_unreachable, it) }
+                        ?: getString(R.string.profiles_waiting, "${leftSeconds / 60}:${"%02d".format(leftSeconds % 60)}")
                     countdown.progress = leftSeconds * 1000 / 300
                     main.postDelayed(::tick, 1_000)
                 }
                 waitingCode = link.code
                 tick()
-                poll(name, link.code, started, again)
+                poll(name, link.code, started, again) { failure ->
+                    if (failure != null) FailureLog.record(FailureLog.Operation.SIGN_IN, failure)
+                    else pollFailure?.let { FailureLog.record(FailureLog.Operation.SIGN_IN, it, recovered = true) }
+                    pollFailure = failure
+                }
             }.onFailure {
-                status.text = getString(R.string.profiles_unreachable)
+                val failure = failureOf(it)
+                FailureLog.record(FailureLog.Operation.SIGN_IN, failure)
+                status.text = failureMessage(R.string.profiles_unreachable, failure)
                 main.postDelayed({ if (signingIn && request == signInGeneration) showSignIn(name, again) }, 5_000)
             }
         }
@@ -637,11 +648,12 @@ class ProfilesActivity : Screen() {
         layoutParams = LinearLayout.LayoutParams(dp(size), dp(size))
     }
 
-    private fun poll(name: String, code: String, startedAt: Long, again: Profile?) {
+    private fun poll(name: String, code: String, startedAt: Long, again: Profile?, onStatus: (Failure?) -> Unit) {
         main.postDelayed({
             if (waitingCode != code) return@postDelayed
             background({ Stremio.readLink(code) }) { result ->
                 if (waitingCode != code) return@background
+                onStatus(result.exceptionOrNull()?.let(::failureOf))
                 val key = result.getOrNull()
                 when {
                     key != null -> {
@@ -652,7 +664,7 @@ class ProfilesActivity : Screen() {
                     // ponytail: Stremio doesn't say when a code expires (waiting and expired look the same),
                     // so a fresh code every 5 minutes. Read the expiry if their API ever exposes it.
                     SystemClock.elapsedRealtime() - startedAt > 5 * 60_000 -> showSignIn(name, again)
-                    else -> poll(name, code, startedAt, again) // not approved yet, or a network blip
+                    else -> poll(name, code, startedAt, again, onStatus)
                 }
             }
         }, 3_000)

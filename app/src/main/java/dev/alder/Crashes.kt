@@ -7,6 +7,7 @@ import java.io.File
 class App : android.app.Application() {
     override fun onCreate() {
         super.onCreate()
+        ProgressSaves.init(this)
         Crashes.install(this)
     }
 }
@@ -23,7 +24,7 @@ internal object Crashes {
         val app = c.applicationContext
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->
-            runCatching { file(app).writeText(describe(app) + "\n" + "Thread: ${thread.name}\n" + trace(error)) }
+            runCatching { file(app).writeText(describe(app) + "\n" + "Thread: ${thread.name}\n" + trace(error) + FailureLog.report()) }
             previous?.uncaughtException(thread, error)
         }
     }

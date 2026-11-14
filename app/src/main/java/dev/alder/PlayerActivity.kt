@@ -264,9 +264,9 @@ class PlayerActivity : Screen() {
     private val videoId by lazy { intent.getStringExtra("videoId")!! }
     private val isTrailer by lazy { intent.getBooleanExtra("isTrailer", false) }
 
-    // The title's library item. Null when it couldn't be loaded: then nothing is saved, rather than
-    // overwriting real history with a blank item.
     private var item: JSONObject? = null
+    private var provisionalProgress = false
+    private var lastSourceFailure: Failure? = null
     private var lastPosition = 0L
     private var ticks = 0
 
@@ -347,7 +347,7 @@ class PlayerActivity : Screen() {
     private val startTimeout = Runnable {
         if (started) return@Runnable
         android.util.Log.w("Alder", "source ${at + 1}/${sources.size} timed out, state ${player.playbackState}")
-        next()
+        next(Failure.TIMEOUT)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -502,7 +502,10 @@ class PlayerActivity : Screen() {
                     asHls = true
                     return load(position())
                 }
+                val failure = playbackFailure(e.errorCode, e.cause)
                 if (retryable(e) && retries < RETRIES) {
+                    lastSourceFailure = failure
+                    FailureLog.record(FailureLog.Operation.PLAYBACK, failure)
                     retries++
                     // ExoPlayer's own retries already took about 6 s: each of ours gets a fresh START_WAIT, or the
                     // start timeout would move on to the next source before the second retry ran.
@@ -512,10 +515,12 @@ class PlayerActivity : Screen() {
                     return
                 }
                 android.util.Log.w("Alder", "source ${at + 1}/${sources.size} failed: ${e.errorCodeName}", e)
-                next(e.errorCodeName)
+                next(failure)
             }
 
             override fun onRenderedFirstFrame() {
+                lastSourceFailure?.let { FailureLog.record(FailureLog.Operation.PLAYBACK, it, recovered = true) }
+                lastSourceFailure = null
                 if (started) return
                 started = true
                 applyLateResume()
@@ -547,7 +552,7 @@ class PlayerActivity : Screen() {
                     // shortcut: sub-two-minute series streams are treated as addon placeholders; revisit for short-form shows.
                     if (episodic && !plausibleEpisode(player.duration)) {
                         started = false // retry from the original resume point, not the placeholder's short ending
-                        next("source ended as a short placeholder")
+                        next(Failure.MISSING)
                     } else if (upcoming == null || upNextDismissed || stopAfter) finish()
                     else if (askStillWatching(quiet + 1)) showStillWatching(upcoming)
                     else playNext(quiet + 1)
@@ -737,18 +742,24 @@ class PlayerActivity : Screen() {
         // The stream starts at once from what's known here (the intent, or the library saved on the TV) instead of
         // waiting a round trip to Stremio for the resume point; Stremio's answer corrects it if it moved elsewhere.
         if (known != null) begin(known)
-        else background({ Stremio.savedLibrary(key)?.firstOrNull { it.optString("_id") == metaId } }) { r ->
-            r.getOrNull()?.let { begin(Library.resumeAt(it, videoId)) }
+        background({ Stremio.savedLibrary(key)?.firstOrNull { it.optString("_id") == metaId } }) { r ->
+            val cached = r.getOrNull()
+            if (cached != null && (item == null || provisionalProgress)) {
+                item = cached
+                provisionalProgress = false
+                if (known == null) begin(Library.resumeAt(cached, videoId))
+            }
         }
         background({ Stremio.library(key, listOf(metaId)).firstOrNull() }) { result ->
-            item = result.fold(
-                { it ?: Library.newItem(metaId, type, intent.getStringExtra("name") ?: "", intent.getStringExtra("poster")) },
-                { null },
-            )
+            val fresh = result.getOrNull()
+            if (fresh != null && newerProgress(fresh, item)) item = fresh
+            if (item == null) {
+                provisionalProgress = result.isFailure
+                item = Library.newItem(metaId, type, intent.getStringExtra("name") ?: "", intent.getStringExtra("poster"))
+            }
             val resume = known ?: item?.let { Library.resumeAt(it, videoId) } ?: 0L
             if (!prepared) begin(resume)
-            // Watched further on the phone since the TV saved its copy: go there once the file has started.
-            else if (known == null && result.isSuccess) { lateResume = resume; applyLateResume() } // a failed fetch knows no newer point
+            else if (known == null && fresh != null) { lateResume = resume; applyLateResume() }
         }
     }
 
@@ -946,7 +957,9 @@ class PlayerActivity : Screen() {
             if (isFinishing || isDestroyed || sources.getOrNull(at) !== s) return@background run { o?.close() }
             if (o == null) {
                 android.util.Log.w("Alder", "source ${at + 1}/${sources.size} didn't open", r.exceptionOrNull())
-                return@background next("didn't open")
+                startAt = position
+                started = false
+                return@background next(r.exceptionOrNull()?.let(::failureOf) ?: Failure.OTHER)
             }
             opened = o
             openedFor = s
@@ -999,8 +1012,10 @@ class PlayerActivity : Screen() {
     private fun position() = if (started) player.currentPosition else startAt
 
     /** This source failed: the next one from the same second or, with none left, the list to choose from. */
-    private fun next(reason: String = "didn't start") {
+    private fun next(reason: Failure) {
         main.removeCallbacks(startTimeout)
+        lastSourceFailure = reason
+        FailureLog.record(FailureLog.Operation.PLAYBACK, reason)
         val position = position()
         if (at + 1 < sources.size) {
             at++
@@ -1008,8 +1023,7 @@ class PlayerActivity : Screen() {
             retries = 0
             asHls = false
             subsPicked = false
-            android.util.Log.w("Alder", "Source failed: $reason; trying another")
-            return load(position, getString(R.string.player_source_failed_next))
+            return load(position, failureMessage(R.string.player_source_failed_next, reason))
         }
         if (isTrailer) {
             intent.getStringExtra("trailerYtId")?.takeIf { it.isNotBlank() }?.let { ytId ->
@@ -1024,13 +1038,18 @@ class PlayerActivity : Screen() {
             return
         }
         if (intent.getBooleanExtra("picked", false)) {
-            showSourceError()
+            if (started) record()
+            startAt = position
+            started = false
+            showSourceError(reason)
             player.stop()
-            showLoading(getString(R.string.player_source_failed_choose))
+            showLoading(failureMessage(R.string.player_source_failed_choose, reason))
             return
         }
         startActivity(Intent(this, StreamsActivity::class.java).putExtras(intent).putExtra("pick", true)
-            .putExtra("message", "${sources.size} sources didn't play"))
+            .putExtra("message", failureMessage(R.string.player_source_failed_choose, reason))
+            .putExtra("startOver", false)
+            .putExtra("resumeAt", position))
         finish()
     }
 
@@ -1182,11 +1201,11 @@ class PlayerActivity : Screen() {
         stallPanel.removeAllViews()
     }
 
-    private fun showSourceError() {
+    private fun showSourceError(reason: Failure) {
         stallPanel.removeAllViews()
         val card = column(Gravity.START,
             caps(R.string.player_source_failed, TUNGSTEN),
-            text(R.string.player_try_another, SERIF_TITLE, serif = true).marginTop(6),
+            text(failureMessage(R.string.player_try_another, reason), SERIF_TITLE, serif = true).marginTop(6),
             pill(R.string.player_other_sources).apply { setOnClickListener { changeStream() } }.marginTop(12)
         ).apply {
             setPadding(dp(18), dp(18), dp(18), dp(18))
@@ -1350,7 +1369,13 @@ class PlayerActivity : Screen() {
         if (isTrailer || !watched || player.isCurrentMediaItemLive || isLiveType(type)) return
         val key = authKey ?: return
         val snapshot = item?.let { JSONObject(it.toString()) } ?: return
-        background({ Stremio.saveLibrary(key, listOf(snapshot)) }) {}
+        ProgressSaves.keep(key, snapshot, provisionalProgress)
+        background({ syncWatchProgress(key) }) { result ->
+            result.getOrNull()?.let { failure ->
+                android.widget.Toast.makeText(this, failureMessage(R.string.progress_saved_on_tv, failure),
+                    android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
@@ -2120,7 +2145,7 @@ class PlayerActivity : Screen() {
         startActivityForResult(Intent(this, StreamsActivity::class.java).putExtras(intent).apply {
             removeExtra("picked"); removeExtra("maxHeight")
             putExtra("pick", true); putExtra("fromPlayer", true)
-            if (!player.isCurrentMediaItemLive) putExtra("resumeAt", player.currentPosition)
+            if (!player.isCurrentMediaItemLive) putExtra("resumeAt", position())
         }, SOURCES_REQUEST)
     }
     private var playAfterSources = false

@@ -352,9 +352,9 @@
     <string name="updates_up_to_date">Aktuell</string>
     <string name="report_send">Bericht senden</string>
     <string name="report_no">Nein</string>
-    <string name="report_send_hint">Sendet den Fehler vom letzten Absturz von Alder, mit der Alder-Version und dem Fernsehermodell. Keine Kontodaten.</string>
+    <string name="report_send_hint">Sendet den letzten Absturz, die letzten Fehlerarten und Ergebnisse der Wiederholungsversuche, die Alder-Version und das Fernsehermodell. Keine Kontodaten.</string>
     <string name="report_crashed_title">Alder ist beim letzten Mal abgestürzt</string>
-    <string name="report_crashed_desc">Einen Bericht senden, damit der Fehler behoben wird? Er enthält den Fehler und das Fernsehermodell, nicht dein Konto.</string>
+    <string name="report_crashed_desc">Einen Bericht zur Fehlerbehebung senden? Er enthält den Absturz, die letzten Fehlerarten und Ergebnisse der Wiederholungsversuche sowie das Fernsehermodell.</string>
     <string name="report_sent_title">Bericht gesendet</string>
     <string name="report_sent_desc">Danke. Das hilft, den Fehler zu beheben.</string>
     <string name="report_failed_title">Bericht konnte nicht gesendet werden</string>
@@ -542,4 +542,14 @@
     <string name="catalog_jump_top">Nach oben</string>
     <string name="display_resolution">Bildschirmauflösung</string>
     <string name="display_resolution_hint">Wähle die TV-Auflösung, die Alder für die Quellenauswahl verwendet. Wähle 4K, wenn deine TV-Box 1080p meldet, aber 4K ausgibt.</string>
+    <string name="error_sign_in">melde dich erneut bei Stremio an</string>
+    <string name="error_response">ungültige Antwort</string>
+    <string name="error_missing">nicht mehr verfügbar</string>
+    <string name="error_format">nicht unterstütztes oder unlesbares Format</string>
+    <string name="error_network">Netzwerkfehler</string>
+    <string name="library_edit_failed">Wiedergabestatus konnte nicht gespeichert werden</string>
+    <string name="search_incomplete">Die Suchergebnisse sind unvollständig</string>
+    <string name="catalog_incomplete">Einige Kataloge konnten nicht geladen werden</string>
+    <string name="progress_saved_on_tv">Der Fortschritt wurde auf diesem Fernseher gespeichert. Alder versucht erneut, ihn zu synchronisieren.</string>
+    <string name="library_load_failed">Deine Stremio-Bibliothek konnte nicht geladen werden</string>
 </resources>
