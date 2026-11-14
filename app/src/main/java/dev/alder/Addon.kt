@@ -164,12 +164,13 @@ class Addon(val descriptor: JSONObject) {
         }
         val playable = all.mapNotNull { Stream.from(it, allowTorrents) }
         return Streams(playable,
-            all.count { it.text("url") == null && it.text("infoHash") != null } - playable.count { it.torrent != null },
+            all.count { stream -> stream.text("url")?.let(TorrentSource::isTorrentUrl) ?: (stream.text("infoHash") != null) } -
+                playable.count { it.torrent != null },
             all.count { it.text("url") == null && it.text("infoHash") == null && (it.text("externalUrl") ?: it.text("ytId")) != null })
     }
 
     /**
-     * What Alder can't play, counted to say why: [torrents], a torrent with no debrid link (an infoHash, no url), and
+     * What Alder can't play, counted to say why: [torrents], a torrent with no debrid link, and
      * [links], a page for a browser or a YouTube video (externalUrl, ytId).
      */
     class Streams(val playable: List<Stream>, val torrents: Int, val links: Int)
@@ -313,6 +314,15 @@ class Video(val id: String, val title: String, val season: Int, val episode: Int
 internal fun episodeNumber(season: Int, episode: Int): String? =
     if (season >= 0 && episode > 0) "S$season E$episode" else null
 
+private val episodeLabelPattern = Regex("""S(\d+) E(\d+)""")
+
+internal fun parseEpisodeLabel(label: String): Pair<Int, Int>? {
+    val match = episodeLabelPattern.matchEntire(label) ?: return null
+    val season = match.groupValues[1].toIntOrNull() ?: return null
+    val episode = match.groupValues[2].toIntOrNull()?.takeIf { it > 0 } ?: return null
+    return season to episode
+}
+
 internal fun episodeNumbers(videoId: String?): Pair<Int, Int>? {
     val parts = videoId?.split(':') ?: return null
     if (parts.size != 3 || parts[0].isBlank()) return null
@@ -372,7 +382,8 @@ class Stream(
     val debrid: Debrid? = if (torrent == null) debridOf(title, url) else null
 
     /** Its link as the player gets it: at once for a link, through the engine for a torrent. Off the main thread. */
-    fun open(context: android.content.Context): Opened = torrent?.open(context, filename) ?: Opened(url, headers)
+    fun open(context: android.content.Context, episode: Pair<Int, Int>? = null): Opened =
+        torrent?.open(context, filename, episode) ?: Opened(url, headers)
 
     /** True when [open] is instant (a link), so the player needn't wait for it on another thread. */
     val opensAtOnce get() = torrent == null
@@ -442,7 +453,7 @@ class Stream(
 
     companion object {
         fun from(json: JSONObject, allowTorrents: Boolean = false): Stream? {
-            val url = json.text("url")
+            val url = json.text("url")?.takeUnless(TorrentSource::isTorrentUrl)
             val torrent = if (url == null && allowTorrents) TorrentSource.from(json) else null
             if (url == null && torrent == null) return null
             val hints = json.optJSONObject("behaviorHints")

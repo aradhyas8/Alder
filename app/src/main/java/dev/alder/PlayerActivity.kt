@@ -934,7 +934,13 @@ class PlayerActivity : Screen() {
         showLoading(message ?: getString(R.string.player_starting, s.label))
         if (opening === s) return
         opening = s
-        background({ s.open(applicationContext) }) { r ->
+        val episode = if (isTrailer || type == "movie" || isLiveType(type)) null else {
+            meta?.videos?.firstOrNull { it.id == videoId && it.season >= 0 && it.episode > 0 }
+                ?.let { it.season to it.episode }
+                ?: episodeNumbers(videoId)
+                ?: intent.getStringExtra("episode")?.substringBefore("  ·  ")?.let(::parseEpisodeLabel)
+        }
+        background({ s.open(applicationContext, episode) }) { r ->
             if (opening === s) opening = null
             val o = r.getOrNull()
             if (isFinishing || isDestroyed || sources.getOrNull(at) !== s) return@background run { o?.close() }
