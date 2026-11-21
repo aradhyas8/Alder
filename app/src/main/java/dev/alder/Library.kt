@@ -264,25 +264,35 @@ object Library {
     }
 
     /**
-     * Unwatched aired regular episodes after the last episode watched in [item], or 0 when the title is a movie,
-     * has notifications muted (`noNotif`), or has no watched episodes yet.
+     * The count on a series poster's badge, or 0 when the title is a movie, has notifications muted (`noNotif`),
+     * or has no watched episodes yet. [mode] is [Settings.episodeBadges]:
+     * - `aired`: unwatched episodes released after the title was last watched, as Stremio's notifications count.
+     * - `season`: aired episodes left in the season of the next unwatched episode, so a long show never shows +200.
+     * - `off`: always 0.
      */
-    fun newEpisodeCount(item: JSONObject, videos: List<Video>, isAired: (String?) -> Boolean): Int =
-        newEpisodeCount(item.optString("type"), item.state.optBoolean("noNotif"), watched(item, videos), videos, isAired)
+    fun newEpisodeCount(item: JSONObject, videos: List<Video>, mode: String, isAired: (String?) -> Boolean): Int =
+        newEpisodeCount(item.optString("type"), item.state.optBoolean("noNotif"), watched(item, videos), videos, mode,
+            item.state.text("lastWatched").orEmpty(), isAired)
 
     internal fun newEpisodeCount(
         type: String,
         noNotif: Boolean,
         seen: Set<String>,
         videos: List<Video>,
+        mode: String,
+        lastWatched: String,
         isAired: (String?) -> Boolean,
     ): Int {
-        if (type == "movie" || noNotif || seen.isEmpty()) return 0
+        if (mode == "off" || type == "movie" || noNotif || seen.isEmpty()) return 0
         val aired = videos.filter { it.season > 0 && isAired(it.released) }
             .sortedWith(compareBy({ it.season }, { it.episode }))
         val lastSeen = aired.indexOfLast { it.id in seen }
         if (lastSeen < 0) return 0
-        return aired.size - lastSeen - 1
+        val after = aired.drop(lastSeen + 1)
+        if (mode == "season") return after.count { it.season == after.first().season }.takeIf { after.isNotEmpty() } ?: 0
+        // Both are ISO 8601 in UTC, so text order is time order.
+        if (lastWatched.isEmpty()) return 0
+        return after.count { !it.released.isNullOrBlank() && it.released > lastWatched }
     }
 
     /** Playback progress, called every few seconds. [playedMs] is time actually watched since the last call. */

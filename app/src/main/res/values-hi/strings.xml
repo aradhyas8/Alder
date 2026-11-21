@@ -25,17 +25,7 @@
     <string name="whats_new_no_notes">वर्शन %1$s के लिए कोई नोट नहीं है।</string>
     <string name="whats_new_version">वर्शन %1$s</string>
     <string name="whats_new_group">नया</string>
-    <plurals name="whats_new_highlights">
-        <item quantity="one">नया क्या है · %1$d खास बात</item>
-        <item quantity="other">नया क्या है · %1$d खास बातें</item>
-    </plurals>
-    <string name="whats_new_all">सभी बदलाव (%1$d)</string>
     <string name="whats_new_highlights_short">खास बातें</string>
-    <string name="whats_new_back">← खास बातों पर वापस</string>
-    <plurals name="whats_new_see_all">
-        <item quantity="one">%1$d बदलाव देखें  →</item>
-        <item quantity="other">सभी %1$d बदलाव देखें  →</item>
-    </plurals>
 
     <!-- Home -->
     <string name="tab_home">होम</string>
@@ -326,6 +316,10 @@
     <string name="ratings_source">रेटिंग</string>
     <string name="ratings_source_hint">टाइटल पेज और होम पर रेटिंग चुनें। Letterboxd केवल फ़िल्मों के लिए है और इसके लिए MDBList कुंजी चाहिए। शो हमेशा IMDb दिखाते हैं।</string>
     <string name="ratings_both">दोनों</string>
+    <string name="episode_badges">नए एपिसोड बैज</string>
+    <string name="episode_badges_hint">सीरीज़ पोस्टर पर दिखने वाली संख्या चुनें। नए प्रसारित पिछली बार देखने के बाद आए एपिसोड गिनता है। मौजूदा सीज़न आपके देखे जा रहे सीज़न के बाकी एपिसोड गिनता है।</string>
+    <string name="episode_badges_aired">नए प्रसारित</string>
+    <string name="episode_badges_season">मौजूदा सीज़न</string>
     <string name="mdblist_key">MDBList कुंजी</string>
     <string name="mdblist_key_hint">mdblist.com/preferences से आपकी मुफ़्त API कुंजी। Alder इसका उपयोग केवल Letterboxd रेटिंग के लिए करता है।</string>
     <string name="key_not_set">सेट नहीं</string>

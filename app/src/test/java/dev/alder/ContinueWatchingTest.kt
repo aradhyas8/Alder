@@ -62,10 +62,26 @@ class ContinueWatchingTest {
         )
         val isAired: (String?) -> Boolean = { it == null || it < "2026-11-01" }
 
-        assertEquals(0, Library.newEpisodeCount("series", false, emptySet(), videos, isAired))
-        assertEquals(2, Library.newEpisodeCount("series", false, setOf("s:1:1", "s:1:2"), videos, isAired))
-        assertEquals(0, Library.newEpisodeCount("series", true, setOf("s:1:1", "s:1:2"), videos, isAired))
-        assertEquals(0, Library.newEpisodeCount("movie", false, setOf("s:1:1"), videos, isAired))
+        val seen = setOf("s:1:1", "s:1:2")
+        fun count(mode: String, seen: Set<String>, last: String = "2026-09-01T00:00:00.000Z", type: String = "series", noNotif: Boolean = false) =
+            Library.newEpisodeCount(type, noNotif, seen, videos, mode, last, isAired)
+
+        assertEquals(0, count("aired", emptySet()))
+        assertEquals(0, count("aired", seen, noNotif = true))
+        assertEquals(0, count("aired", setOf("s:1:1"), type = "movie"))
+        assertEquals(0, count("off", seen))
+        // Newly aired: only episodes out after the last watch.
+        assertEquals(2, count("aired", seen))
+        assertEquals(1, count("aired", seen, last = "2026-10-05T00:00:00.000Z"))
+        assertEquals(0, count("aired", setOf("s:1:1"), last = "2026-10-09T00:00:00.000Z"))
+        // Current season: the rest of the season of the next episode, never later seasons.
+        assertEquals(1, count("season", setOf("s:1:1")))
+        assertEquals(2, count("season", seen))
+        assertEquals(0, count("season", setOf("s:2:2")))
+
+        val long = (1..12).flatMap { s -> (1..24).map { e -> Video("s:$s:$e", "E", s, e, null, null, "2010-01-01") } }
+        assertEquals(23, Library.newEpisodeCount("series", false, setOf("s:1:1"), long, "season", "2026-01-01T00:00:00Z", isAired))
+        assertEquals(0, Library.newEpisodeCount("series", false, setOf("s:1:1"), long, "aired", "2026-01-01T00:00:00Z", isAired))
     }
 
     private fun entry(id: String, type: String, offset: Long, duration: Long) =

@@ -688,6 +688,12 @@ class MainActivity : Screen() {
         updateDot?.visibility = if (Updates.hasUpdate(this)) View.VISIBLE else View.GONE
         // Back from Settings: the hero shows the ratings picked there (Letterboxd needs a redraw to ask for its score).
         if (mode == Mode.BROWSE) heroItem?.let(::showHero)
+        // Back from Settings: badges follow the rule picked there.
+        rows.forEach { row -> row.cards.forEach { card ->
+            val item = (card.payload as? Item)?.takeIf { it.resume } ?: return@forEach
+            val count = newEpisodeCount(item.id, metas[item.id])
+            if (count != item.newEpisodeCount) { item.newEpisodeCount = count; card.setNewEpisodes(count) }
+        } }
         if (Updates.due(this)) background({ Updates.latest(applicationContext) }) { r ->
             val release = r.getOrNull()?.takeIf { newerVersion(it.version, Updates.mine(this)) } ?: return@background
             updateDot?.visibility = View.VISIBLE
@@ -2971,7 +2977,7 @@ class MainActivity : Screen() {
 
     private fun newEpisodeCount(id: String, meta: Meta?, entry: JSONObject? = library.firstOrNull { it.optString("_id") == id }): Int {
         if (meta == null || entry == null) return 0
-        return Library.newEpisodeCount(entry, meta.videos, ::isEpisodeAired)
+        return Library.newEpisodeCount(entry, meta.videos, Settings.episodeBadges(this), ::isEpisodeAired)
     }
 
     /** Resume: straight to the sources for the episode Continue Watching points at; with [pick] (held OK) they're all listed. */

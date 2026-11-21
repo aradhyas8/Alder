@@ -25,19 +25,7 @@
     <string name="whats_new_no_notes">No hay notas para la versión %1$s.</string>
     <string name="whats_new_version">Versión %1$s</string>
     <string name="whats_new_group">Nuevo</string>
-    <plurals name="whats_new_highlights">
-        <item quantity="one">Novedades · %1$d destacado</item>
-        <item quantity="many">Novedades · %1$d destacados</item>
-        <item quantity="other">Novedades · %1$d destacados</item>
-    </plurals>
-    <string name="whats_new_all">Todos los cambios (%1$d)</string>
     <string name="whats_new_highlights_short">Destacados</string>
-    <string name="whats_new_back">← Volver a los destacados</string>
-    <plurals name="whats_new_see_all">
-        <item quantity="one">Ver %1$d cambio  →</item>
-        <item quantity="many">Ver los %1$d cambios  →</item>
-        <item quantity="other">Ver los %1$d cambios  →</item>
-    </plurals>
 
     <!-- Home -->
     <string name="tab_home">Inicio</string>
@@ -329,6 +317,10 @@
     <string name="ratings_source">Valoraciones</string>
     <string name="ratings_source_hint">Elige las valoraciones de las páginas de títulos y el inicio. Letterboxd es solo para películas y necesita una clave de MDBList. Las series siempre usan IMDb.</string>
     <string name="ratings_both">Ambas</string>
+    <string name="episode_badges">Avisos de episodios nuevos</string>
+    <string name="episode_badges_hint">Elige el número en los pósteres de series. Recién emitidos cuenta los episodios que salieron después de tu última visualización. Temporada actual cuenta los episodios que quedan en la temporada que ves.</string>
+    <string name="episode_badges_aired">Recién emitidos</string>
+    <string name="episode_badges_season">Temporada actual</string>
     <string name="mdblist_key">Clave de MDBList</string>
     <string name="mdblist_key_hint">Tu clave de API gratuita de mdblist.com/preferences. Alder solo la usa para obtener valoraciones de Letterboxd.</string>
     <string name="key_not_set">Sin definir</string>

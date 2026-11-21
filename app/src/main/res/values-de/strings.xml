@@ -25,17 +25,7 @@
     <string name="whats_new_no_notes">Für Version %1$s gibt es keine Hinweise.</string>
     <string name="whats_new_version">Version %1$s</string>
     <string name="whats_new_group">Neu</string>
-    <plurals name="whats_new_highlights">
-        <item quantity="one">Neuigkeiten · %1$d Highlight</item>
-        <item quantity="other">Neuigkeiten · %1$d Highlights</item>
-    </plurals>
-    <string name="whats_new_all">Alle Änderungen (%1$d)</string>
     <string name="whats_new_highlights_short">Highlights</string>
-    <string name="whats_new_back">← Zurück zu den Highlights</string>
-    <plurals name="whats_new_see_all">
-        <item quantity="one">%1$d Änderung ansehen  →</item>
-        <item quantity="other">Alle %1$d Änderungen ansehen  →</item>
-    </plurals>
 
     <!-- Home -->
     <string name="tab_home">Start</string>
@@ -326,6 +316,10 @@
     <string name="ratings_source">Bewertungen</string>
     <string name="ratings_source_hint">Wählt die Bewertungen auf Titelseiten und der Startseite. Letterboxd gilt nur für Filme und braucht einen MDBList-Schlüssel. Serien zeigen immer IMDb.</string>
     <string name="ratings_both">Beide</string>
+    <string name="episode_badges">Neue-Folgen-Hinweis</string>
+    <string name="episode_badges_hint">Wählt die Zahl auf Serienpostern. Neu erschienen zählt Folgen, die nach deinem letzten Ansehen kamen. Aktuelle Staffel zählt die restlichen Folgen der Staffel, die du schaust.</string>
+    <string name="episode_badges_aired">Neu erschienen</string>
+    <string name="episode_badges_season">Aktuelle Staffel</string>
     <string name="mdblist_key">MDBList-Schlüssel</string>
     <string name="mdblist_key_hint">Dein kostenloser API-Schlüssel von mdblist.com/preferences. Alder nutzt ihn nur für Letterboxd-Bewertungen.</string>
     <string name="key_not_set">Nicht festgelegt</string>

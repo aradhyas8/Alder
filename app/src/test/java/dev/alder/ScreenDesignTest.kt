@@ -105,6 +105,10 @@ class ScreenDesignTest {
         """.trimMargin()
         val changes = changesFor(log, "Unreleased")
         assertEquals(listOf("Trailers", "Live TV", "Direct play"), showcaseHighlights(changes).map { it.title })
+        assertEquals(listOf(null, null, null), showcaseHighlights(changes).map { it.image })
+        val pictured = changesFor("## 2.0\n<!-- Spotlight: whats-new/p2p.webp -->\n- **P2P.** Play.\n- **Plain.** Text.", "2.0")
+        assertEquals(listOf("whats-new/p2p.webp", null), pictured.map { it.image })
+        assertEquals(listOf(true, false), pictured.map { it.spotlight })
         assertEquals(listOf("New", "New", "Easier to use"), showcaseHighlights(changes).map { it.group })
         assertEquals(5, changes.size)
         assertEquals(listOf("Trailers", "30 GB limit", "Live TV", "Direct play", "Back"),

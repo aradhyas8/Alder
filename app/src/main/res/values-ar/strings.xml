@@ -25,25 +25,7 @@
     <string name="whats_new_no_notes">لا توجد ملاحظات للإصدار %1$s.</string>
     <string name="whats_new_version">الإصدار %1$s</string>
     <string name="whats_new_group">جديد</string>
-    <plurals name="whats_new_highlights">
-        <item quantity="zero">ما الجديد · لا تغييرات بارزة</item>
-        <item quantity="one">ما الجديد · تغيير بارز واحد</item>
-        <item quantity="two">ما الجديد · تغييران بارزان</item>
-        <item quantity="few">ما الجديد · %1$d تغييرات بارزة</item>
-        <item quantity="many">ما الجديد · %1$d تغييرًا بارزًا</item>
-        <item quantity="other">ما الجديد · %1$d تغيير بارز</item>
-    </plurals>
-    <string name="whats_new_all">كل التغييرات (%1$d)</string>
     <string name="whats_new_highlights_short">أبرز التغييرات</string>
-    <string name="whats_new_back">← العودة إلى أبرز التغييرات</string>
-    <plurals name="whats_new_see_all">
-        <item quantity="zero">لا توجد تغييرات</item>
-        <item quantity="one">عرض تغيير واحد  →</item>
-        <item quantity="two">عرض التغييرين  →</item>
-        <item quantity="few">عرض كل التغييرات الـ %1$d  →</item>
-        <item quantity="many">عرض كل التغييرات الـ %1$d  →</item>
-        <item quantity="other">عرض كل التغييرات الـ %1$d  →</item>
-    </plurals>
 
     <!-- Home -->
     <string name="tab_home">الرئيسية</string>
@@ -339,6 +321,10 @@
     <string name="ratings_source">التقييمات</string>
     <string name="ratings_source_hint">اختر التقييمات التي تظهر في صفحات العناوين وفي الرئيسية. يتوفّر Letterboxd للأفلام فقط ويتطلّب مفتاح MDBList. تستخدم المسلسلات IMDb دائمًا.</string>
     <string name="ratings_both">كلاهما</string>
+    <string name="episode_badges">شارات الحلقات الجديدة</string>
+    <string name="episode_badges_hint">اختر الرقم على ملصقات المسلسلات. «المعروضة حديثًا» تعدّ الحلقات التي صدرت بعد آخر مشاهدة. «الموسم الحالي» تعدّ الحلقات المتبقية في الموسم الذي تشاهده.</string>
+    <string name="episode_badges_aired">المعروضة حديثًا</string>
+    <string name="episode_badges_season">الموسم الحالي</string>
     <string name="mdblist_key">مفتاح MDBList</string>
     <string name="mdblist_key_hint">مفتاح API المجاني من mdblist.com/preferences. يستخدمه Alder لجلب تقييمات Letterboxd فقط.</string>
     <string name="key_not_set">غير مضبوط</string>

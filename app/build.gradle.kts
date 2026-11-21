@@ -41,6 +41,8 @@ android {
     }
 
     buildTypes {
+        // Debug builds use the release key when it is here, so they install as an update over the TV's release build.
+        debug { signingConfigs.findByName("release")?.let { signingConfig = it } }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
